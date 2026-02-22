@@ -1,0 +1,4 @@
+*.log
+*.tmp
+# No subir contraseñas ni archivos de configuración local de SQLcl
+/config/
