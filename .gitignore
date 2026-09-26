@@ -2,3 +2,8 @@
 *.tmp
 # No subir contraseñas ni archivos de configuración local de SQLcl
 /config/
+# Ignore local config (if you created a .bat with passwords)
+run_process.bat
+scripts/setup_db.sql
+static/js/test-ESLint.js
+node_modules/
