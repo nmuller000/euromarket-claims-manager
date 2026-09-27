@@ -6,4 +6,4 @@
 run_process.bat
 scripts/setup_db.sql
 static/js/test-ESLint.js
-static/js/node_modules/
+node_modules/

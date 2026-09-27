@@ -2,9 +2,16 @@
 import js from "@eslint/js";
 import globals from "globals";
 
+// Only APEX static JavaScript is linted
+const apexFiles = ["static/js/**/*.js"];
+
 export default [
-    js.configs.recommended,
     {
+        files: apexFiles,
+        ...js.configs.recommended
+    },
+    {
+        files: apexFiles,
         languageOptions: {
             globals: {
                 ...globals.browser, // Standard browser globals
