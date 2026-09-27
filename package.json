@@ -1,0 +1,17 @@
+{
+  "name": "euromarket-ai-compliance",
+  "version": "1.0.0",
+  "description": "Development tooling (ESLint) for the APEX static JavaScript of EuroMarket AI-Driven Compliance & Claims Manager",
+  "private": true,
+  "author": "Natalia Lillo",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0"
+  }
+}
