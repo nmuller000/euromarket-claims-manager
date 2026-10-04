@@ -1,0 +1,20 @@
+# CLAUDE.md
+
+## Project
+CMR freight-claims application on Oracle AI Database 26ai Free, APEX 24.2 and ORDS.
+Context: docs/sdlc.md (current stage) · docs/intent.md · docs/spec.md · docs/glossary.md · docs/setup.md · docs/adr/
+
+## Commands
+- Connect: `sql -thin <user>@localhost:1521/FREEPDB1` (SQLcl, thin JDBC driver)
+- Lint: `npm run lint`
+- Admin setup (SYS): `scripts/install_admin.sql` · Application: SQLcl `project` (ADR-005) · Tests: utPLSQL (M0)
+
+## Conventions
+- Database objects use the `EMK_` prefix. Admin scripts are idempotent (existence checks, `MERGE` for data); application changes go through SQLcl `project`.
+- Business rules live in PL/SQL packages, not in APEX page logic.
+- AI calls only through `EMK_AI_GATEWAY_PKG`; embeddings are computed in-database.
+- No secrets in files; passwords are entered at run time.
+- Documentation in English, concise; new terms are added to docs/glossary.md.
+- Follow docs/sdlc.md: drafts stay local, accepted artifacts are committed.
+- One branch and pull request per change; Conventional Commits; explicit `git add <files>`.
+- After a database restart, restart ORDS.
