@@ -1,9 +1,16 @@
+# Logs and temporary files
 *.log
 *.tmp
-# No subir contraseñas ni archivos de configuración local de SQLcl
+
+# Local SQLcl configuration (may contain credentials)
 /config/
-# Ignore local config (if you created a .bat with passwords)
-run_process.bat
-scripts/setup_db.sql
-static/js/test-ESLint.js
+
+# JavaScript tooling
 node_modules/
+static/js/test-ESLint.js
+
+# Third-party source documents (downloaded locally, not redistributed)
+data/sources/
+
+# Embedding models (downloaded locally, ADR-004)
+data/models/
