@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.0 (2026-10-04) |
+| **Status** | Accepted v1.1 (2026-10-05) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -583,8 +583,8 @@ Milestones are ordered by business value. Each one is releasable.
 
 | Milestone | Content | Features | Criteria |
 |-----------|---------|----------|----------|
-| **M0 — Foundations** | Intent, spec, glossary, setup guide, ADR-001/002/004/005, admin scripts, utPLSQL, synthetic data generator | — | SC-DOC-02 |
-| **M1 — Claims core** | Schema (soft delete, audit columns), `EMK_CLAIM_API`, `EMK_IMPORT_API` (ELT), APEX app, roles, recovery tracking, CSV/Excel import, dashboards | F-01 to F-04 | SC-DEP-*, SC-QA-01 to 03, 06 |
+| **M0 — Foundations** | Intent, spec, glossary, setup guide, ADR-001/002/004/005, admin scripts, utPLSQL, SQLcl project | — | SC-DOC-02, SC-DEP-03 |
+| **M1 — Claims core** | Schema (soft delete, audit columns), synthetic data generator, `EMK_CLAIM_API`, `EMK_IMPORT_API` (ELT), APEX app, roles, recovery tracking, CSV/Excel import, dashboards | F-01 to F-04 | SC-DEP-*, SC-QA-01 to 03, 06 |
 | **M2 — Deadlines & alerts** | `EMK_DEADLINE_API`, holidays, alert job, home-page alerts, email digest (Mailpit), network ACL for SMTP, ADR-006 | F-05, F-06 | SC-QA-04, 05, SC-SEC-12 |
 | **M3 — Legal search** | ONNX model, corpus ingestion, HNSW index, search page, golden set | F-07 | SC-AI-01, 03, 05, SC-SEC-01 |
 | **M4 — Letters & liability cap** | Letter templates EN/DE, SDR rates, liability cap | F-08, F-09 | SC-QA-01 (coverage) |
@@ -701,3 +701,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v0.3 | 2026-10-04 | Database setup (§7.5) and repository structure aligned with ADR-005: `EMK_` tablespace, schema, roles and workspace; hybrid deployment; application ID 200. Embedding model `multilingual-e5-small` (ADR-004). |
 | v0.4 | 2026-10-04 | Business rules catalogue (§2.7); test strategy and feature-level Definition of Done (§8.3, §8.4); soft delete, ELT, audit, secrets and UI language conventions (§1.3); German UI with language selector (F-15); Q4 closed and liability limit verified against the 1978 Protocol (§5); `carriage_charges`; developer account `EMK_DEV`; ADR-006 planned. |
 | v1.0 | 2026-10-04 | Accepted by the owner (Stage 2 closed). |
+| v1.1 | 2026-10-05 | Synthetic data generator moved from M0 to M1 (M0 plan). |
