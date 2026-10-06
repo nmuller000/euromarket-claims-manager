@@ -23,7 +23,7 @@ How to build the local development environment for this project, in installation
 | Visual Studio Code | 1.136 | Editor (Mermaid diagrams render natively since 1.121) |
 | Node.js / npm | 24.14.1 / 11.11.0 | ESLint for APEX JavaScript |
 | Mailpit | latest | Local email testing (milestone M2) |
-| utPLSQL | to be defined in M0 | PL/SQL unit tests |
+| utPLSQL | 3.2.3 | PL/SQL unit tests |
 
 ## 3. Installation Steps
 
@@ -162,9 +162,11 @@ npm ci                     # installs ESLint from package-lock.json
 npm run lint
 ```
 
-Third-party source documents (e.g., the CMR text) go into `data/sources/` and the embedding model into `data/models/` (ADR-004); neither is committed.
+Third-party files are kept locally and not committed: source documents (e.g., the CMR text) in `data/sources/`, the embedding model in `data/models/` (ADR-004) and tool installers (utPLSQL) in `data/tools/`.
 
 ## 5. Database Configuration
+
+### 5.1 Environment Hardening (once)
 
 | Step | Script | Notes |
 |------|--------|-------|
@@ -172,6 +174,75 @@ Third-party source documents (e.g., the CMR text) go into `data/sources/` and th
 | 2 | `scripts/admin/02_account_hardening.sql` | Locks unused accounts, makes proxy-only accounts schema-only, rotates the ORDS password. |
 | 3 | `ords --config C:\ords\config config secret db.password` | Stores the new ORDS password; then restart ORDS. |
 | 4 | `scripts/admin/check_password_expiry.sql` | Read-only check; repeat periodically. |
+
+### 5.2 Project Database Objects (ADR-005)
+
+1. **Prerequisite:** create the datafile folder on the database server (once):
+
+   ```powershell
+   New-Item -ItemType Directory -Force C:\db_files\ia_apex_project
+   ```
+
+2. **Install** (idempotent; asks for the `EMK_DEV` password and the workspace administrator only when they are created):
+
+   ```powershell
+   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/install_admin.sql
+   ```
+
+   Creates tablespace `EMK_DATA`, roles `EMK_OWNER_ROLE` / `EMK_DEVELOPER_ROLE` / `EMK_READONLY_ROLE`, schema `EMK_APP` (schema-only), developer account `EMK_DEV` and workspace `EMK_CLAIMS`, then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Names and sizes are in `scripts/admin/00_config.sql`. Each run writes its own log, `logs/install_admin_<YYYYMMDD_HH24MISS>.log`; prompts are not logged.
+
+3. **Work as the application schema** through the developer account (proxy authentication: the password asked is the one of `EMK_DEV`):
+
+   ```powershell
+   sql -thin "EMK_DEV[EMK_APP]@localhost:1521/FREEPDB1"
+   ```
+
+4. **Remove everything** (asks to type `YES`; close `EMK_DEV` sessions first). `UT3` (utPLSQL) is kept:
+
+   ```powershell
+   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/uninstall_admin.sql
+   ```
+
+   To rebuild, run `install_admin.sql` and then `09_install_utplsql.sql` (§5.3) again, which restores the utPLSQL grants of `EMK_APP`.
+
+### 5.3 utPLSQL
+
+utPLSQL is installed into schema `UT3`, created **schema-only** (no password): the official quick installer (`install_headless.sql`) would create it with a published default password and grant the framework to `PUBLIC`. `09_install_utplsql.sql` uses the official `install.sql`, grant and synonym scripts instead and grants access to `EMK_APP` only.
+
+1. Download `utPLSQL.zip` from the [v3.2.3 release](https://github.com/utPLSQL/utPLSQL/releases/tag/v.3.2.3) and check its SHA-256 checksum against the value published on the release page:
+
+   ```powershell
+   New-Item -ItemType Directory -Force data\tools
+   Move-Item "$env:USERPROFILE\Downloads\utPLSQL.zip" data\tools\
+   (Get-FileHash data\tools\utPLSQL.zip -Algorithm SHA256).Hash -eq '6e650fc497bce02ae611e185e66c72204f0b984a024a41733b5452e7fb6db47a'
+   Expand-Archive -Path data\tools\utPLSQL.zip -DestinationPath data\tools -Force
+   ```
+
+   The checksum comparison must return `True`, and `data\tools\utPLSQL\source\install.sql` must exist.
+
+2. **Install** (after §5.2; separate step, idempotent):
+
+   ```powershell
+   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/09_install_utplsql.sql
+   ```
+
+   Expected: `RESULT: all checks passed`. Logs: `logs/install_utplsql_<timestamp>.log` and, on first installation, `logs/install_utplsql_<timestamp>_official.log`. Delete the temporary file `params.sql.tmp` left in the repository root by the official scripts.
+
+3. **Check** as the application schema:
+
+   ```sql
+   SELECT ut.version() FROM dual;   -- connected as EMK_DEV[EMK_APP]
+   ```
+
+### 5.4 SQLcl Project (ADR-005)
+
+The application layer is versioned with SQLcl `project`. It was initialised once, from the repository root, connected as `EMK_DEV[EMK_APP]`:
+
+```sql
+project init -name emk_claims -schemas EMK_APP -verbose
+```
+
+This created `.dbtools/` (project configuration and export filters, default branch `main`) and appended an *Oracle SQLcl Projects* block to `.gitignore`. `src/` and `dist/` are filled from M1 with `project export` and `project stage`. A new clone does not need to run `project init` again.
 
 ## 6. Verification
 
@@ -181,6 +252,8 @@ Third-party source documents (e.g., the CMR text) go into `data/sources/` and th
 | Database version | `SELECT banner_full FROM v$version;` | Oracle AI Database 26ai Free 23.26.1 |
 | Vector pool | `SHOW PARAMETER vector_memory_size` (in `CDB$ROOT`) | `128M` |
 | APEX version | `SELECT version_no FROM apex_release;` | 24.2.x |
+| Project objects | `@scripts/admin/verify_admin.sql` (as `SYS`) | `RESULT: all checks passed` |
+| utPLSQL | `SELECT ut.version() FROM dual;` (as `EMK_DEV[EMK_APP]`) | `v.3.2.3.x` |
 | ORDS / APEX | Open `http://localhost:8080/ords/` | APEX landing page |
 | Tooling | `npm run lint` | Runs without configuration errors |
 

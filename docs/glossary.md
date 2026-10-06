@@ -63,11 +63,14 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **APEX Advisor** | APEX tool that checks an application for security, performance and quality issues. |
 | **APEX Data Load** | APEX feature that loads CSV, Excel, JSON or XML files into tables with column mapping. |
 | **`APEX_MAIL`** | APEX package that queues and sends emails through the configured SMTP server. |
+| **Artifact (deployment)** | ZIP file created by SQLcl `project` that contains one release and installs it on another database. |
 | **Authorization scheme** | APEX rule that decides whether a user can see a page or component. |
 | **Autonomous transaction** | PL/SQL block that commits independently of the calling transaction; used for logging. |
 | **Auto-scaling** | Automatic adjustment of CPU and memory to the current load (e.g., in Autonomous Database). |
 | **CDB / PDB** | Container Database / Pluggable Database. `FREEPDB1` is the PDB that hosts this project. |
 | **Changelog** | Liquibase file that lists database changes in order; each change is applied once and recorded. |
+| **Changeset** | One database change inside a changelog (e.g., add a column); Liquibase applies it once per database. |
+| **Checksum (SHA-256)** | Fingerprint calculated from a file's content; matching the published value proves a download is complete and unaltered. |
 | **Chunk** | A segment of a source document stored with its embedding. |
 | **Corpus** | The collection of source documents the search works on; here, the CMR and the EU acts listed in spec §2.2. |
 | **Data Pump** | Oracle export/import utility (`expdp`/`impdp`) used for backups of schemas and data. |
@@ -92,7 +95,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Proxy authentication** | One account connects and acts as another without its password (how ORDS uses APEX schemas). |
 | **RAG** | Retrieval-Augmented Generation: grounding an LLM answer in retrieved documents. |
 | **Recall@5** | Share of questions whose correct source appears in the top 5 results. |
-| **Schema-only account** | Account with no password (`NO AUTHENTICATION`); usable only through proxy. |
+| **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_APP`) or by `SYS` (`UT3`). |
 | **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Seed and publish (APEX)** | Translation workflow: seed copies the texts of the primary application, the XLIFF file is translated and applied, and publish creates the translated application. |
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
@@ -130,3 +133,24 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **SDLC** | Software Development Life Cycle. This project uses six stages: Plan, Design, Build, Test, Deploy, Maintain (`docs/sdlc.md`). |
 | **Traceability table** | Table that links each business rule and success criterion to the tests that prove it. |
 | **Spec** | Stage 2 artifact (`spec.md`): requirements and design that answer the intent's open questions. |
+
+### Document Identifiers
+
+Codes used in the documents to refer to items and to trace them from problem to test.
+
+| Code | Meaning | Defined in | Example |
+|------|---------|------------|---------|
+| **P1–P3** | Problem the project solves | intent §1 | P2 — strict legal deadlines |
+| **Q1–Q5** | Open question of the intent, answered by an ADR or the spec | intent §7 | Q1 — deployment method → ADR-005 |
+| **F-nn** | Feature (functional block) of the catalogue, with its milestone | spec §2 | F-01 — claims management |
+| **FR-nn** | Functional requirement: one thing the system must do | spec §2.1–2.6 | FR-01 — manage parties and contact persons |
+| **BR-nn** | Business rule enforced by the system, with its source and test | spec §2.7 | BR-07 — the start day of a period is not counted |
+| **`RES_*` / `LIM_*`** | CMR deadline rule: reservation (Art. 30) / limitation (Art. 32) | spec §5 | `RES_DELAY` — 21 days for delay |
+| **SC-xxx-nn** | Success criterion, grouped by area: `DEP` deployment, `SEC` security, `QA` quality and tests, `AI` AI quality, `DOC` documentation | spec §8 | SC-SEC-02 — no secrets in the repository |
+| **R-nn** | Risk and its mitigation | spec §11 | R-01 — memory limit of 2 GB |
+| **ADR-nnn** | Architecture Decision Record | `docs/adr/` | ADR-005 — hybrid deployment |
+| **M0–M5 / X1–X4** | MVP milestone / extension milestone | spec §9 | M0 — foundations |
+| **T-Mn-nn** | Test of a milestone plan | `docs/plans/` | T-M0-04 — clean rebuild |
+| **PR #n** | Pull request number on GitHub | GitHub | PR #5 |
+
+Chain of traceability: **P** (problem) → **F / FR** (what is built) → **BR** (rules it follows) → **SC** (how success is measured) → **T** (test that proves it).

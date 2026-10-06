@@ -7,10 +7,21 @@
 
 # JavaScript tooling
 node_modules/
-static/js/test-ESLint.js
 
 # Third-party source documents (downloaded locally, not redistributed)
 data/sources/
 
 # Embedding models (downloaded locally, ADR-004)
 data/models/
+
+# Third-party tool installers (downloaded locally, e.g. utPLSQL)
+data/tools/
+
+# Oracle SQLcl Projects (added by project init)
+artifact/*
+var/*
+*.tar.gz
+*.tz
+*.zip
+*.log
+**/.DS_Store

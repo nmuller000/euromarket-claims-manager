@@ -4,7 +4,7 @@ This project follows a **lightweight AI-native SDLC** based on [The AI-native SD
 
 ## Current Stage
 
-> **Stage 3 — Build:** `intent.md` v1.1 and `spec.md` v1.0 are accepted (Stages 1 and 2 closed on 2026-10-04). Next: the milestone plan for M0 (`docs/plans/M0-plan.md`).
+> **Stage 3 — Build, milestone M0:** `intent.md` v1.1 and `spec.md` v1.1 are accepted. M0 is built and all its tests pass ([M0 plan](plans/M0-plan.md) §7); its pull request is next. Then: the M1 plan.
 
 ## Stages
 
