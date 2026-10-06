@@ -32,7 +32,7 @@ WHERE  username = 'DEV_USER';
 
 PROMPT
 PROMPT === New password ===
-PROMPT Use a new strong password (16+ characters). Avoid the characters " and '
+PROMPT Use a new strong password (16+ characters). Avoid double quotes, single quotes and the ampersand character.
 ACCEPT dev_pwd CHAR PROMPT 'New password for DEV_USER: ' HIDE
 ALTER USER DEV_USER IDENTIFIED BY "&dev_pwd";
 UNDEFINE dev_pwd

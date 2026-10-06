@@ -33,7 +33,7 @@ WHERE  username = 'ORDS_PUBLIC_USER';
 
 PROMPT
 PROMPT === New password ===
-PROMPT Use a new strong password (16+ characters). Avoid the characters " and '
+PROMPT Use a new strong password (16+ characters). Avoid double quotes, single quotes and the ampersand character.
 ACCEPT ords_pwd CHAR PROMPT 'New password for ORDS_PUBLIC_USER: ' HIDE
 ALTER USER ORDS_PUBLIC_USER IDENTIFIED BY "&ords_pwd";
 UNDEFINE ords_pwd
