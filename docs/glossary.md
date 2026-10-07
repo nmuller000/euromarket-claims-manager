@@ -35,12 +35,15 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **CMR** | Convention on the Contract for the International Carriage of Goods by Road (Geneva, 1956). Applies to road carriage for reward between two countries, at least one of which is a contracting country. |
 | **CMR Protocol (1978)** | Amendment to the CMR that expresses the liability limit in SDR instead of gold francs. |
 | **DPA** | Data Processing Agreement required by GDPR Art. 28 between a controller and a processor (e.g., an LLM provider). |
-| **ECB reference rates** | Daily euro exchange rates published by the European Central Bank. |
+| **ECB reference rates** | Daily euro exchange rates published by the European Central Bank (ECB): units of a currency per 1 EUR, every TARGET working day around 16:00 CET. |
+| **Euro changeover** | Replacement of a national currency by the euro at a fixed conversion rate, e.g., Croatia (HRK, 2023-01-01, 7.53450 per EUR) and Bulgaria (BGN, 2026-01-01, 1.95583 per EUR). The old currency code stays valid only for earlier dates. |
+| **ISO 3166 / ISO 4217 / ISO 8601** | International standards for country codes (alpha-2, e.g., `DE`), currency codes (e.g., `EUR`, with minor units) and date/time representation (`YYYY-MM-DD`). |
 | **eFTI** | Electronic Freight Transport Information — Regulation (EU) 2020/1056. |
 | **EU AI Act** | Regulation (EU) 2024/1689 on artificial intelligence. |
 | **EU/EEA** | European Union / European Economic Area (EU plus Iceland, Liechtenstein and Norway); GDPR applies throughout. |
 | **EUR-Lex** | Official online database of EU law. |
 | **GDPR** | General Data Protection Regulation — Regulation (EU) 2016/679. |
+| **VIES** | VAT Information Exchange System of the European Commission; validates EU VAT numbers, which start with a two-letter prefix (`EL` for Greece, `XI` for Northern Ireland traders). |
 | **Limitation period** | Time within which a legal action must be brought: one year, three for wilful misconduct (CMR Art. 32). |
 | **PII** | Personally Identifiable Information ("personal data" in GDPR terms). |
 | **Reservation** | The consignee's notice to the carrier about loss, damage or delay, within the periods of CMR Art. 30. |
@@ -80,7 +83,11 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **ELT** | Extract, Load, Transform: data is first loaded raw into staging tables and then validated and transformed inside the database before reaching the operational tables. |
 | **Embedding** | Numeric vector representing the meaning of a text. |
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
+| **Identity column** | Column whose value Oracle generates (`GENERATED ALWAYS AS IDENTITY`); used for surrogate primary keys. |
+| **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs (ADR-007). |
+| **Interval partitioning** | Range partitioning in which Oracle creates a new partition automatically for each interval (here: each month); old data is removed with `DROP PARTITION`. |
 | **IVF** | Inverted File Flat: partition-based vector index stored on disk. |
+| **Journal table** | Table `<TABLE>_JN` that keeps the previous version of each updated or deleted row, with operation, user and timestamp; filled by a trigger. |
 | **Liquibase** | Database change-management tool, integrated in SQLcl. |
 | **Load balancer** | Component that distributes requests across several server instances (e.g., several ORDS nodes). |
 | **Mailpit** | Local email testing server: receives emails over SMTP and shows them in a web page without delivering them. |
@@ -91,6 +98,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **p95 latency** | Response time that 95% of requests do not exceed. |
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |
+| **Profile (password)** | Set of password and session rules assigned to an account (e.g., `ORA_CIS_PROFILE`: failed logins, expiry, reuse, complexity, inactivity lock). |
 | **Prompt injection** | Attack in which text processed by an LLM contains instructions that try to change its behaviour. |
 | **Proxy authentication** | One account connects and acts as another without its password (how ORDS uses APEX schemas). |
 | **RAG** | Retrieval-Augmented Generation: grounding an LLM answer in retrieved documents. |
@@ -104,7 +112,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Soft delete** | Marking a record as deleted (`delete_yn = 'Y'`) instead of removing it, so history is kept. |
 | **SQLcl** | Oracle's command-line tool for SQL, scripts, Liquibase and projects. |
 | **SQLcl project** | SQLcl command set (`project init`, `export`, `stage`, `release`, `deploy`) that versions database and APEX changes with Liquibase (ADR-005). |
-| **Staging table** | Intermediate table where imported data is validated before it reaches the real tables. |
+| **Staging / landing table** | Table where inbound data is stored before it reaches the operational tables; here a generic landing table `EMK_INBOUND_RECORDS` keeps each record as received (JSON) with its processing status. |
 | **Tablespace** | Logical storage area of the database, backed by one or more data files on disk. |
 | **Token** | Unit of text (a word or part of a word) that a language model processes; models accept a maximum number of tokens per input. |
 | **UTC** | Coordinated Universal Time; used to store technical timestamps. |
