@@ -97,6 +97,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **ORDS** | Oracle REST Data Services: web listener that serves APEX and REST APIs. |
 | **p95 latency** | Response time that 95% of requests do not exceed. |
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
+| **Party role** | Function a company plays in a shipment or claim (shipper, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |
 | **Profile (password)** | Set of password and session rules assigned to an account (e.g., `ORA_CIS_PROFILE`: failed logins, expiry, reuse, complexity, inactivity lock). |
 | **Prompt injection** | Attack in which text processed by an LLM contains instructions that try to change its behaviour. |
@@ -109,7 +110,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
 | **SGA / PGA** | System Global Area (shared memory) / Program Global Area (per-session memory). |
 | **SMTP** | Simple Mail Transfer Protocol: standard protocol for sending email. |
-| **Soft delete** | Marking a record as deleted (`delete_yn = 'Y'`) instead of removing it, so history is kept. |
+| **Soft delete** | Marking a record as deleted (`deleted_yn = 'Y'`) instead of removing it, so history is kept. |
 | **SQLcl** | Oracle's command-line tool for SQL, scripts, Liquibase and projects. |
 | **SQLcl project** | SQLcl command set (`project init`, `export`, `stage`, `release`, `deploy`) that versions database and APEX changes with Liquibase (ADR-005). |
 | **Staging / landing table** | Table where inbound data is stored before it reaches the operational tables; here a generic landing table `EMK_INBOUND_RECORDS` keeps each record as received (JSON) with its processing status. |
