@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.1 (2026-10-05) |
+| **Status** | Accepted v1.3 (2026-10-07) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -39,13 +39,17 @@ flowchart LR
         onnx["ONNX embedding model"]
         job["DBMS_SCHEDULER<br/>daily alert job"]
         gw["EMK_AI_GATEWAY_PKG [EXT]"]
+        integ["EMK_INT integration<br/>inbound records · source views · batch jobs"]
         apex --> api
+        apex -->|file import| integ
+        integ -->|batches| api
         api --> data
         api --> corpus
         api --> onnx
         job --> api
         api -.-> gw
     end
+    ords -.->|"REST [EXT]"| integ
     api --> smtp["SMTP server<br/>dev: Mailpit"]
     gw -.-> llm["LLM provider<br/>EU/EEA [EXT]"]
 ```
@@ -59,13 +63,19 @@ Solid lines = MVP. Dashed lines = extensions.
 | **Business dates** | `DATE` without time (pickup, delivery, reservation, written claim). Deadlines are calendar dates. |
 | **Technical timestamps** | `TIMESTAMP WITH TIME ZONE`, stored in UTC (audit, logs, alerts). |
 | **Time zone for deadlines** | Calendar days in the country of delivery; public holidays from `EMK_PUBLIC_HOLIDAYS` of that country (Q4 decision, §5). |
+| **Data formats** | International standards only: countries ISO 3166-1 alpha-2; currencies ISO 4217 (with minor units); dates and timestamps ISO 8601 (`YYYY-MM-DD`, UTC offset) in files and interfaces; languages ISO 639 alpha-2; phone numbers ITU-T E.164; email syntax RFC 5322; EU VAT numbers in VIES format; weights in kg (SI); CSV files RFC 4180 in UTF-8; database character set AL32UTF8. Values are stored neutrally (`DATE`, `NUMBER`) and displayed in the user's language format (F-15). Codes from other systems (EU `EL`, `UK`; VAT prefix `XI`) are never used as keys. |
 | **Currencies** | Amounts stored in their original currency (ISO 4217 code). KPIs are converted to **EUR** with daily rates in `EMK_EXCHANGE_RATES` (source: ECB reference rates, loaded as reference data). |
 | **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS`. An APEX error-handling function shows clear messages to users. |
 | **Logging** | `EMK_LOG_PKG` writes to `EMK_LOG` in an autonomous transaction (level, module, message, context, timestamp). |
-| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; staging tables `EMK_<ENTITY>_STG`. |
-| **Soft delete** | Operational tables (parties, contacts, shipments, claims, documents) are never physically deleted: `delete_yn CHAR(1) DEFAULT 'N' NOT NULL` (`Y`/`N`), plus `deleted_at` and `deleted_by`. Views and APEX pages show only `delete_yn = 'N'`. Logs and history tables are never deleted. Soft delete is not GDPR erasure (FR-41). |
-| **External data (ELT)** | All inbound data (file imports, reference data, REST [EXT]) follows: load into a staging table → validate and apply business rules in PL/SQL (`EMK_IMPORT_API`) → `MERGE` into operational tables → mark each row `LOADED` or `REJECTED` with a reason. |
-| **Audit columns** | Operational tables carry `created_at`, `created_by`, `updated_at`, `updated_by`. |
+| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). |
+| **Keys** | Operational, log and history tables: surrogate key `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; natural but mutable values (CMR note number, VAT number, email) are unique keys or attributes, never the primary key. Reference tables based on standards use the **ISO code** as primary key (`country_code` ISO 3166-1 alpha-2, `currency_code` ISO 4217). |
+| **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems are separate columns (e.g., `eu_vat_prefix`: `EL` for Greece; empty outside the EU — the `XI` prefix of Northern Ireland traders belongs to their VAT number, not to a country). Reference rows are not soft-deleted. |
+| **Soft delete** | Operational tables (parties, contacts, shipments, claims, documents) are never physically deleted: `delete_yn CHAR(1) DEFAULT ON NULL 'N' NOT NULL` (`Y`/`N`), plus `deleted_at` and `deleted_by`. Views and APEX pages show only `delete_yn = 'N'`. Logs, history and inbound tables are append-only and never deleted (retention by dropping monthly partitions). Soft delete is not GDPR erasure (FR-41). |
+| **External data (ELT)** | All inbound data (file imports, ECB rates, REST [EXT]) enters the **integration schema `EMK_INT`** (ADR-007): each record is stored **as received** (JSON) in `EMK_INBOUND_RECORDS` with status `PENDING`; a **`DBMS_SCHEDULER` job per batch** reads it through a versioned source view (`EMK_V_IN_<SOURCE>_V<n>`), applies **technical** validation, and passes valid rows in batches to the `EMK_APP` APIs, which apply the **business** rules and `MERGE` into operational tables; each record is marked `LOADED` or `REJECTED` with a reason. Batches can be reprocessed without duplicates. |
+| **Schemas and references** | `EMK_APP` owns operational data and business APIs; `EMK_INT` owns inbound data and only calls `EMK_APP` APIs through direct `EXECUTE` grants (one direction; ADR-007). Own objects are referenced without schema prefix; another schema's objects through **private synonyms**; no public synonyms (except tools such as utPLSQL); no schema-wide grants. |
+| **Partitioning** | Interval partitioning **by month** only for append-only, ever-growing tables: `EMK_INBOUND_RECORDS`, `EMK_LOG`, journal tables `<TABLE>_JN`, `EMK_ALERT_LOG`. Old data is purged with `DROP PARTITION`. Operational tables are not partitioned at the design volume (§12.1) but keep date columns so they can be. Partitioning is included in the Free edition. |
+| **Audit columns** | All tables carry `created_at` and `created_by`; tables that are updated also carry `updated_at` and `updated_by`. Timestamps are `TIMESTAMP WITH TIME ZONE DEFAULT ON NULL SYSTIMESTAMP`. The user is the APEX user, otherwise the proxy user (`EMK_DEV`), otherwise the session user: `COALESCE(SYS_CONTEXT('APEX$SESSION','APP_USER'), SYS_CONTEXT('USERENV','PROXY_USER'), SYS_CONTEXT('USERENV','SESSION_USER'))`. `updated_*` is set by a technical `BEFORE UPDATE` trigger, so it is also set when APEX updates a table directly. |
+| **Change history** | Each operational table has a journal table `<TABLE>_JN`, filled by an `AFTER UPDATE OR DELETE` trigger with the **previous row**, the operation, the user and the timestamp (FR-09). `EMK_CLAIM_STATUS_HISTORY` remains the business history of status changes (§4). Triggers are used only for audit columns and journals, never for business rules. |
 | **Secrets** | No file in the repository contains secrets or personal data; passwords and API keys are entered at run time or stored in Web Credentials / the ORDS wallet. |
 | **UI language** | English by default; German as a translated application; users switch with a language selector (F-15). |
 
@@ -81,7 +91,7 @@ What each feature solves and how. Detailed requirements follow in §2.1–2.6; b
 |---|---------|------------------------|-----|-------|-----------|
 | F-01 | Claims management | One structured place instead of emails and spreadsheets (P3) | APEX forms and grids over `EMK_CLAIM_API`; state machine (§4) | MVP | M1 |
 | F-02 | Recovery tracking | Shows the financial result of each claim and the **recovery rate** per carrier (P3) | Settled and recovered amounts per claim; EUR conversion (§1.3); dashboard KPI | MVP | M1 |
-| F-03 | Shipment import (CSV/Excel) | Reuses data companies already have; no retyping (P3) | APEX Data Load into a staging table, validation, error report, then `EMK_SHIPMENT_API` | MVP | M1 |
+| F-03 | Shipment import (CSV/Excel) | Reuses data companies already have; no retyping (P3) | File upload into the integration landing (`EMK_INT`, ADR-007), batch job, validation, error report, then `EMK_SHIPMENT_API` | MVP | M1 |
 | F-04 | Dashboards | Claim indicators by carrier, route, country, type, status and ageing (P3) | APEX charts on aggregated views | MVP | M1 |
 | F-05 | CMR deadline tracking | Prevents lost claims through missed deadlines (P2) | `EMK_DEADLINE_API` with rules from §5 and public holidays | MVP | M2 |
 | F-06 | Deadline alerts (app + email) | Users learn about risks **without logging in** (P2) | Daily `DBMS_SCHEDULER` job; alert region on the home page; daily email digest with `APEX_MAIL` | MVP | M2 |
@@ -101,7 +111,7 @@ What each feature solves and how. Detailed requirements follow in §2.1–2.6; b
 |----|-------------|-------|
 | FR-01 | Manage parties (companies) and their contact persons. | MVP |
 | FR-02 | Register shipments: CMR note number, shipper, carrier, consignee, origin/destination country, pickup/delivery dates, goods, packages, gross weight. | MVP |
-| FR-03 | Import shipments from CSV or Excel through the ELT pattern (§1.3): staging table, validation, error report per row, `MERGE` without duplicates. | MVP |
+| FR-03 | Import shipments from CSV or Excel through the ELT pattern (§1.3): landing table, validation, error report per row, `MERGE` without duplicates. | MVP |
 | FR-04 | Register claims linked to a shipment: type (loss, damage, delay), apparent/non-apparent damage, joint check date, reservation date, written claim date, carrier rejection date, claimed / settled / recovered amounts, currency, documents. | MVP |
 | FR-05 | Enforce the claim state machine (§4) in PL/SQL. | MVP |
 | FR-06 | Calculate CMR deadlines (§5) per claim, including suspension of the limitation period. | MVP |
@@ -179,9 +189,9 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 | BR-09 | Each handler receives at most one alert email per day; an alert for the same claim, rule and due date is sent once. | Design | `EMK_ALERT_API` + `EMK_ALERT_LOG` | SC-QA-05 |
 | BR-10 | Liability cap: loss or damage ≤ 8.33 SDR per kg of gross weight short (affected part); delay ≤ carriage charges. Shown as indicative. | CMR Art. 23(3) as amended by the 1978 Protocol, Art. 23(5), Art. 25 | `EMK_CLAIM_API` | Unit |
 | BR-11 | Settled amount ≤ claimed amount; recovered amount ≤ settled amount; amounts ≥ 0. | Business | Check constraints + API | Unit |
-| BR-12 | KPIs are converted to EUR at the ECB rate of the claim's registration date. | Design (§1.3) | Views | Unit |
+| BR-12 | KPIs are converted to EUR at the ECB rate of the claim's registration date; without a rate on that date (weekend, TARGET holiday), the latest earlier rate is used. Claims and shipments use only EUR or currencies with an ECB rate. | Design (§1.3) | Views + APIs | Unit |
 | BR-13 | Operational records are soft-deleted only; deleted records are hidden but kept. | Design (§1.3) | APIs + views | Unit |
-| BR-14 | Imported rows that fail validation are rejected with a reason; valid rows are loaded; the import never creates duplicates. | Design (§1.3) | `EMK_IMPORT_API` | SC-QA-06 |
+| BR-14 | Imported rows that fail validation are rejected with a reason; valid rows are loaded; the import never creates duplicates. | Design (§1.3) | `EMK_INBOUND_PKG` (`EMK_INT`) + `EMK_SHIPMENT_API` | SC-QA-06 |
 | BR-15 | Erasure of personal data is done by pseudonymisation, never by soft delete. [EXT] | GDPR Art. 17 | Erasure procedure (FR-41) | SC-SEC-07 |
 
 ---
@@ -199,6 +209,9 @@ erDiagram
     EMK_COUNTRIES ||--o{ EMK_PARTIES : "registered in"
     EMK_COUNTRIES ||--o{ EMK_SHIPMENTS : "origin / destination"
     EMK_COUNTRIES ||--o{ EMK_PUBLIC_HOLIDAYS : "has"
+    EMK_CURRENCIES ||--o{ EMK_SHIPMENTS : "charges in"
+    EMK_CURRENCIES ||--o{ EMK_CLAIMS : "amounts in"
+    EMK_CURRENCIES ||--o{ EMK_EXCHANGE_RATES : "rates"
     EMK_SHIPMENTS ||--o{ EMK_CLAIMS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_DOCUMENTS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_STATUS_HISTORY : "logs"
@@ -219,10 +232,26 @@ erDiagram
         VARCHAR2 phone "PII"
     }
     EMK_COUNTRIES {
-        CHAR country_code PK
+        CHAR country_code PK "ISO 3166-1 alpha-2"
         VARCHAR2 name
-        CHAR eu_member
-        CHAR cmr_party
+        CHAR eu_vat_prefix "EL for GR"
+        CHAR eu_member_yn
+        CHAR cmr_party_yn
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_CURRENCIES {
+        CHAR currency_code PK "ISO 4217"
+        VARCHAR2 name
+        NUMBER minor_units
+        CHAR ecb_rate_yn
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_EXCHANGE_RATES {
+        CHAR currency_code PK
+        DATE rate_date PK
+        NUMBER units_per_eur
     }
     EMK_PUBLIC_HOLIDAYS {
         CHAR country_code PK
@@ -248,7 +277,7 @@ erDiagram
         VARCHAR2 claim_no UK
         NUMBER shipment_id FK
         VARCHAR2 claim_type "LOSS DAMAGE DELAY"
-        CHAR damage_apparent
+        CHAR damage_apparent_yn
         DATE joint_check_date
         DATE reservation_date
         DATE written_claim_date
@@ -303,12 +332,16 @@ erDiagram
 
 | Table | Content | Scope |
 |-------|---------|-------|
+| `EMK_CURRENCIES` | ISO 4217 currencies with validity period (e.g., HRK until 2022-12-31) | MVP |
 | `EMK_DEADLINE_RULES` | CMR deadline rules (§5) and alert thresholds | MVP |
-| `EMK_EXCHANGE_RATES` | Daily EUR rates per currency (ECB reference rates) | MVP |
+| `EMK_EXCHANGE_RATES` | Daily EUR rates per currency (ECB reference rates: units of the currency per 1 EUR) | MVP |
+| `<TABLE>_JN` | Journal of each operational table: previous row, operation (`U`/`D`), user, timestamp (§1.3) | MVP |
 | `EMK_SDR_RATES` | EUR value of one SDR per date (maintained manually) | MVP |
 | `EMK_LETTER_TEMPLATES` | Letter templates per type and language, with placeholders | MVP |
-| `EMK_<ENTITY>_STG` | Staging tables for inbound data (e.g., `EMK_SHIPMENTS_STG`, `EMK_EXCHANGE_RATES_STG`): all columns as text, batch ID, row status, rejection reason | MVP |
-| `EMK_IMPORT_BATCHES` | One row per import: source, file name, user, counts loaded / rejected, timestamps | MVP |
+| `EMK_INT.EMK_INBOUND_RECORDS` | Integration landing (ADR-007): one row per inbound record — batch, source, line, payload `JSON` as received (never modified), status, errors, attempts; monthly interval partitions | MVP |
+| `EMK_INT.EMK_INBOUND_BATCHES` | One row per batch: source, file name, user, counts loaded / rejected, timestamps | MVP |
+| `EMK_INT.EMK_INBOUND_SOURCES` | Source contracts: source code, version, format, source view, processing procedure | MVP |
+| `EMK_INT.EMK_V_IN_<SOURCE>_V<n>` | `JSON_TABLE` view per source and version with typed columns and safe conversions (e.g., `EMK_V_IN_SHIPMENTS_V1`, `EMK_V_IN_ECB_RATES_V1`) | MVP |
 | `EMK_LOG` | Application log (§1.3) | MVP |
 | `EMK_AI_AUDIT_LOG`, `EMK_RETENTION_POLICY`, `EMK_ERASURE_REQUESTS` | Extension tables | EXT |
 
@@ -318,7 +351,8 @@ erDiagram
 - **Deadlines are calculated, not stored.** `EMK_DEADLINE_API` derives them and exposes them through the view `EMK_V_CLAIM_DEADLINES`.
 - **`EMK_ALERT_LOG`** prevents the same alert from being emailed twice.
 - **Successive carriers** (CMR Art. 34) are out of the MVP: one carrier per shipment.
-- **Not shown in the diagram, for readability:** soft-delete columns (`delete_yn`, `deleted_at`, `deleted_by`) on operational tables and audit columns (`created_*`, `updated_*`) on all tables (§1.3).
+- **Not shown in the diagram, for readability:** soft-delete columns (`delete_yn`, `deleted_at`, `deleted_by`) on operational tables, audit columns (`created_*`, `updated_*`) on all tables, and the journal tables `<TABLE>_JN` (§1.3).
+- **Reference tables** (countries, currencies, holidays, rules, rates) use natural ISO or composite keys and validity periods instead of soft delete (§1.3).
 - **`carriage_charges`** on shipments is needed for the delay compensation limit (BR-10, CMR Art. 23(5)).
 
 ---
@@ -473,6 +507,8 @@ See [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md): question + allow-listed 
 ### 7.2 Accounts and Secrets
 
 - Password expiry stays enabled. Proxy-only accounts are schema-only; unused admin accounts are locked; the ORDS account is rotated with `scripts/admin/rotate_ords_password.sql`.
+- **Profiles (ADR-007):** accounts of people use `ORA_CIS_PROFILE` (CIS baseline: 5 failed logins, 90-day lifetime, reuse after 365 days and 20 changes, `ORA12C_VERIFY_FUNCTION`, lock after 120 inactive days); service accounts (`ORDS_PUBLIC_USER`) keep `DEFAULT` with controlled rotation, because expiry or lockout would stop the application; schema-only accounts need no profile.
+- **Proxy account:** `EMK_DEV` holds `CREATE SESSION` only (Oracle guideline); in a proxy session the privileges of the target schema apply.
 - Passwords are entered at run time (`ACCEPT ... HIDE`) or stored in the ORDS wallet; API keys and SMTP credentials in APEX settings or Web Credentials, never in files.
 - **Email:** development uses a local mail catcher (Mailpit) with no credentials and no real delivery. A real SMTP server with TLS is optional and configured outside the repository.
 - **REST [EXT]:** ORDS privileges + OAuth2 client credentials.
@@ -491,14 +527,18 @@ Applied before each release (M5, then each extension):
 
 Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII redaction, prompt-injection defence, audit log.
 
-### 7.5 Database Setup (ADR-005)
+### 7.5 Database Setup (ADR-005, ADR-007)
+
+**Naming:** prefix `EMK_` = **E**uro**M**ar**K**et; the suffix states the function (`APP` application, `DEV` developer, `INT` integration, `DATA` tablespace, `…_ROLE` role).
 
 | Object | Name | Rule |
 |--------|------|------|
-| Tablespace | `EMK_DATA` | `C:\db_files\ia_apex_project\`, max 2 GB |
-| Application schema | `EMK_APP` | Schema-only; reached through proxy from developer accounts |
+| Tablespaces | `EMK_DATA`, `EMK_INT_DATA` | `C:\db_files\ia_apex_project\`; maximum sizes in `00_config.sql`; `EMK_INT_DATA` isolates inbound growth |
+| Application schema | `EMK_APP` | Schema-only; operational data and business APIs; reached through proxy |
+| Integration schema | `EMK_INT` | Schema-only; inbound data, source views, batch jobs, REST [X3]; only `EXECUTE` on `EMK_APP` APIs (ADR-007) |
 | Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE`, `EMK_READONLY_ROLE` | No `CONNECT`, `RESOURCE` or `DBA`; privileges used inside PL/SQL and quotas are granted directly |
-| Developer account | `EMK_DEV` | `DB_DEVELOPER_ROLE` + `EMK_DEVELOPER_ROLE`; deploys to `EMK_APP` through proxy. `DEV_USER` is not used by this project |
+| Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; works in `EMK_APP` and `EMK_INT` through proxy (ADR-007 amends ADR-005). `DEV_USER` is not used by this project |
+| Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_APP` only |
 | APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Primary schema `EMK_APP` |
 
 - **Admin layer:** `scripts/install_admin.sql` runs idempotent SQLcl scripts as `SYS` in `FREEPDB1`.
@@ -584,7 +624,7 @@ Milestones are ordered by business value. Each one is releasable.
 | Milestone | Content | Features | Criteria |
 |-----------|---------|----------|----------|
 | **M0 — Foundations** | Intent, spec, glossary, setup guide, ADR-001/002/004/005, admin scripts, utPLSQL, SQLcl project | — | SC-DOC-02, SC-DEP-03 |
-| **M1 — Claims core** | Schema (soft delete, audit columns), synthetic data generator, `EMK_CLAIM_API`, `EMK_IMPORT_API` (ELT), APEX app, roles, recovery tracking, CSV/Excel import, dashboards | F-01 to F-04 | SC-DEP-*, SC-QA-01 to 03, 06 |
+| **M1 — Claims core** | Schema (soft delete, audit columns, journals), synthetic data generator, `EMK_CLAIM_API`, integration schema `EMK_INT` with landing and batch jobs (ADR-007), APEX app, roles, recovery tracking, CSV/Excel import, dashboards | F-01 to F-04 | SC-DEP-*, SC-QA-01 to 03, 06 |
 | **M2 — Deadlines & alerts** | `EMK_DEADLINE_API`, holidays, alert job, home-page alerts, email digest (Mailpit), network ACL for SMTP, ADR-006 | F-05, F-06 | SC-QA-04, 05, SC-SEC-12 |
 | **M3 — Legal search** | ONNX model, corpus ingestion, HNSW index, search page, golden set | F-07 | SC-AI-01, 03, 05, SC-SEC-01 |
 | **M4 — Letters & liability cap** | Letter templates EN/DE, SDR rates, liability cap | F-08, F-09 | SC-QA-01 (coverage) |
@@ -660,7 +700,7 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | Layer | Approach |
 |-------|----------|
 | **Web (ORDS)** | ORDS holds no application state (APEX session state is stored in the database), so several ORDS instances can run behind a load balancer. The connection pool size is tuned in the ORDS configuration. |
-| **Database** | Indexes on foreign keys and on frequent filters (status, carrier, dates). Dashboards read aggregated views. Closed claims are archived and personal data is purged by the retention policy, which limits growth. Date-based partitioning is an option in larger editions. |
+| **Database** | Indexes on foreign keys and on frequent filters (status, carrier, dates). Dashboards read aggregated views. Closed claims are archived and personal data is purged by the retention policy, which limits growth. Append-only tables (inbound records, logs, journals) use monthly interval partitioning from M1 (included in the Free edition); operational tables can be partitioned by date when volume requires it. |
 | **Documents** | BLOBs are the main storage driver. In the Free edition the sample documents are kept small; in production, documents are stored with compression or deduplication, or moved to object storage. |
 | **Vector search** | HNSW memory grows with the corpus (ADR-001). The vector pool is resized when usage exceeds about 70%; IVF is the fallback for very large corpora. |
 | **Background work** | Corpus ingestion, deadline alerts and AI calls run as `DBMS_SCHEDULER` jobs, never blocking users. |
@@ -691,6 +731,7 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | ADR-006 | Email delivery: real SMTP with TLS vs. local Mailpit only | Open | M2 |
 | [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted | M3 |
 | [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted | M1 |
+| [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted | M1 |
 
 ## 14. Revision History
 
@@ -702,3 +743,5 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v0.4 | 2026-10-04 | Business rules catalogue (§2.7); test strategy and feature-level Definition of Done (§8.3, §8.4); soft delete, ELT, audit, secrets and UI language conventions (§1.3); German UI with language selector (F-15); Q4 closed and liability limit verified against the 1978 Protocol (§5); `carriage_charges`; developer account `EMK_DEV`; ADR-006 planned. |
 | v1.0 | 2026-10-04 | Accepted by the owner (Stage 2 closed). |
 | v1.1 | 2026-10-05 | Synthetic data generator moved from M0 to M1 (M0 plan). |
+| v1.2 | 2026-10-06 | Data conventions for M1 (§1.3, §3): surrogate keys `<entity>_id` `GENERATED ALWAYS AS IDENTITY`; ISO-code keys and validity periods for reference tables; `EMK_CURRENCIES`; flags `_yn`; audit column definitions (APEX user, proxy user, `SYSTIMESTAMP`); journal tables `<TABLE>_JN` for the change history (FR-09); data formats by international standards; BR-12: latest earlier ECB rate, ECB currencies only (`ecb_rate_yn`). Accepted by the owner with the M1 plan. |
+| v1.3 | 2026-10-07 | ADR-007: integration schema `EMK_INT` with generic landing (`EMK_INBOUND_RECORDS`, JSON as received), versioned source views and a batch job (§1.3, §3.2, §1.2 diagram); schemas and references rule (private synonyms, no schema-wide grants); monthly interval partitioning for append-only tables (§1.3, §12.2 corrected: Partitioning is included in Free); profiles per account type and `CREATE SESSION` only for the proxy account `EMK_DEV` (§7.2, §7.5); naming rationale (§7.5). Accepted by the owner. |

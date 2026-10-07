@@ -262,3 +262,5 @@ This created `.dbtools/` (project configuration and export filters, default bran
 - After a database restart, restart ORDS.
 - Check account expiry before it affects ORDS: `scripts/admin/check_password_expiry.sql`.
 - Back up schemas with Data Pump (`expdp`) before large changes.
+- Accounts of people use `ORA_CIS_PROFILE` (ADR-007): the password expires every 90 days and the account **locks after 120 days without login** (`ORA-28000`). Unlock as `SYS`: `ALTER USER emk_dev ACCOUNT UNLOCK;`.
+- Privileges used inside PL/SQL must be granted **directly** to the owning schema: roles are disabled in definer's-rights code. Symptom: a statement works in SQLcl but fails inside a package with an insufficient-privileges error.

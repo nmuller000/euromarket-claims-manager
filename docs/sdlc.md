@@ -4,7 +4,7 @@ This project follows a **lightweight AI-native SDLC** based on [The AI-native SD
 
 ## Current Stage
 
-> **Stage 3 — Build, milestone M0:** `intent.md` v1.1 and `spec.md` v1.1 are accepted. M0 is built and all its tests pass ([M0 plan](plans/M0-plan.md) §7); its pull request is next. Then: the M1 plan.
+> **Stage 3 — Build, milestone M1:** M0 is done (PR #6). `spec.md` v1.2 and the [M1 plan](plans/M1-plan.md) v1.0 are accepted. Next: increment M1a (data core).
 
 ## Stages
 
@@ -12,7 +12,7 @@ This project follows a **lightweight AI-native SDLC** based on [The AI-native SD
 |---|-------|----------|----------|----------------|--------|
 | 1 | **Plan** | Intent: problem, outcome, users, constraints, open questions | `docs/intent.md` | Owner accepts the intent | ✅ Done (2026-10-03) |
 | 2 | **Design** | Spec: requirements, diagrams, data model, success criteria + ADRs answering the open questions | `docs/spec.md`, `docs/adr/` | Owner accepts the spec (ADR-004 and ADR-005 accepted 2026-10-04) | ✅ Done (2026-10-04) |
-| 3 | **Build** | Plan per milestone (files, order, tests) + code | `docs/plans/<milestone>-plan.md`, code | Plan approved; code ready for review | 🟡 In progress (M0) |
+| 3 | **Build** | Plan per milestone (files, order, tests) + code | `docs/plans/<milestone>-plan.md`, code | Plan approved; code ready for review | 🟡 In progress (M1; M0 done) |
 | 4 | **Test** | Test and evaluation results | `tests/`, run logs | All milestone criteria pass | ⚪ Not started |
 | 5 | **Deploy** | Reviewed pull request merged to `main`; GitHub release for M5 | Pull request, release | PR approved and merged | ⚪ Not started |
 | 6 | **Maintain** | New intent for each issue or improvement | `docs/intent.md` or a new intent | Accepted intent restarts the loop | ⚪ Lightweight (see below) |
