@@ -1,11 +1,12 @@
 -- =============================================================================
 -- uninstall_admin.sql
--- Removes everything created by install_admin.sql: APEX workspace, developer
--- account, application schema (with all its objects), roles and tablespace
--- (with its datafile). Requires typing YES. Safe to run when objects are
--- already gone. The personal account DEV_USER is not touched.
+-- Removes everything created by install_admin.sql: APEX workspace, network
+-- ACL entries, developer account, application and integration schemas (with
+-- all their objects), roles and tablespaces (with their datafiles). Requires
+-- typing YES. Safe to run when objects are already gone. The personal account
+-- DEV_USER, the Oracle-supplied profile and UT3 (utPLSQL) are not touched.
 --
--- Close any session connected as EMK_DEV or EMK_APP (VS Code, SQLcl) first.
+-- Close any session connected as EMK_DEV, EMK_APP or EMK_INT (VS Code, SQLcl) first.
 -- Run from the repository root as SYS in FREEPDB1:
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/uninstall_admin.sql
 -- =============================================================================
@@ -19,9 +20,10 @@ WHENEVER SQLERROR EXIT FAILURE
 @@admin/00_check_context.sql
 
 PROMPT
-PROMPT This removes: workspace &emk_workspace, accounts &emk_dev_user and &emk_app_schema
-PROMPT (with ALL their objects), roles &emk_owner_role, &emk_dev_role, &emk_ro_role
-PROMPT and tablespace &emk_tablespace including its datafile.
+PROMPT This removes: workspace &emk_workspace, network ACL entries, accounts &emk_dev_user,
+PROMPT &emk_int_schema and &emk_app_schema (with ALL their objects), roles &emk_owner_role,
+PROMPT &emk_dev_role, &emk_ro_role and tablespaces &emk_tablespace, &emk_int_tablespace
+PROMPT including their datafiles.
 ACCEPT emk_confirm CHAR PROMPT 'Type YES to continue: '
 
 BEGIN
@@ -69,6 +71,17 @@ DECLARE
             DBMS_OUTPUT.PUT_LINE('Role ' || p_role || ' does not exist.');
         END IF;
     END drop_role;
+
+    PROCEDURE drop_tablespace (p_name IN VARCHAR2) IS
+    BEGIN
+        SELECT COUNT(*) INTO l_count FROM dba_tablespaces WHERE tablespace_name = UPPER(p_name);
+        IF l_count = 1 THEN
+            EXECUTE IMMEDIATE 'DROP TABLESPACE ' || p_name || ' INCLUDING CONTENTS AND DATAFILES';
+            DBMS_OUTPUT.PUT_LINE('Tablespace ' || p_name || ' dropped.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('Tablespace ' || p_name || ' does not exist.');
+        END IF;
+    END drop_tablespace;
 BEGIN
     -- 1. APEX workspace (keeps the schema; it is dropped below)
     SELECT COUNT(*) INTO l_count FROM apex_workspaces WHERE workspace = UPPER('&emk_workspace');
@@ -84,23 +97,35 @@ BEGIN
         DBMS_OUTPUT.PUT_LINE('Workspace &emk_workspace does not exist.');
     END IF;
 
-    -- 2. Accounts
+    -- 2. Network ACL entries of the project accounts (08_network_acl.sql)
+    FOR a IN (SELECT host, lower_port, upper_port, principal, privilege
+              FROM   dba_host_aces
+              WHERE  UPPER(principal) IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'), UPPER('&emk_dev_user')))
+    LOOP
+        DBMS_NETWORK_ACL_ADMIN.REMOVE_HOST_ACE(
+            host             => a.host,
+            lower_port       => a.lower_port,
+            upper_port       => a.upper_port,
+            ace              => xs$ace_type(privilege_list => xs$name_list(a.privilege),
+                                            principal_name => a.principal,
+                                            principal_type => xs_acl.ptype_db),
+            remove_empty_acl => TRUE);
+        DBMS_OUTPUT.PUT_LINE('ACL ' || a.privilege || ' on ' || a.host || ' for ' || a.principal || ' removed.');
+    END LOOP;
+
+    -- 3. Accounts
     drop_user('&emk_dev_user');
+    drop_user('&emk_int_schema');
     drop_user('&emk_app_schema');
 
-    -- 3. Roles
+    -- 4. Roles
     drop_role('&emk_owner_role');
     drop_role('&emk_dev_role');
     drop_role('&emk_ro_role');
 
-    -- 4. Tablespace and datafile
-    SELECT COUNT(*) INTO l_count FROM dba_tablespaces WHERE tablespace_name = UPPER('&emk_tablespace');
-    IF l_count = 1 THEN
-        EXECUTE IMMEDIATE 'DROP TABLESPACE &emk_tablespace INCLUDING CONTENTS AND DATAFILES';
-        DBMS_OUTPUT.PUT_LINE('Tablespace &emk_tablespace dropped.');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('Tablespace &emk_tablespace does not exist.');
-    END IF;
+    -- 5. Tablespaces and datafiles
+    drop_tablespace('&emk_int_tablespace');
+    drop_tablespace('&emk_tablespace');
 END;
 /
 

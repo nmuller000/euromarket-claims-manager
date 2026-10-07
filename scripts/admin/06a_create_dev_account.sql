@@ -12,9 +12,12 @@ ACCEPT emk_dev_pwd CHAR PROMPT 'Password for &emk_dev_user: ' HIDE
 -- Resume this run's install log (file name set by install_admin.sql)
 SPOOL &emk_log_file APPEND
 
+-- The profile is set here (not only in 06) so that its password verify
+-- function also checks this first password (ADR-007)
 CREATE USER &emk_dev_user IDENTIFIED BY "&emk_dev_pwd"
     DEFAULT TABLESPACE &emk_dev_default_ts
-    TEMPORARY TABLESPACE &emk_temp_ts;
+    TEMPORARY TABLESPACE &emk_temp_ts
+    PROFILE &emk_dev_profile;
 
 UNDEFINE emk_dev_pwd
 

@@ -39,11 +39,17 @@ GRANT CREATE SESSION,
       CREATE MINING MODEL
 TO &emk_owner_role;
 
--- Developer role: session and PL/SQL debugging for developer accounts.
--- Read access to EMK_APP objects is granted by the application layer.
+-- Developer role: privileges needed while developing in a PROXY session
+-- (EMK_DEV[EMK_APP], EMK_DEV[EMK_INT]). In a proxy session the roles of the
+-- target schema apply, so this role is granted to the schemas, not to EMK_DEV
+-- (ADR-007). Debugging from SQL Developer for VS Code uses DBMS_DEBUG_JDWP;
+-- the network permission (ACL "jdwp") is granted in 08_network_acl.sql.
+-- Not intended for a production environment.
 GRANT CREATE SESSION,
       DEBUG CONNECT SESSION
 TO &emk_dev_role;
+GRANT EXECUTE ON SYS.DBMS_DEBUG_JDWP TO &emk_dev_role;
+GRANT DEBUG   ON SYS.DBMS_DEBUG_JDWP TO &emk_dev_role;
 
 -- Read-only role: SELECT on analytical views is granted by the application
 -- layer (NL-to-SQL, extension X2).

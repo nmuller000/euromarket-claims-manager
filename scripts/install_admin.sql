@@ -26,24 +26,28 @@ SPOOL &emk_log_file
 @@admin/00_check_context.sql
 
 PROMPT
-PROMPT === 1/5 Tablespace ===
+PROMPT === 1/6 Tablespaces ===
 @@admin/03_create_tablespace.sql
 
 PROMPT
-PROMPT === 2/5 Roles ===
+PROMPT === 2/6 Roles ===
 @@admin/04_create_roles.sql
 
 PROMPT
-PROMPT === 3/5 Application schema ===
+PROMPT === 3/6 Schemas (application and integration) ===
 @@admin/05_create_schema.sql
 
 PROMPT
-PROMPT === 4/5 Developer account ===
+PROMPT === 4/6 Developer account ===
 @@admin/06_create_dev_user.sql
 
 PROMPT
-PROMPT === 5/5 APEX workspace ===
+PROMPT === 5/6 APEX workspace ===
 @@admin/07_create_workspace.sql
+
+PROMPT
+PROMPT === 6/6 Network access (ACL) ===
+@@admin/08_network_acl.sql
 
 PROMPT
 PROMPT === Verification ===
