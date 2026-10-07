@@ -27,6 +27,17 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Shipper** | The party that contracts the carriage (also called sender). |
 | **Tonne-kilometre (tkm)** | Unit of freight transport: one tonne of goods carried over one kilometre. |
 
+### Application Roles
+
+APEX application roles of application 200 (spec §7.1). Name and static identifier are identical; code checks the static identifier (`APEX_ACL.HAS_USER_ROLE`). Roles are exported with the application; user role assignments are not.
+
+| Role | Description |
+|------|-------------|
+| **ADMINISTRATOR** | Functional administrator (not the APEX workspace administrator or a database role): maintains reference data (countries, holidays, rules, rates, templates), imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to claims; cannot change claim status. |
+| **ANALYST** | Analyses claim KPIs: dashboards, regulatory search and natural-language questions translated to read-only SQL [EXT]. No access to individual claim records or reference data. |
+| **CLAIMS_HANDLER** | Handles CMR claims: creates and edits parties, shipments and claims, imports shipments, writes claim letters and receives alerts for own claims. The only role that changes claim status (BR-02). Read-only access to reference data. |
+| **COMPLIANCE_OFFICER** | Oversees compliance (CMR, GDPR, AI Act): read-only access to claims and reference data, regulatory search and dashboards; reviews the AI audit log and handles erasure requests [EXT]. Does not change claims. |
+
 ### Legal & Regulatory
 
 | Term | Definition |

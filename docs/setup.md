@@ -254,6 +254,17 @@ project init -name emk_claims -schemas EMK_APP -verbose
 
 This created `.dbtools/` (project configuration and export filters, default branch `main`) and appended an *Oracle SQLcl Projects* block to `.gitignore`. `src/` and `dist/` are filled from M1 with `project export` and `project stage`. A new clone does not need to run `project init` again.
 
+**APEX application 200** (`EuroMarket Claims Manager`, alias `EMK_CLAIMS`, workspace `EMK_CLAIMS`) was created once in App Builder and is exported, connected as `EMK_DEV[EMK_APP]`, with:
+
+```sql
+project export -objects APEX.200 -schemas EMK_APP -verbose
+```
+
+- The export is written to `src/database/emk_app/apex_apps/f200/`: `f200.sql` (installable) and `readable/` (YAML, for review and diffs).
+- Application roles are exported; user role assignments are not (`expAclAssignments: false`) and are created per environment.
+- `project export -list` reports "0 objects" for an APEX application: the counter covers database objects only. The debug output (`-debug`) shows `application_id=200` when the application is found.
+- `project export` overwrites files but does not delete the YAML of components removed in APEX. After deleting a component, remove its file from `readable/`, or delete `f200/` and export again.
+
 ## 6. Verification
 
 | Check | Command or action | Expected |

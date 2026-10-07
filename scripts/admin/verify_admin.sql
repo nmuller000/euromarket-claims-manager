@@ -1,7 +1,7 @@
 -- =============================================================================
 -- verify_admin.sql
 -- Read-only checks of the admin layer (M0 tests T-M0-02 and T-M0-03; M1 test
--- T-M1-23 for ADR-007). Prints PASS/FAIL per check and stops with an error if
+-- T-M1-23 for ADR-007; ORDS AutoREST check). Prints PASS/FAIL per check and stops with an error if
 -- any check fails.
 -- Called by install_admin.sql, or standalone:
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/verify_admin.sql
@@ -95,6 +95,18 @@ BEGIN
     WHERE  UPPER(principal) IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'), UPPER('&emk_dev_user'))
     AND    LOWER(host) NOT IN ('localhost', '127.0.0.1');
     check_result(l_count = 0, 'No network ACL for the project accounts outside the local machine');
+
+    -- ORDS: project schemas are not REST-enabled (AutoREST would publish tables over HTTP)
+    BEGIN
+        EXECUTE IMMEDIATE
+            'SELECT COUNT(*) FROM ords_metadata.ords_schemas '
+            || 'WHERE parsing_schema IN (:app, :int) AND status = ''ENABLED'''
+            INTO l_count USING UPPER('&emk_app_schema'), UPPER('&emk_int_schema');
+        check_result(l_count = 0, 'Schemas &emk_app_schema and &emk_int_schema are not REST-enabled in ORDS');
+    EXCEPTION
+        WHEN OTHERS THEN
+            check_result(FALSE, 'ORDS REST status not readable: ' || SQLERRM);
+    END;
 
     -- APEX workspace and its primary schema
     SELECT COUNT(*) INTO l_count FROM apex_workspaces
