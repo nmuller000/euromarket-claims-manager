@@ -1,0 +1,57 @@
+---
+- # ====== Role: CLAIMS_HANDLER ================================
+  id: 54025791628652025
+  identification: 
+    name: CLAIMS_HANDLER
+
+  advanced: 
+    static-id: CLAIMS_HANDLER
+
+  description: 
+    description: 'Handles CMR claims: creates and edits parties, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims.'
+
+  subscription: 
+    version-number: 93273251
+
+- # ====== Role: COMPLIANCE_OFFICER ============================
+  id: 54025877019652756
+  identification: 
+    name: COMPLIANCE_OFFICER
+
+  advanced: 
+    static-id: COMPLIANCE_OFFICER
+
+  description: 
+    description: 'Oversees compliance: read-only access to claims and reference data, regulatory search and dashboards; reviews the AI audit log and handles erasure requests [EXT].'
+
+  subscription: 
+    version-number: 93273313
+
+- # ====== Role: ANALYST =======================================
+  id: 54025993839654096
+  identification: 
+    name: ANALYST
+
+  advanced: 
+    static-id: ANALYST
+
+  description: 
+    description: 'Analyses claim KPIs: dashboards, regulatory search and natural-language questions translated to read-only SQL [EXT]. No access to individual claim records.'
+
+  subscription: 
+    version-number: 93273362
+
+- # ====== Role: ADMINISTRATOR =================================
+  id: 54026095751655167
+  identification: 
+    name: ADMINISTRATOR
+
+  advanced: 
+    static-id: ADMINISTRATOR
+
+  description: 
+    description: Maintains reference data (countries, holidays, rules, rates, templates), imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to claims.
+
+  subscription: 
+    version-number: 93273397
+
