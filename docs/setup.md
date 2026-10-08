@@ -265,6 +265,16 @@ project export -objects APEX.200 -schemas EMK_APP -verbose
 - `project export -list` reports "0 objects" for an APEX application: the counter covers database objects only. The debug output (`-debug`) shows `application_id=200` when the application is found.
 - `project export` overwrites files but does not delete the YAML of components removed in APEX. After deleting a component, remove its file from `readable/`, or delete `f200/` and export again.
 
+### 5.5 PL/SQL Debugger (SQL Developer for VS Code)
+
+Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXECUTE`/`DEBUG` on `SYS.DBMS_DEBUG_JDWP` through `EMK_DEVELOPER_ROLE`, and the ACL `jdwp` on `localhost` / `127.0.0.1` (script `08`). Steps ([Oracle documentation](https://docs.oracle.com/en/database/oracle/sql-developer-vscode/24.4/sqdnx/debugging-pl-sql-objects.html)):
+
+1. Connect as `EMK_DEV[EMK_APP]` (or `EMK_DEV[EMK_INT]`).
+2. Compile the package for debugging. If the editor icon does not take effect, use `ALTER PACKAGE <name> COMPILE DEBUG;` and check `user_plsql_object_settings.plsql_debug = 'TRUE'`.
+3. Set a breakpoint, choose the subprogram in **Execute → Debug**, enter the parameters, and select **127.0.0.1** as the debugger address. Do not run the ACL code the extension offers: the ACL already exists.
+4. **Stop** ends the debugged session with `ORA-30687: session terminated by debugger` (expected); its uncommitted work is rolled back.
+5. Afterwards recompile without debug information: `ALTER PACKAGE <name> COMPILE;`.
+
 ## 6. Verification
 
 | Check | Command or action | Expected |
