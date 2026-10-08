@@ -2,6 +2,9 @@
 -- 00_config.sql
 -- Single place for names, paths and sizes used by the admin scripts (ADR-005).
 -- No secrets here: passwords are always entered at run time.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 -- Target pluggable database

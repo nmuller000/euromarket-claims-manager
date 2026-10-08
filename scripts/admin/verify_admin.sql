@@ -5,6 +5,9 @@
 -- any check fails.
 -- Called by install_admin.sql, or standalone:
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/verify_admin.sql
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SERVEROUTPUT ON

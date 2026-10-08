@@ -15,6 +15,9 @@
 --      (enter the same new password)
 --   3. Start ORDS (start_ords_apex.bat) and open APEX.
 -- ORDS keeps working with its open connections until it is restarted.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-04
 -- =============================================================================
 
 WHENEVER SQLERROR EXIT FAILURE

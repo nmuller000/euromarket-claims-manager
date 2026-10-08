@@ -14,6 +14,9 @@
 --
 -- Impact: the database restarts (1-2 min). All sessions (SQLcl, VS Code,
 -- ORDS, APEX) are disconnected; uncommitted work is rolled back.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-04
 -- =============================================================================
 
 WHENEVER SQLERROR EXIT FAILURE

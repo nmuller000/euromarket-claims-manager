@@ -3,6 +3,9 @@
 -- Called by 07_create_workspace.sql only when &emk_workspace does not exist.
 -- Creates the workspace and its administrator. Values entered at run time are
 -- not stored in any file.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 -- Pause the install log so that the name and email typed below are not logged

@@ -10,6 +10,9 @@
 -- are asked only when the object is created, and never stored.
 -- Not included: 01_vector_memory.sql and 02_account_hardening.sql
 -- (environment hardening, run separately; see docs/setup.md).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SERVEROUTPUT ON

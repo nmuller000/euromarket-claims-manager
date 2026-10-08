@@ -7,6 +7,9 @@
 -- (see docs/setup.md). Folders are not created from SQL because the datafile
 -- is written by the database server, not by the SQLcl client.
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 DECLARE

@@ -12,6 +12,9 @@
 -- revoked, so the account never loses the right to log in.
 -- The personal account DEV_USER is outside the project and is not touched.
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 -- Ask for a password only when the account must be created

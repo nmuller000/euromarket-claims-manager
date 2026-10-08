@@ -9,6 +9,9 @@
 -- Close any session connected as EMK_DEV, EMK_APP or EMK_INT (VS Code, SQLcl) first.
 -- Run from the repository root as SYS in FREEPDB1:
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/uninstall_admin.sql
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SERVEROUTPUT ON

@@ -10,6 +10,9 @@
 -- M2:  SMTP host and port for e-mail alerts (to be added here).
 --
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-07
 -- =============================================================================
 
 DECLARE

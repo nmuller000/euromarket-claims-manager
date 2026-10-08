@@ -5,6 +5,9 @@
 --   &emk_app_schema  application schema: operational data and business APIs
 --   &emk_int_schema  integration schema: inbound data and batch jobs (ADR-007)
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 DECLARE

@@ -2,6 +2,9 @@
 -- 06a_create_dev_account.sql
 -- Called by 06_create_dev_user.sql only when &emk_dev_user does not exist.
 -- The password is entered hidden and is never stored.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 -- Pause the install log during the prompt (the masked input would reveal the length)

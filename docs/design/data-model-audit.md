@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.0 (2026-10-07) |
+| **Status** | Accepted v1.1 (2026-10-08): `created_on` / `jn_on` described as UTC date-time (§2) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan steps 1, 3–5) |
@@ -25,7 +25,7 @@ Append-only tables: the application log, the business history of claim statuses,
 | Option | Pros | Cons |
 |--------|------|------|
 | A. `created_at` as `TIMESTAMP WITH LOCAL TIME ZONE` in append-only tables | Partition on the audit column directly | Breaks the standard audit block (one exception per table type) |
-| **B. Virtual column `created_on DATE` = UTC day of `created_at`** | Keeps the standard audit block; no storage (virtual); the partition boundaries are UTC days | One more column per table |
+| **B. Virtual column `created_on DATE` = UTC date and time of `created_at`** | Keeps the standard audit block; no storage (virtual); the partition boundaries are UTC months | One more column per table |
 | C. Interval on the numeric id (e.g., every 1,000,000 rows) | Simple | Partitions are not aligned with time, so retention "older than 90 days" cannot drop whole partitions |
 
 **Proposed: B.**
@@ -36,6 +36,13 @@ created_on DATE GENERATED ALWAYS AS (CAST(SYS_EXTRACT_UTC(created_at) AS DATE)) 
 PARTITION BY RANGE (created_on) INTERVAL (NUMTOYMINTERVAL(1, 'MONTH'))
   (PARTITION p_initial VALUES LESS THAN (DATE '2026-01-01'))
 ```
+
+**`created_on` keeps the time (no `TRUNC`, decided 2026-10-08).** `CAST(… AS DATE)` keeps hours, minutes and seconds in UTC, so the column is a UTC date-time, not a day:
+
+| Option | Effect |
+|--------|--------|
+| **Keep the expression (chosen)** | Partitioning is the same: a row belongs to the month of its UTC date-time, and month boundaries (`DATE '2026-11-01'` = midnight UTC) are exact. Queries filter by range (`created_on >= DATE '…' AND created_on < DATE '…'`), which works with or without a time part and allows partition pruning. No design change and one function less per row |
+| `TRUNC(CAST(SYS_EXTRACT_UTC(created_at) AS DATE))` | A real day, but it adds nothing to partitioning or purge; it would change an accepted design (spec, three area documents) for naming only |
 
 | Rule | Reason |
 |------|--------|
@@ -96,7 +103,7 @@ One journal per operational table: `EMK_PARTIES_JN`, `EMK_PARTY_ROLES_JN`, `EMK_
 | `jn_operation` | `CHAR(1 CHAR)` | No | `U` = update, `D` = delete |
 | `jn_at` | `TIMESTAMP WITH TIME ZONE` | No | `DEFAULT ON NULL SYSTIMESTAMP`: when the change happened |
 | `jn_by` | `VARCHAR2(255 CHAR)` | No | User expression of the audit block: who made the change |
-| `jn_on` | `DATE` (virtual) | — | UTC day of `jn_at`; partition key (§2) |
+| `jn_on` | `DATE` (virtual) | — | UTC date and time of `jn_at`; partition key (§2) |
 | *all columns of the base table* | Same types | Yes | The **previous** values (`:OLD`), including its audit columns; no constraints |
 
 | Constraint / index | Definition | Reason |
@@ -119,7 +126,7 @@ One journal per operational table: `EMK_PARTIES_JN`, `EMK_PARTY_ROLES_JN`, `EMK_
 
 | # | Point | Decision (2026-10-07) |
 |---|-------|----------|
-| 1 | Partition key for append-only tables | **Decided: B** — virtual UTC date column (§2) |
+| 1 | Partition key for append-only tables | **Decided: B** — virtual UTC date-time column (§2); the time part is kept, no `TRUNC` (2026-10-08) |
 | 2 | Retention in Release 1 | **Decided:** `EMK_LOG` 90 days (purge procedure in `EMK_LOG_PKG`, tested in T-M1-28; a scheduled job comes with the other jobs in M2); journals and status history kept; legal retention periods decided in X4 (FR-40) |
 | 3 | Column names of the status history | **Decided:** use the audit block (`created_at`, `created_by`) instead of `changed_at`, `changed_by`; spec diagram updated (v1.7) |
 | 4 | Journals only on update and delete | **Decided: yes** (§5) |

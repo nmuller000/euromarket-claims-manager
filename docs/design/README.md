@@ -35,7 +35,7 @@ Defined **once** here; every table document only states which part applies ("aud
 |------|----------|--------|-----------|--------|
 | Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_APP` | M1a | Accepted v1.0 |
 | Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_APP` | M1a | Accepted v1.1 |
-| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_APP` | M1a | Accepted v1.0 |
+| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_APP` | M1a | Accepted v1.1 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
 
 ## Common Rules (spec §1.3)

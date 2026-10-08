@@ -2,6 +2,9 @@
 -- 01_vector_memory_verify.sql
 -- Called by 01_vector_memory.sql. Ensures FREEPDB1 is open and reopens after
 -- each restart, then verifies VECTOR_MEMORY_SIZE. Do not run directly.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-04
 -- =============================================================================
 
 ALTER SESSION SET CONTAINER = CDB$ROOT;

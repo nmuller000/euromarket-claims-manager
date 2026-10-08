@@ -3,6 +3,9 @@
 -- Creates the project roles if they do not exist and grants their privileges.
 -- No default roles (CONNECT, RESOURCE, DBA) are used (ADR-005).
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 DECLARE

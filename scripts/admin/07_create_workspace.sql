@@ -4,6 +4,9 @@
 -- Administrator name, email and password are asked only when the workspace
 -- is created, and never stored.
 -- Called by install_admin.sql (requires 00_config.sql).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SQLFORMAT

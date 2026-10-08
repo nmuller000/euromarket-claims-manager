@@ -22,6 +22,9 @@
 -- current folder. install.log is moved to logs/. params.sql.tmp could not be
 -- deleted from within the session (probably still held by SQLcl): remove it by
 -- hand after the run (ignored by Git, not needed).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SERVEROUTPUT ON

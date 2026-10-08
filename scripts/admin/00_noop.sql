@@ -2,4 +2,7 @@
 -- 00_noop.sql
 -- Intentionally empty. Used when a conditional step has nothing to do
 -- (e.g., the object already exists, so no password needs to be asked).
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-06
 -- =============================================================================

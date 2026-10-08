@@ -2,6 +2,9 @@
 -- 01_vector_memory_apply.sql
 -- Called by 01_vector_memory.sql when VECTOR_MEMORY_SIZE is not yet active.
 -- Do not run directly.
+--
+-- Author: Natalia Müller
+-- Since:  2026-10-04
 -- =============================================================================
 
 PROMPT
