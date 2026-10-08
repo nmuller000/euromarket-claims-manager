@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.8 (2026-10-08) |
+| **Status** | Accepted v1.9 (2026-10-08) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -64,6 +64,7 @@ Solid lines = MVP. Dashed lines = extensions.
 | **Technical timestamps** | `TIMESTAMP WITH TIME ZONE`, stored in UTC (audit, logs, alerts). |
 | **Time zone for deadlines** | Calendar days in the country of delivery; public holidays from `EMK_PUBLIC_HOLIDAYS` of that country (Q4 decision, §5). |
 | **Data formats** | International standards only: countries ISO 3166-1 alpha-2; currencies ISO 4217 (with minor units); dates and timestamps ISO 8601 (`YYYY-MM-DD`, UTC offset) in files and interfaces; languages ISO 639 alpha-2; phone numbers ITU-T E.164; email syntax RFC 5322; EU VAT numbers in VIES format; weights in kg (SI); CSV files RFC 4180 in UTF-8; database character set AL32UTF8. Values are stored neutrally (`DATE`, `NUMBER`) and displayed in the user's language format (F-15). Codes from other systems (EU `EL`, `UK`; VAT prefix `XI`) are never used as keys. |
+| **Check constraints** | Patterns in `REGEXP_LIKE` constraints use explicit character lists and the match parameter `'c'`, never ranges: Oracle evaluates ranges such as `[A-Z]` with the session sort (`NLS_SORT`), so a linguistic sort accepts lower-case letters and the rule would depend on the client ([design README](design/README.md#common-rules-spec-13)). |
 | **Currencies** | Amounts stored in their original currency (ISO 4217 code). KPIs are converted to **EUR** with daily rates in `EMK_EXCHANGE_RATES` (source: ECB reference rates, loaded as reference data). |
 | **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS`. An APEX error-handling function shows clear messages to users. |
 | **Logging** | `EMK_LOG_PKG` writes to `EMK_LOG` in an autonomous transaction (level, module, message, context, timestamp). |
@@ -762,3 +763,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.6 | 2026-10-07 | Party roles (`EMK_PARTY_ROLES`: a company may have several roles; BR-16); places of taking over and delivery on shipments (CMR Art. 6(1)(d)). Scope: no tariffs, employees or address tables (claims management, not a TMS). Accepted by the owner. |
 | v1.7 | 2026-10-07 | Audit area design: status history uses the audit block (`created_at`, `created_by`) plus `reason`; append-only tables are partitioned on a virtual UTC date column (interval partitioning does not accept `TIMESTAMP WITH TIME ZONE`); `EMK_LOG` retention 90 days. Accepted by the owner. |
 | v1.8 | 2026-10-08 | §1.3: PL/SQL naming of subprograms (verbs, no type prefixes) and code documentation rule (headers inside the object, `COMMENT ON` for tables, author headers in scripts); partition key `created_on` / `jn_on` described as UTC date-time (the time part is kept; design audit v1.1). Accepted by the owner. |
+| v1.9 | 2026-10-08 | §1.3 *Check constraints*: REGEXP patterns without ranges (found in M1a step 2: `[A-Z]` accepted lower case with `NLS_SORT = GERMAN`). Accepted by the owner. |

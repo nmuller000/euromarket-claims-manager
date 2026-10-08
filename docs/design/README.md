@@ -33,8 +33,8 @@ Defined **once** here; every table document only states which part applies ("aud
 
 | Area | Document | Schema | Milestone | Status |
 |------|----------|--------|-----------|--------|
-| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_APP` | M1a | Accepted v1.0 |
-| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_APP` | M1a | Accepted v1.1 |
+| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_APP` | M1a | Accepted v1.1 |
+| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_APP` | M1a | Accepted v1.2 |
 | Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_APP` | M1a | Accepted v1.1 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
 
@@ -44,4 +44,5 @@ Defined **once** here; every table document only states which part applies ("aud
 - Text `VARCHAR2(n CHAR)`; amounts `NUMBER(p,s)`; business dates `DATE`; technical timestamps `TIMESTAMP WITH TIME ZONE`; flags `<name>_yn CHAR(1 CHAR)` with a check `IN ('Y','N')`.
 - Audit block on every table (above); soft delete and journals on operational tables; validity periods on reference tables; monthly interval partitioning on append-only tables.
 - No tablespace or storage clauses in the DDL (default tablespace of the schema).
+- **REGEXP patterns in constraints use explicit character lists and the match parameter `'c'`, never ranges** (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`, not `[A-Z]`). Oracle evaluates ranges with the session sort (`NLS_SORT`): with a linguistic sort such as `GERMAN`, `[A-Z]` also matches lower-case letters, so the same constraint accepts or rejects a value depending on the client. Character classes without ranges (`[:space:]`) are not affected. Found in M1a step 2 (tested with `GERMAN`, `BINARY_CI`, `GERMAN_AI`, `BINARY`).
 - Data formats follow international standards (spec §1.3 *Data formats*).

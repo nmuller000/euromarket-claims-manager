@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.0 (2026-10-07) |
+| **Status** | Accepted v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan step 2 and 6) |
@@ -31,16 +31,17 @@ erDiagram
 
 ## 2. `EMK_COUNTRIES`
 
-Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstein (EEA, not CMR parties) — 60 rows.
+Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstein (EEA, not CMR parties) — 60 rows. Territories to which a party extended the CMR (Gibraltar, Isle of Man) are out of scope.
 
 | Column | Type | Null | Default | Rule / reason |
 |--------|------|------|---------|---------------|
 | `country_code` | `CHAR(2 CHAR)` | No | — | **PK.** ISO 3166-1 alpha-2 |
-| `name` | `VARCHAR2(100 CHAR)` | No | — | English short name (ISO 3166); longest in scope ≈ 52 characters; other languages in `EMK_COUNTRY_NAMES` |
+| `name` | `VARCHAR2(100 CHAR)` | No | — | **Display name** in English: short name of the EU Publications Office authority table *Countries and territories* (used by the EU Interinstitutional Style Guide), e.g. `United Kingdom`, `Moldova`; other languages in `EMK_COUNTRY_NAMES` from the same table |
+| `iso_name` | `VARCHAR2(100 CHAR)` | No | — | English short name of ISO 3166-1, e.g. `United Kingdom of Great Britain and Northern Ireland`; traceability to the standard (longest in scope ≈ 52 characters) |
 | `eu_vat_prefix` | `CHAR(2 CHAR)` | Yes | — | EU VAT (VIES) prefix; differs from ISO for Greece (`EL`); `NULL` outside the EU |
 | `eu_member_yn` | `CHAR(1 CHAR)` | No | `'N'` | EU member |
 | `eea_member_yn` | `CHAR(1 CHAR)` | No | `'N'` | EEA member (EU + IS, LI, NO); explains why IS and LI are in scope; GDPR territory |
-| `cmr_party_since` | `DATE` | Yes | — | Date from which the CMR applies to the country (entry into force, UN Treaty Collection); `NULL` = not a party. The CMR applies to a carriage if loading **or** delivery is in a country that is a party on that date (CMR Art. 1) |
+| `cmr_party_since` | `DATE` | Yes | — | Date from which the CMR applies to the country; `NULL` = not a party. The CMR applies to a carriage if loading **or** delivery is in a country that is a party on that date (CMR Art. 1). Calculated from the UN Treaty Collection (rule below) |
 | `valid_from` | `DATE` | No | `DATE '1900-01-01'` | Validity period (spec §1.3) |
 | `valid_to` | `DATE` | Yes | — | `NULL` = still valid |
 | *audit block* | — | — | — | `created_*`, `updated_*` |
@@ -48,21 +49,30 @@ Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstei
 | Constraint | Definition |
 |------------|------------|
 | `EMK_COUNTRIES_PK` | `PRIMARY KEY (country_code)` |
-| `EMK_COUNTRIES_CODE_CK` | `REGEXP_LIKE(country_code, '^[A-Z]{2}$')` |
-| `EMK_COUNTRIES_VAT_CK` | `eu_vat_prefix IS NULL OR REGEXP_LIKE(eu_vat_prefix, '^[A-Z]{2}$')` |
+| `EMK_COUNTRIES_CODE_CK` | `REGEXP_LIKE(country_code, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}$', 'c')` |
+| `EMK_COUNTRIES_VAT_CK` | `eu_vat_prefix IS NULL OR REGEXP_LIKE(eu_vat_prefix, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}$', 'c')` |
 | `EMK_COUNTRIES_EU_VAT_CK` | `(eu_member_yn = 'Y' AND eu_vat_prefix IS NOT NULL) OR (eu_member_yn = 'N' AND eu_vat_prefix IS NULL)` — every EU member has a VAT prefix, nobody else |
 | `EMK_COUNTRIES_EEA_CK` | `eu_member_yn = 'N' OR eea_member_yn = 'Y'` — an EU member is always in the EEA |
 | `EMK_COUNTRIES_EU_YN_CK`, `EMK_COUNTRIES_EEA_YN_CK` | Each flag `IN ('Y','N')` |
 | `EMK_COUNTRIES_VALID_CK` | `valid_to IS NULL OR valid_to >= valid_from` |
 
+**Rule for `cmr_party_since`** (CMR Art. 43, decided 2026-10-08): the UN publishes the date of **deposit** of each instrument, not the date of entry into force.
+
+| Case | Date stored |
+|------|-------------|
+| Ratification or accession (a) | Deposit + 90 days (Art. 43(2)), e.g. Germany 1961-11-07 → 1962-02-05 |
+| The first five instruments (France, the former Yugoslavia, Austria, the Netherlands, Italy) | 1961-07-02, entry into force of the Convention (Art. 43(1)) |
+| Succession (d) (successor states of Yugoslavia and Czechoslovakia) | Date of the notification of succession: conservative (it never applies the CMR too early); all are before the data range (2020) |
+
 ## 3. `EMK_CURRENCIES`
 
-EUR plus the currencies with an ECB reference rate, plus historic currencies still referenced (HRK until 2022-12-31, BGN until 2025-12-31).
+EUR plus the 29 currencies with an ECB reference rate (table of 2026-10-07), plus historic currencies still referenced (HRK until 2022-12-31, BGN until 2025-12-31) — 32 rows. **RUB is excluded:** the ECB suspended its rate on 2022-03-01, so a RUB amount could not be converted to EUR (BR-12); such amounts are recorded in EUR or USD.
 
 | Column | Type | Null | Default | Rule / reason |
 |--------|------|------|---------|---------------|
 | `currency_code` | `CHAR(3 CHAR)` | No | — | **PK.** ISO 4217 alphabetic code |
-| `name` | `VARCHAR2(100 CHAR)` | No | — | English ISO 4217 name; other languages in `EMK_CURRENCY_NAMES` |
+| `name` | `VARCHAR2(100 CHAR)` | No | — | **Display name** in English from the EU authority table *Currencies*, e.g. `Zloty`, `US dollar`; other languages in `EMK_CURRENCY_NAMES` from the same table |
+| `iso_name` | `VARCHAR2(100 CHAR)` | No | — | ISO 4217 currency name (SIX lists), e.g. `Zloty`, `Yen`; traceability to the standard |
 | `minor_units` | `NUMBER(1)` | No | — | ISO 4217 decimals (EUR 2, JPY 0, max 4); used to round converted amounts |
 | `ecb_rate_yn` | `CHAR(1 CHAR)` | No | `'N'` | `Y` = the ECB publishes a reference rate. Amounts may use EUR or a currency with `ecb_rate_yn = 'Y'` that is valid on the business date (BR-12; checked in the APIs, because a date rule cannot be a foreign key) |
 | `valid_from` | `DATE` | No | `DATE '1900-01-01'` | Validity period |
@@ -72,7 +82,7 @@ EUR plus the currencies with an ECB reference rate, plus historic currencies sti
 | Constraint | Definition |
 |------------|------------|
 | `EMK_CURRENCIES_PK` | `PRIMARY KEY (currency_code)` |
-| `EMK_CURRENCIES_CODE_CK` | `REGEXP_LIKE(currency_code, '^[A-Z]{3}$')` |
+| `EMK_CURRENCIES_CODE_CK` | `REGEXP_LIKE(currency_code, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{3}$', 'c')` |
 | `EMK_CURRENCIES_MINOR_CK` | `minor_units BETWEEN 0 AND 4` |
 | `EMK_CURRENCIES_ECB_EUR_CK` | `currency_code <> 'EUR' OR ecb_rate_yn = 'N'` — EUR is the base, it has no rate |
 | `EMK_CURRENCIES_ECB_YN_CK` | `ecb_rate_yn IN ('Y','N')` |
@@ -95,7 +105,7 @@ Names in languages other than English, for the German UI (F-15) and German lette
 |------------|------------|
 | `EMK_COUNTRY_NAMES_PK` / `EMK_CURRENCY_NAMES_PK` | `PRIMARY KEY (<code>, language_code)` — also serves the foreign key |
 | `EMK_COUNTRY_NAMES_COUNTRIES_FK` / `EMK_CURRENCY_NAMES_CURRENCIES_FK` | `FOREIGN KEY (<code>) REFERENCES` the base table |
-| `…_LANG_CK` | `REGEXP_LIKE(language_code, '^[a-z]{2}$') AND language_code <> 'en'` — English lives in the base table |
+| `…_LANG_CK` | `REGEXP_LIKE(language_code, '^[abcdefghijklmnopqrstuvwxyz]{2}$', 'c') AND language_code <> 'en'` — English lives in the base table |
 
 **Lookup:** `COALESCE(translated name for the session language, base name)`. In M1 only `de` rows are loaded.
 
@@ -129,11 +139,17 @@ Daily ECB reference rates: **units of the currency per 1 EUR**. Loaded in M1b th
 | 2 | CMR applicability by date | **Decided:** `cmr_party_since DATE` instead of `cmr_party_yn` (spec v1.4) |
 | 3 | Exchange-rate history | **Decided:** from 2020-01-01 (≈ 45,000 rows); adjust to the generator's date range |
 | 4 | Numeric ISO 4217 code (e.g., 978) | **Decided:** not stored; no interface in Release 1 needs it |
+| 5 | Name sources | **Decided (2026-10-08):** two columns: `name` (EU authority tables, displayed; German translations from the same tables) and `iso_name` (ISO standard, traceability) |
+| 6 | `cmr_party_since` | **Decided (2026-10-08):** calculated with CMR Art. 43 (§2) |
+| 7 | RUB | **Decided (2026-10-08):** excluded (no ECB rate since 2022-03-01) |
+| 8 | REGEXP patterns | **Decided (2026-10-08):** explicit character lists and match parameter `'c'`, never ranges. Found in step 2: with the session sort `GERMAN`, `'^[A-Z]{2}$'` accepted `'xx'` (ranges follow `NLS_SORT`); see [README](README.md#common-rules-spec-13) |
 
 ## 7. Sources
 
 - ISO — [ISO 3166 Country Codes](https://www.iso.org/iso-3166-country-codes.html) · [ISO 4217 Currency Codes](https://www.iso.org/iso-4217-currency-codes.html) · [ISO 639](https://www.iso.org/standard/74575.html)
 - SIX (ISO 4217 maintenance agency) — [Currency code lists](https://www.six-group.com/en/products-services/financial-information/data-standards.html)
+- EU Publications Office — [EU Vocabularies: Countries and territories](https://op.europa.eu/en/web/eu-vocabularies/countries-and-territories) · [Currencies](https://op.europa.eu/en/web/eu-vocabularies/authority-tables) (labels in English and German; read through the SPARQL endpoint `publications.europa.eu/webapi/rdf/sparql`)
+- CMR text — [Art. 1, 43 (UNECE)](https://unece.org/fileadmin/DAM/trans/conventn/cmr_e.pdf)
 - European Union — [Interinstitutional Style Guide, Annex A6](https://style-guide.europa.eu/en/content/-/isg/topic?identifier=annex-a6-country-and-territory-codes) · [VIES](https://ec.europa.eu/taxation_customs/vies/)
 - UN Treaty Collection — [CMR Convention, status](https://treaties.un.org/Pages/ViewDetails.aspx?src=TREATY&mtdsg_no=XI-B-11&chapter=11&clang=_en)
 - ECB — [Euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) · [Framework for the euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/pdf/exchange/Frameworkfortheeuroforeignexchangereferencerates.en.pdf) · [Bulgaria](https://www.ecb.europa.eu/euro/changeover/bulgaria/html/index.en.html) · [Croatia](https://www.ecb.europa.eu/press/pr/date/2022/html/ecb.pr220712~b97dd38de3.en.html)

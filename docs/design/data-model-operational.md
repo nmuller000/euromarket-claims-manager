@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.1 (2026-10-07) |
+| **Status** | Accepted v1.2 (2026-10-08): REGEXP patterns without ranges (design README, Common Rules) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
@@ -53,7 +53,7 @@ erDiagram
 |--------------------|------------|--------|
 | `EMK_PARTIES_PK` | `PRIMARY KEY (party_id)` | |
 | `EMK_PARTIES_VAT_UK` | `UNIQUE (vat_number)` | One party per VAT number |
-| `EMK_PARTIES_VAT_CK` | `vat_number IS NULL OR REGEXP_LIKE(vat_number, '^[A-Z]{2}[0-9A-Z]{2,12}$')` | VIES: 2-letter prefix + a block of 2–12 digits or letters. Member-state formats differ; special characters in some national formats are not verified — widen the check if a valid number is rejected |
+| `EMK_PARTIES_VAT_CK` | `vat_number IS NULL OR REGEXP_LIKE(vat_number, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2,12}$', 'c')` | VIES: 2-letter prefix + a block of 2–12 digits or letters. Member-state formats differ; special characters in some national formats are not verified — widen the check if a valid number is rejected |
 | `EMK_PARTIES_LANG_CK` | `language_code IN ('en','de')` | Languages of Release 1 |
 | `EMK_PARTIES_COUNTRIES_FK` + index `EMK_PARTIES_COUNTRY_IX` | FK to `EMK_COUNTRIES` | FK index rule |
 | Business rule (API) | The VAT prefix matches the country's `eu_vat_prefix` (`XI` allowed for `GB`) | Cross-table rule: not expressible as a check constraint |
@@ -101,7 +101,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_CONTACTS_PK` | `PRIMARY KEY (contact_id)` |
 | `EMK_CONTACTS_PARTIES_FK` + `EMK_CONTACTS_PARTY_IX` | FK to `EMK_PARTIES` + index |
 | `EMK_CONTACTS_EMAIL_CK` | `email IS NULL OR REGEXP_LIKE(email, '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$')` — basic syntax only; full RFC 5322 validation is not practical in a check |
-| `EMK_CONTACTS_PHONE_CK` | `phone IS NULL OR REGEXP_LIKE(phone, '^\+[1-9][0-9]{1,14}$')` |
+| `EMK_CONTACTS_PHONE_CK` | `phone IS NULL OR REGEXP_LIKE(phone, '^\+[123456789][0123456789]{1,14}$', 'c')` |
 
 **Why isolated:** erasure and pseudonymisation (FR-41, X4) touch one table and its journal only.
 
@@ -159,7 +159,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 | Constraint / index | Definition | Reason |
 |--------------------|------------|--------|
 | `EMK_CLAIMS_PK`, `EMK_CLAIMS_CLAIM_NO_UK` | PK; `UNIQUE (claim_no)` | |
-| `EMK_CLAIMS_CLAIM_NO_CK` | `REGEXP_LIKE(claim_no, '^CLM-[0-9]{4}-[0-9]{6}$')` | |
+| `EMK_CLAIMS_CLAIM_NO_CK` | `REGEXP_LIKE(claim_no, '^CLM-[0123456789]{4}-[0123456789]{6}$', 'c')` | |
 | `EMK_CLAIMS_TYPE_CK` | `claim_type IN ('TOTAL_LOSS','PARTIAL_LOSS','DAMAGE','DELAY')` | |
 | `EMK_CLAIMS_APPARENT_CK` | `(claim_type IN ('PARTIAL_LOSS','DAMAGE') AND damage_apparent_yn IN ('Y','N')) OR (claim_type IN ('TOTAL_LOSS','DELAY') AND damage_apparent_yn IS NULL)` | The flag exists exactly where the CMR distinguishes it |
 | `EMK_CLAIMS_STATUS_CK` | `status IN ('DRAFT','SUBMITTED','UNDER_REVIEW','NEGOTIATION','RESOLVED','REJECTED','ESCALATED')` | Valid values; the transitions are checked by the API |
