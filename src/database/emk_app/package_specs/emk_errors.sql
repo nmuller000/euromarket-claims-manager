@@ -48,6 +48,9 @@ create or replace package emk_app.emk_errors as
     c_invalid_amount constant pls_integer := -20302;  -- BR-11, amount rules
     e_invalid_amount exception;
     pragma exception_init ( e_invalid_amount, -20302 );
+    c_document_immutable constant pls_integer := -20303;  -- D-41, file of a claim document cannot change
+    e_document_immutable exception;
+    pragma exception_init ( e_document_immutable, -20303 );
 
     -- Reference data ---------------------------------------------------------
     c_reference_not_valid constant pls_integer := -20401;  -- code outside its validity period (e.g. HRK in 2024)
@@ -57,4 +60,4 @@ end emk_errors;
 /
 
 
--- sqlcl_snapshot {"hash":"10e3a02d944a781c2b1f60fcfe3f1d02f20a0ca4","type":"PACKAGE_SPEC","name":"EMK_ERRORS","schemaName":"EMK_APP","sxml":""}
+-- sqlcl_snapshot {"hash":"905ee1d42a7d28c1364e15916725000b1a69a356","type":"PACKAGE_SPEC","name":"EMK_ERRORS","schemaName":"EMK_APP","sxml":""}
