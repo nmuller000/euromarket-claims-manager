@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.10 (2026-10-09) |
+| **Status** | Accepted v1.11 (2026-10-09) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -64,7 +64,7 @@ Solid lines = MVP. Dashed lines = extensions.
 | **Technical timestamps** | `TIMESTAMP WITH TIME ZONE`, stored in UTC (audit, logs, alerts). |
 | **Time zone for deadlines** | Calendar days in the country of delivery; public holidays from `EMK_PUBLIC_HOLIDAYS` of that country (Q4 decision, §5). |
 | **Data formats** | International standards only: countries ISO 3166-1 alpha-2; currencies ISO 4217 (with minor units); dates and timestamps ISO 8601 (`YYYY-MM-DD`, UTC offset) in files and interfaces; languages ISO 639 alpha-2; phone numbers ITU-T E.164; email syntax RFC 5322; EU VAT numbers in VIES format; weights in kg (SI); CSV files RFC 4180 in UTF-8; database character set AL32UTF8. Values are stored neutrally (`DATE`, `NUMBER`) and displayed in the user's language format (F-15). Codes from other systems (EU `EL`, `UK`; VAT prefix `XI`) are never used as keys. |
-| **Check constraints** | Patterns in `REGEXP_LIKE` constraints use explicit character lists and the match parameter `'c'`, never ranges: Oracle evaluates ranges such as `[A-Z]` with the session sort (`NLS_SORT`), so a linguistic sort accepts lower-case letters and the rule would depend on the client ([design README](design/README.md#common-rules-spec-13)). |
+| **Check constraints** | Patterns in `REGEXP_LIKE` constraints use explicit character lists and the match parameter `'c'`, never ranges: Oracle evaluates ranges such as `[A-Z]` with the session sort (`NLS_SORT`), so a linguistic sort accepts lower-case letters and the rule would depend on the client. A check is satisfied when its condition is TRUE or unknown, so every optional column compared in a check needs an explicit `IS NOT NULL` ([design README](design/README.md#common-rules-spec-13)). |
 | **Normalised values** | Values that a key or a calculation depends on are guaranteed by check constraints, not only by the APIs: business dates have no time part (`col = TRUNC(col)`); the CMR note number is stored trimmed and upper case (`cmr_note_no = UPPER(TRIM(cmr_note_no))`, BR-03). |
 | **Currencies** | Amounts stored in their original currency (ISO 4217 code). KPIs are converted to **EUR** with daily rates in `EMK_EXCHANGE_RATES` (source: ECB reference rates, loaded as reference data). |
 | **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS`. An APEX error-handling function shows clear messages to users. |
@@ -767,3 +767,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.8 | 2026-10-08 | §1.3: PL/SQL naming of subprograms (verbs, no type prefixes) and code documentation rule (headers inside the object, `COMMENT ON` for tables, author headers in scripts); partition key `created_on` / `jn_on` described as UTC date-time (the time part is kept; design audit v1.1). Accepted by the owner. |
 | v1.9 | 2026-10-08 | §1.3 *Check constraints*: REGEXP patterns without ranges (found in M1a step 2: `[A-Z]` accepted lower case with `NLS_SORT = GERMAN`). Accepted by the owner. |
 | v1.10 | 2026-10-09 | BR-17 (CMR applicability, Art. 1); §1.3 *Normalised values*: business dates without time and CMR note number trimmed and upper case guaranteed by check constraints. Accepted by the owner. |
+| v1.11 | 2026-10-09 | §1.3 *Check constraints*: explicit `IS NOT NULL` for optional columns (a check accepts unknown; found in M1a step 5). Accepted by the owner. |

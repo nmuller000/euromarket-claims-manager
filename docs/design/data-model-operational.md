@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.3 (2026-10-09): shipments — CMR note number and business dates normalised by check constraints; BR-17 (CMR applicability) |
+| **Status** | Accepted v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
@@ -136,7 +136,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_SHIPMENTS_DATES_CK` | `(delivery_date IS NULL OR delivery_date >= pickup_date) AND (agreed_delivery_date IS NULL OR agreed_delivery_date >= pickup_date)` | |
 | `EMK_SHIPMENTS_WEIGHT_CK` | `gross_weight_kg > 0` | |
 | `EMK_SHIPMENTS_PACKAGES_CK` | `packages IS NULL OR packages > 0` | |
-| `EMK_SHIPMENTS_CHARGES_CK` | `(carriage_charges IS NULL AND currency_code IS NULL) OR (carriage_charges >= 0 AND currency_code IS NOT NULL)` | An amount always has its currency |
+| `EMK_SHIPMENTS_CHARGES_CK` | `(carriage_charges IS NULL AND currency_code IS NULL) OR (carriage_charges IS NOT NULL AND carriage_charges >= 0 AND currency_code IS NOT NULL)` | An amount always has its currency, and a currency only comes with an amount |
 | FK + index per foreign key | `…_SHIPPER_IX`, `…_CONSIGNEE_IX`, `…_ORIGIN_IX`, `…_DEST_IX`, `…_CURRENCY_IX` (carrier: covered by `…_CMR_NOTE_UK`) | FK index rule; carrier and countries are also dashboard filters |
 
 ## 5. `EMK_CLAIMS`
@@ -163,9 +163,10 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_CLAIMS_PK`, `EMK_CLAIMS_CLAIM_NO_UK` | PK; `UNIQUE (claim_no)` | |
 | `EMK_CLAIMS_CLAIM_NO_CK` | `REGEXP_LIKE(claim_no, '^CLM-[0123456789]{4}-[0123456789]{6}$', 'c')` | |
 | `EMK_CLAIMS_TYPE_CK` | `claim_type IN ('TOTAL_LOSS','PARTIAL_LOSS','DAMAGE','DELAY')` | |
-| `EMK_CLAIMS_APPARENT_CK` | `(claim_type IN ('PARTIAL_LOSS','DAMAGE') AND damage_apparent_yn IN ('Y','N')) OR (claim_type IN ('TOTAL_LOSS','DELAY') AND damage_apparent_yn IS NULL)` | The flag exists exactly where the CMR distinguishes it |
+| `EMK_CLAIMS_APPARENT_CK` | `(claim_type IN ('PARTIAL_LOSS','DAMAGE') AND damage_apparent_yn IS NOT NULL AND damage_apparent_yn IN ('Y','N')) OR (claim_type IN ('TOTAL_LOSS','DELAY') AND damage_apparent_yn IS NULL)` | The flag exists exactly where the CMR distinguishes it |
 | `EMK_CLAIMS_STATUS_CK` | `status IN ('DRAFT','SUBMITTED','UNDER_REVIEW','NEGOTIATION','RESOLVED','REJECTED','ESCALATED')` | Valid values; the transitions are checked by the API |
-| `EMK_CLAIMS_AMOUNTS_CK` | `(claimed_amount IS NULL OR claimed_amount >= 0) AND (settled_amount IS NULL OR (settled_amount >= 0 AND settled_amount <= claimed_amount)) AND (recovered_amount IS NULL OR (recovered_amount >= 0 AND recovered_amount <= settled_amount))` | BR-11 in the database |
+| `EMK_CLAIMS_AMOUNTS_CK` | `(claimed_amount IS NULL OR claimed_amount >= 0) AND (settled_amount IS NULL OR (claimed_amount IS NOT NULL AND settled_amount BETWEEN 0 AND claimed_amount)) AND (recovered_amount IS NULL OR (settled_amount IS NOT NULL AND recovered_amount BETWEEN 0 AND settled_amount))` | BR-11 in the database. A check is satisfied when its condition is TRUE **or unknown**, and a comparison with `NULL` is unknown: without `IS NOT NULL` a settled amount without a claimed amount would pass (found 2026-10-09). The order is claimed → settled → recovered |
+| `EMK_CLAIMS_DAY_CK` | `registration_date`, `joint_check_date`, `reservation_date`, `written_claim_date`, `carrier_rejection_date` each `IS NULL OR col = TRUNC(col)` | Business dates without time (spec §1.3 *Normalised values*) |
 | `EMK_CLAIMS_CURRENCY_CK` | `currency_code IS NOT NULL OR (claimed_amount IS NULL AND settled_amount IS NULL AND recovered_amount IS NULL)` | Amounts always have a currency |
 | `EMK_CLAIMS_REJECTION_CK` | `carrier_rejection_date IS NULL OR (written_claim_date IS NOT NULL AND carrier_rejection_date >= written_claim_date)` | A rejection answers a written claim (Art. 32(2)) |
 | `EMK_CLAIMS_WEIGHT_CK` | `weight_short_kg IS NULL OR weight_short_kg > 0` | Comparison with the shipment weight is a cross-table rule (API) |
@@ -193,8 +194,9 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_CLAIM_DOCUMENTS_PK`, FK + `…_CLAIM_IX` | PK; FK to `EMK_CLAIMS` + index |
 | `…_TYPE_CK`, `…_MIME_CK` | Allowed values above |
 | `…_SIZE_CK` | `file_size BETWEEN 1 AND 10485760` (the API also checks `DBMS_LOB.GETLENGTH(content) = file_size`) |
+| Trigger `EMK_CLAIM_DOCUMENTS_BU` | Besides the audit columns, rejects any change of `content`, `file_name`, `mime_type` or `file_size` with `EMK_ERRORS.c_document_immutable` (-20303). The journal does not copy the file, so an update would lose the original without any copy; documents are evidence (CMR Art. 30). To replace a file: new document row + soft delete of the old one. `doc_type`, `extracted_text` (M3) and the soft-delete columns may change |
 
-**LOB storage:** SecureFiles (the default since Oracle 12c). Advanced LOB Compression and Deduplication are included in the Free edition, but are **not** used: PDF, JPEG and PNG are already compressed, and duplicate documents are rare. Storage clauses would also be removed by the SQLcl export (`segmentAttributes: false`; to verify).
+**LOB storage:** SecureFiles (the default since Oracle 12c). Advanced LOB Compression and Deduplication are included in the Free edition, but are **not** used: PDF, JPEG and PNG are already compressed, and duplicate documents are rare. Storage clauses would also be removed by the SQLcl export (`segmentAttributes: false`; verified in the step 5 export: the table has no LOB storage clause).
 
 **Volume vs. the Free edition:** at the design volume (≈ 30,000 documents per year) documents of ~1 MB would need ~30 GB per year, above the 12 GB of user data in the Free edition. Release 1 uses small synthetic documents; production would store documents in object storage (spec §12.2).
 
