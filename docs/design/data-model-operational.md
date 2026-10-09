@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.2 (2026-10-08): REGEXP patterns without ranges (design README, Common Rules) |
+| **Status** | Accepted v1.3 (2026-10-09): shipments — CMR note number and business dates normalised by check constraints; BR-17 (CMR applicability) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
@@ -130,7 +130,9 @@ A company can play **several roles** (a forwarder that also carries with its own
 |--------------------|------------|--------|
 | `EMK_SHIPMENTS_PK` | `PRIMARY KEY (shipment_id)` | |
 | `EMK_SHIPMENTS_CMR_NOTE_UK` | `UNIQUE (carrier_id, cmr_note_no)` | BR-03: never reused by the same carrier, including soft-deleted rows (the key ignores `deleted_yn`). Its leading column also indexes the carrier foreign key, so `…_CARRIER_IX` is not needed |
-| `EMK_SHIPMENTS_COUNTRIES_CK` | `origin_country <> destination_country` | Cross-border carriage only (CMR Art. 1) |
+| `EMK_SHIPMENTS_CMR_NOTE_CK` | `cmr_note_no = UPPER(TRIM(cmr_note_no))` | BR-03 relies on one spelling per number (`abc123 ` and `ABC123` would otherwise be two keys); inner spaces and hyphens are kept as printed by the carrier |
+| `EMK_SHIPMENTS_COUNTRIES_CK` | `origin_country <> destination_country` | Cross-border carriage only (CMR Art. 1); the second condition of Art. 1 (one country is a CMR party on the pickup date) is **BR-17**, checked in the API because it reads `EMK_COUNTRIES` |
+| `EMK_SHIPMENTS_DAY_CK` | `pickup_date = TRUNC(pickup_date) AND (delivery_date IS NULL OR delivery_date = TRUNC(delivery_date)) AND (agreed_delivery_date IS NULL OR agreed_delivery_date = TRUNC(agreed_delivery_date))` | Business dates have no time part (spec §1.3): deadlines are counted in calendar days |
 | `EMK_SHIPMENTS_DATES_CK` | `(delivery_date IS NULL OR delivery_date >= pickup_date) AND (agreed_delivery_date IS NULL OR agreed_delivery_date >= pickup_date)` | |
 | `EMK_SHIPMENTS_WEIGHT_CK` | `gross_weight_kg > 0` | |
 | `EMK_SHIPMENTS_PACKAGES_CK` | `packages IS NULL OR packages > 0` | |

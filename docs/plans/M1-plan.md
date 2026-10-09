@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 3 — Build ([docs/sdlc.md](../sdlc.md)) |
-| **Status** | Accepted v1.5 (2026-10-08) |
+| **Status** | Accepted v1.6 (2026-10-09) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-06 |
 | **Input** | [spec.md](../spec.md) v1.3 §1.3, §2.1, §2.7, §3, §4, §7, §8 · [ADR-005](../adr/ADR-005-deployment-and-database-setup.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [M0 plan](M0-plan.md) |
@@ -19,7 +19,7 @@ M1 is delivered in three increments. Each has its own branch, tests and pull req
 
 | Increment | Content | Features / Requirements | Rules |
 |-----------|---------|-------------------------|-------|
-| **M1a — Data core** | **Physical data model design (approved before any table is created)**; admin layer extension (`EMK_INT`, `EMK_INT_DATA`, profiles, `EMK_DEV` privileges, ADR-007); reference and operational tables, audit triggers and journals (partitioned); `EMK_ERRORS`, `EMK_LOG_PKG`, `EMK_SECURITY_PKG`, `EMK_PARTY_API`, `EMK_SHIPMENT_API`, `EMK_CLAIM_API` (state machine); APEX application 200 **skeleton with its roles**; synthetic data generator; unit tests | F-01, F-02 (data) · FR-01, 02, 04, 05, 09 | BR-01 to 04, 11, 13, 16 |
+| **M1a — Data core** | **Physical data model design (approved before any table is created)**; admin layer extension (`EMK_INT`, `EMK_INT_DATA`, profiles, `EMK_DEV` privileges, ADR-007); reference and operational tables, audit triggers and journals (partitioned); `EMK_ERRORS`, `EMK_LOG_PKG`, `EMK_SECURITY_PKG`, `EMK_PARTY_API`, `EMK_SHIPMENT_API`, `EMK_CLAIM_API` (state machine); APEX application 200 **skeleton with its roles**; synthetic data generator; unit tests | F-01, F-02 (data) · FR-01, 02, 04, 05, 09 | BR-01 to 04, 11, 13, 16, 17 |
 | **M1b — Import** | Integration schema `EMK_INT`: generic landing (`EMK_INBOUND_RECORDS`, JSON as received, partitioned), batches, source contracts, versioned source views, `EMK_INBOUND_PKG`, job per batch; batch APIs in `EMK_APP`; two sources: shipment file and ECB rates | F-03 · FR-03 | BR-12 (rates), BR-14 |
 | **M1c — APEX app** | Application 200 pages on the M1a skeleton: authorization schemes, parties, shipments, claims and documents, file import with batch status, KPI views in EUR and dashboards; export through the SQLcl project | F-01 to F-04 (UI) · FR-08 | BR-02 (UI), BR-12 |
 
@@ -57,7 +57,7 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | 4 | `EMK_SHIPMENTS` (+ `_JN`, triggers) | Shipments; `cmr_note_no` unique including soft-deleted rows (BR-03) | 2, 3 |
 | 5 | `EMK_CLAIMS`, `EMK_CLAIM_DOCUMENTS`, `EMK_CLAIM_STATUS_HISTORY` (+ `_JN`, triggers) | Claims, documents (BLOB), status history; amount check constraints (BR-11) | 4 |
 | 6 | `EMK_EXCHANGE_RATES` | Daily ECB rates (filled in M1b) | 2 |
-| 7 | `EMK_PARTY_API`, `EMK_SHIPMENT_API` | Create, update, soft delete (BR-13) | 3, 4 |
+| 7 | `EMK_PARTY_API`, `EMK_SHIPMENT_API` | Create, update, soft delete (BR-13), restore (D-39); party roles (BR-16); CMR applicability (BR-17) | 3, 4 |
 | 8 | `EMK_CLAIM_API` + sequence `EMK_CLAIM_NO_SEQ` | Create claim (`claim_no` = `CLM-YYYY-NNNNNN`, BR-04, BR-11), state machine (BR-01, BR-02 through `EMK_SECURITY_PKG`), status history, soft delete | 1, 5 |
 | 9 | Views `EMK_V_PARTIES`, `EMK_V_SHIPMENTS`, `EMK_V_CLAIMS` | Active rows only (`deleted_yn = 'N'`) | 3–5 |
 | 10 | `tests/`: `TEST_EMK_*` suites, `install_tests.sql`, `run_tests.sql` | Unit tests; one command (SC-QA-02); coverage report | 1–9 |
@@ -122,11 +122,12 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | T-M1-27 | The raw payload is kept unchanged | Payload after processing equals the payload received | ADR-007 | b |
 | T-M1-28 | Old inbound and log data is purged by partition | Data older than the retention is removed with `DROP PARTITION`; newer data remains | Spec §1.3 (Partitioning) | b |
 | T-M1-29 | Shipment parties have the matching role | Shipment with a carrier without the `CARRIER` role rejected; a company with several roles accepted; removing a role used by a shipment rejected | BR-16 | a |
+| T-M1-30 | A shipment outside the CMR is rejected | Iceland → Liechtenstein rejected (no CMR party); Oman → Germany before 2020-12-22 accepted only because Germany is a party; a pickup date before both parties' dates rejected | BR-17 | a |
 
 ## 6. Definition of Done
 
 - Each increment: its tests pass, pull request reviewed and merged.
-- M1: all tests T-M1-01 to T-M1-29 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
+- M1: all tests T-M1-01 to T-M1-30 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
 - `docs/setup.md`, the glossary and the Spanish copies describe the new steps.
 
 ## 7. Open Points
@@ -155,3 +156,4 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | v1.3 | 2026-10-07 | Reference and operational data areas accepted (`docs/design/`); T-M1-05 updated to BR-03 unique per carrier (spec v1.5). Accepted by the owner. |
 | v1.4 | 2026-10-07 | Party roles (`EMK_PARTY_ROLES`, BR-16) in step 3; test T-M1-29; places of taking over and delivery (spec v1.6). Accepted by the owner. |
 | v1.5 | 2026-10-08 | Step 0: check that the application ID is free; open point 3 verified (APEX session and role assignment behaviour); export option `partitioning: true` moved from step 12 to step 1. Accepted by the owner. |
+| v1.6 | 2026-10-09 | Step 7: restore, BR-16 and BR-17 in the APIs; test T-M1-30 (CMR applicability). Accepted by the owner. |
