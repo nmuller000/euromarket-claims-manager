@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
+| **Status** | Accepted v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_APP` |
 | **Milestone** | M1a (plan step 2 and 6) |
@@ -128,6 +128,7 @@ Daily ECB reference rates: **units of the currency per 1 EUR**. Loaded in M1b th
 | `EMK_EXCHANGE_RATES_RATE_CK` | `units_per_eur > 0` | |
 | `EMK_EXCHANGE_RATES_NOT_EUR_CK` | `currency_code <> 'EUR'` | EUR is the base (rate 1, not stored) |
 | `EMK_EXCHANGE_RATES_SOURCE_CK` | `source IN ('ECB')` | |
+| `EMK_EXCHANGE_RATES_DAY_CK` | `rate_date = TRUNC(rate_date)` | Business date without time (spec §1.3 *Normalised values*) |
 
 **BR-12 lookup** (function in M1b/M1c): the rate of the latest `rate_date <= business date` for the currency; EUR returns 1. With the primary key, this is an index range scan.
 
