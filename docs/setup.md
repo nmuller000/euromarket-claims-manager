@@ -156,8 +156,8 @@ Local email server for alert testing; to be documented when milestone M2 starts.
 ## 4. Project Setup
 
 ```powershell
-git clone https://github.com/nmuller000/ia-apex-project.git
-cd ia-apex-project
+git clone https://github.com/nmuller000/euromarket-claims-manager.git
+cd euromarket-claims-manager
 npm ci                     # installs ESLint from package-lock.json
 npm run lint
 ```
