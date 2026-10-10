@@ -4,7 +4,8 @@ Web application for managing **cross-border road freight claims** under the **CM
 
 Built on **Oracle AI Database 26ai** and **Oracle APEX**. The MVP runs entirely in the database, with no external services.
 
-> **Status:** in development — Stage 3 (Build), milestone **M0 — Foundations**. See [docs/sdlc.md](docs/sdlc.md).
+> **Status:** in development — Stage 3 (Build), milestone **M1 — Claims core** (M1a: data core). See [docs/sdlc.md](docs/sdlc.md).
+> Every design decision is taken for a **professional, multi-developer setting** and recorded as an [Architecture Decision Record](docs/adr/README.md) with the options considered, the reasons and, where possible, a test on the target versions.
 
 ## Technology
 
@@ -15,24 +16,59 @@ Built on **Oracle AI Database 26ai** and **Oracle APEX**. The MVP runs entirely 
 | Deployment | SQLcl 25.4: admin scripts + SQLcl `project` (Liquibase) — [ADR-005](docs/adr/ADR-005-deployment-and-database-setup.md) |
 | Tests | utPLSQL 3.2.3 |
 
+## Architecture at a Glance
+
+```mermaid
+flowchart LR
+    user["Users<br/>4 APEX roles"] --> ords["ORDS"] --> apex["APEX app<br/>parsing schema EMK_UI"]
+    apex -->|"EXECUTE APIs · SELECT views"| api["EMK_API<br/>business APIs, views, log"]
+    int["EMK_INT<br/>file import, ECB rates"] -->|"EXECUTE APIs"| api
+    api -->|"object privileges"| data[("EMK_DATA<br/>tables, journals")]
+```
+
+Business rules live in PL/SQL APIs, never in APEX pages. Details: [API design](docs/design/api-design.md) · [data model](docs/design/README.md).
+
+## Key Design Decisions
+
+| Area | How it is solved | Status | Reference |
+|------|------------------|--------|-----------|
+| **Schema separation** | Data (`EMK_DATA`), business code and views (`EMK_API`), application connect user (`EMK_UI`, owns nothing), integration (`EMK_INT`). The application cannot bypass the APIs: `EMK_UI` has no privilege on any table. Follows the SmartDB / PinkDB paradigms | Decided; implemented in M1a | [ADR-008](docs/adr/ADR-008-schema-separation.md) |
+| **Developer access (proxy accounts)** | Owner schemas have **no password**. Each developer has a personal account with `CREATE SESSION` only and **proxy** access to the schemas of his or her work: `ANA[EMK_DATA]` models tables, `JUAN[EMK_API]` writes APIs and cannot drop a table. Every change is attributed to a person (`PROXY_USER`) and access is revoked per person. Compared with 23ai schema privileges by test | Decided | [ADR-007](docs/adr/ADR-007-integration-schema-and-account-hardening.md), [ADR-008](docs/adr/ADR-008-schema-separation.md) |
+| **Deployment account** | `EMK_DEPLOY`, the pipeline user, deploys with **schema privileges limited to the project schemas** (23ai `GRANT … ON SCHEMA`); nobody deploys as an owner | Decided | [ADR-008](docs/adr/ADR-008-schema-separation.md) |
+| **Environments (DTAP)** | One PDB per environment: DEV, TEST (developer tests), ACCEPTANCE (customer tests, signed acceptance), PRODUCTION (defined). Same schema names everywhere, so **the same artifact** moves through all environments. Outside DEV: no developer proxy, APEX runtime-only, only `EMK_DEPLOY` changes objects | Decided | [ADR-009](docs/adr/ADR-009-environments.md) |
+| **Least privilege and hardening** | No `DBA`/`CONNECT`/`RESOURCE`; privileges used by PL/SQL granted directly (roles are disabled in definer's-rights code, verified); CIS password profile for people; outbound network only by ACL script; no REST-enabled project schema; automated verification (`verify_admin.sql`) | Implemented (M0, M1a) | [ADR-005](docs/adr/ADR-005-deployment-and-database-setup.md), [ADR-007](docs/adr/ADR-007-integration-schema-and-account-hardening.md) |
+| **Data integrity** | Rules within a row as check constraints (formats without NLS-dependent ranges, explicit `IS NOT NULL`, business dates without time); rules across tables in the APIs; optimistic locking against lost updates; immutable claim documents | Implemented (tables); APIs in progress | [spec §1.3](docs/spec.md), [API design](docs/design/api-design.md) |
+| **Audit trail** | Audit columns on every table (who and when, including the APEX user); journal tables keep the previous version of every changed row; soft delete only; technical log in an autonomous transaction | Implemented | [Data model](docs/design/README.md) |
+| **Scalability** | Monthly interval partitioning of append-only tables (logs, journals) with purge by partition; an index on every foreign key; stateless ORDS (several nodes behind a load balancer); growth path to Enterprise Edition or Autonomous Database without code changes | Designed; partitioning implemented | [spec §12](docs/spec.md) |
+| **Backup, recovery and release rollback** | Archive log mode, backups, guaranteed restore point before each deployment, decision matrix for rollback vs. fix-forward, backward-compatible schema changes, pilot users through feature flags | Planned | ADR-010 (in preparation) |
+| **Database auditing, encryption in transit, performance targets** | Unified Auditing of privileged activity; HTTPS outside DEV; measurable page response targets at the design volume | Planned | ADR-010 (in preparation) |
+
+## Data Protection (GDPR by Design)
+
+- **No personal data leaves the database in the MVP:** semantic search uses an ONNX model inside Oracle AI Database; there are no external calls.
+- **Personal data is isolated** in one table (`EMK_CONTACTS`) and its journal, which keeps erasure and pseudonymisation simple (GDPR Art. 17, 25).
+- **Test data:** synthetic in development and test; anonymised in acceptance; never real personal data without protection.
+- **Planned AI extensions:** every external AI call goes through a single gateway that **redacts or pseudonymises personal data before the call** and re-identifies it only inside the database (FR-21); a test criterion requires zero unredacted personal data in outbound payloads (SC-SEC-04); every call is logged with its redacted payload (FR-23); providers process data in the EU/EEA under a data processing agreement.
+
 ## Documentation
 
 | Document | Content |
 |----------|---------|
 | [Intent](docs/intent.md) | Problem, users, scope |
 | [Specification](docs/spec.md) | Requirements, business rules, design, test strategy |
+| [Architecture decisions](docs/adr/README.md) | ADRs: options, reasons, verification |
+| [Data model](docs/design/README.md) · [API design](docs/design/api-design.md) | Physical design, packages, call flows |
 | [SDLC](docs/sdlc.md) | Development stages and current status |
 | [Setup guide](docs/setup.md) | Local environment and database installation |
-| [Architecture decisions](docs/adr/README.md) | ADRs |
 | [Glossary](docs/glossary.md) | Functional and technical terms |
 
 ## Repository Layout
 
 | Folder | Content |
 |--------|---------|
-| `docs/` | Intent, specification, plans, ADRs, glossary, setup guide |
-| `scripts/` | Admin scripts run as `SYS` (tablespace, roles, schema, workspace, utPLSQL) |
-| `.dbtools/`, `src/`, `dist/` | SQLcl project: application objects and APEX app 200 (from M1) |
+| `docs/` | Intent, specification, plans, ADRs, design, glossary, setup guide |
+| `scripts/` | Admin scripts run as `SYS` (tablespaces, roles, schemas, accounts, workspace, network ACL, utPLSQL, verification) |
+| `.dbtools/`, `src/`, `dist/` | SQLcl project: database objects and APEX app 200 |
 | `static/` | APEX static files (JavaScript, CSS) |
 
 ## Author

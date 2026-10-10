@@ -37,6 +37,7 @@ Defined **once** here; every table document only states which part applies ("aud
 | Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_APP` | M1a | Accepted v1.5 |
 | Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_APP` | M1a | Accepted v1.1 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
+| PL/SQL APIs (architecture, packages, flows) | [api-design.md](api-design.md) | `EMK_APP` | M1a | Accepted v1.0 |
 
 ## Common Rules (spec §1.3)
 

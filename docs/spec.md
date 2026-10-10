@@ -54,7 +54,7 @@ flowchart LR
     gw -.-> llm["LLM provider<br/>EU/EEA [EXT]"]
 ```
 
-Solid lines = MVP. Dashed lines = extensions.
+Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in detail: [docs/design/api-design.md](design/api-design.md).
 
 ### 1.3 Cross-Cutting Conventions
 
