@@ -43,6 +43,10 @@ Business rules live in PL/SQL APIs, never in APEX pages. Details: [API design](d
 | **Backup, recovery and release rollback** | Archive log mode, backups, guaranteed restore point before each deployment, decision matrix for rollback vs. fix-forward, backward-compatible schema changes, pilot users through feature flags | Planned | ADR-010 (in preparation) |
 | **Database auditing, encryption in transit, performance targets** | Unified Auditing of privileged activity; HTTPS outside DEV; measurable page response targets at the design volume | Planned | ADR-010 (in preparation) |
 
+## How This Project Is Built
+
+The project follows an AI-native development life cycle ([docs/sdlc.md](docs/sdlc.md)): every stage (intent, specification, plan, code, tests, review) produces a versioned artifact. I work with **Claude Code** (Anthropic) as a pair programmer: I set the requirements and the architecture, compare the options it researches, take the decisions (recorded as ADRs), review every change and verify it with tests on the target versions (Oracle AI Database 26ai, APEX 24.2, ORDS 25.4, SQLcl 25.4).
+
 ## Data Protection (GDPR by Design)
 
 - **No personal data leaves the database in the MVP:** semantic search uses an ONNX model inside Oracle AI Database; there are no external calls.
