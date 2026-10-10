@@ -16,6 +16,7 @@
 -- ORDS, APEX) are disconnected; uncommitted work is rolled back.
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-04
 -- =============================================================================
 

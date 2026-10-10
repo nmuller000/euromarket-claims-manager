@@ -17,6 +17,7 @@
 -- ORDS keeps working with its open connections until it is restarted.
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-04
 -- =============================================================================
 

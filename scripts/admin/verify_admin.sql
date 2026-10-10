@@ -7,6 +7,7 @@
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/verify_admin.sql
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-06
 -- =============================================================================
 

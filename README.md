@@ -74,3 +74,7 @@ Business rules live in PL/SQL APIs, never in APEX pages. Details: [API design](d
 ## Author
 
 Natalia Müller ([@nmuller000](https://github.com/nmuller000))
+
+## License
+
+Copyright (c) 2026 Natalia Müller. **All rights reserved.** This repository is published for viewing and evaluation only; no part of it (code, scripts or documentation) may be copied, modified, distributed or used without the author's prior written consent. See [LICENSE](LICENSE).

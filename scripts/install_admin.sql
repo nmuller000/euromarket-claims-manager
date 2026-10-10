@@ -12,6 +12,7 @@
 -- (environment hardening, run separately; see docs/setup.md).
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-06
 -- =============================================================================
 

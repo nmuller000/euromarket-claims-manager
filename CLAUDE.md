@@ -12,7 +12,7 @@ Context: docs/sdlc.md (current stage) · docs/intent.md · docs/spec.md · docs/
 ## Conventions
 - Database objects use the `EMK_` prefix. Admin scripts are idempotent (existence checks, `MERGE` for data); application changes go through SQLcl `project`.
 - Business rules live in PL/SQL packages, not in APEX page logic.
-- PL/SQL naming and documentation follow spec §1.3 (*Naming*, *Code documentation*): subprograms named with verbs, no `p_`/`f_` prefixes; `/** */` headers inside the object; `COMMENT ON` for tables.
+- PL/SQL naming and documentation follow spec §1.3 (*Naming*, *Code documentation*): subprograms named with verbs, no `p_`/`f_` prefixes; `/** */` headers inside the object with `@author` and the line `Copyright (c) 2026 Natalia Müller. All rights reserved.`; `COMMENT ON` for tables. Repository is all rights reserved (LICENSE).
 - AI calls only through `EMK_AI_GATEWAY_PKG`; embeddings are computed in-database.
 - No secrets in files; passwords are entered at run time.
 - Documentation in English, concise; new terms are added to docs/glossary.md.

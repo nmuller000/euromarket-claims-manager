@@ -3,6 +3,7 @@
 -- Stops the run unless connected as SYS to the target PDB (&emk_pdb).
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-06
 -- =============================================================================
 

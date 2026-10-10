@@ -24,6 +24,7 @@
 -- hand after the run (ignored by Git, not needed).
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-06
 -- =============================================================================
 

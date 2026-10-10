@@ -7,6 +7,7 @@
 -- then moved to logs/install_utplsql_<timestamp>_official.log.
 --
 -- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
 -- Since:  2026-10-06
 -- =============================================================================
 
