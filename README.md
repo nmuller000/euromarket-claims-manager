@@ -40,8 +40,21 @@ Business rules live in PL/SQL APIs, never in APEX pages. Details: [API design](d
 | **Data integrity** | Rules within a row as check constraints (formats without NLS-dependent ranges, explicit `IS NOT NULL`, business dates without time); rules across tables in the APIs; optimistic locking against lost updates; immutable claim documents | Implemented (tables); APIs in progress | [spec §1.3](docs/spec.md), [API design](docs/design/api-design.md) |
 | **Audit trail** | Audit columns on every table (who and when, including the APEX user); journal tables keep the previous version of every changed row; soft delete only; technical log in an autonomous transaction | Implemented | [Data model](docs/design/README.md) |
 | **Scalability** | Monthly interval partitioning of append-only tables (logs, journals) with purge by partition; an index on every foreign key; stateless ORDS (several nodes behind a load balancer); growth path to Enterprise Edition or Autonomous Database without code changes | Designed; partitioning implemented | [spec §12](docs/spec.md) |
-| **Backup, recovery and release rollback** | Archive log mode, backups, guaranteed restore point before each deployment, decision matrix for rollback vs. fix-forward, backward-compatible schema changes, pilot users through feature flags | Planned | ADR-010 (in preparation) |
-| **Database auditing, encryption in transit, performance targets** | Unified Auditing of privileged activity; HTTPS outside DEV; measurable page response targets at the design volume | Planned | ADR-010 (in preparation) |
+| **Backup, recovery and release rollback** | Archive log mode, RMAN backups and a [recovery runbook](docs/operations/recovery-runbook.md) with restore drills; targets derived from the business (RPO ≤ 1 h, RTO ≤ 4 h); guaranteed restore point before each deployment, decision matrix for rollback vs. fix-forward, backward-compatible schema changes, pilot users through feature flags | Decided | [ADR-010](docs/adr/ADR-010-operations-and-release-strategy.md) |
+| **Database auditing, encryption in transit, performance targets** | Unified Auditing of DDL, grants and logons of the project schemas, 1 year online plus a pseudonymised archive; HTTPS outside DEV; page response p95 < 2 s and Apdex at the design volume, shown on an operations page | Decided | [ADR-010](docs/adr/ADR-010-operations-and-release-strategy.md) |
+
+## Edition Constraints and Growth Path
+
+The project runs on **Oracle AI Database 26ai Free** on one machine. What this edition or setup does not allow is **not implemented**, but it is documented with its replacement and growth path, so that a production project includes it ([ADR-010 §8](docs/adr/ADR-010-operations-and-release-strategy.md), [spec §12.3](docs/spec.md)).
+
+| Not available here | Replaced by | Growth path |
+|--------------------|-------------|-------------|
+| Data Guard (standby database) | Archived logs backed up every 30 min, restore from backup | Enterprise Edition + Data Guard: RPO of seconds or zero, failover in minutes |
+| RAC, parallel backup and recovery | One instance, one RMAN channel | Enterprise Edition / Autonomous Database |
+| Flashback Transaction, tablespace point-in-time recovery | Journal tables, PDB point-in-time recovery and flashback | Enterprise Edition |
+| Online encryption of existing tablespaces | Tablespaces created encrypted | Enterprise Edition + Advanced Security |
+| More than 2 CPUs, 2 GB RAM, 12 GB data | Partitioning, sizing, document size limit | Enterprise Edition / Autonomous Database |
+| Separate servers, disks and off-site backups | All environments as PDBs of one CDB; backups in a separate folder | One server per environment, backup storage off-site |
 
 ## How This Project Is Built
 
@@ -64,13 +77,14 @@ The project follows an AI-native development life cycle ([docs/sdlc.md](docs/sdl
 | [Data model](docs/design/README.md) · [API design](docs/design/api-design.md) | Physical design, packages, call flows |
 | [SDLC](docs/sdlc.md) | Development stages and current status |
 | [Setup guide](docs/setup.md) | Local environment and database installation |
+| [Recovery runbook](docs/operations/recovery-runbook.md) | What to do when data is lost: scenarios, commands, business reconciliation, restore drills |
 | [Glossary](docs/glossary.md) | Functional and technical terms |
 
 ## Repository Layout
 
 | Folder | Content |
 |--------|---------|
-| `docs/` | Intent, specification, plans, ADRs, design, glossary, setup guide |
+| `docs/` | Intent, specification, plans, ADRs, design, operations runbooks, glossary, setup guide |
 | `scripts/` | Admin scripts run as `SYS` (tablespaces, roles, schemas, accounts, workspace, network ACL, utPLSQL, verification) |
 | `.dbtools/`, `src/`, `dist/` | SQLcl project: database objects and APEX app 200 |
 | `static/` | APEX static files (JavaScript, CSS) |

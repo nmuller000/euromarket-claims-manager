@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.12 (2026-10-10) |
+| **Status** | Accepted v1.13 (2026-10-11) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -168,6 +168,8 @@ What each feature solves and how. Detailed requirements follow in §2.1–2.6; b
 |----|-------------|
 | FR-40 | Purge AI log payloads after 180 days; pseudonymise personal data of closed claims after 24 months (illustrative defaults, stored as reference data). |
 | FR-41 | Process erasure requests: pseudonymise a person's data in all tables and logs, and record the request. |
+
+Retention periods of business records (claims, journals, letters) are set with the customer: CMR limitation (Art. 32: one year, three for wilful misconduct, suspended by a written claim) and German commercial and tax law for accounting documents (8 years since 2025, books 10 years: §147 AO, §257 HGB; changes traceable under GoBD). Database audit retention: [ADR-010](adr/ADR-010-operations-and-release-strategy.md) §3.
 
 ### 2.6 User Interface
 
@@ -732,6 +734,7 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 ### 12.4 Verification
 
 - Search latency: SC-AI-05 (p95 < 500 ms).
+- Page response: p95 < 2 s (internal 1.5 s) and Apdex with T = 2 s for claims list, claim detail and dashboards ([ADR-010](adr/ADR-010-operations-and-release-strategy.md) §5).
 - Before the MVP release (M5), the synthetic data set is loaded at the design volume, and the main pages (claims list, claim detail, dashboards) are timed. Results are recorded in `docs/demo/`.
 
 ---
@@ -747,6 +750,9 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted | M3 |
 | [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted | M1 |
 | [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted | M1 |
+| [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted | M1 |
+| [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted | M1 |
+| [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted | M1 |
 
 ## 14. Revision History
 
@@ -769,3 +775,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.10 | 2026-10-09 | BR-17 (CMR applicability, Art. 1); §1.3 *Normalised values*: business dates without time and CMR note number trimmed and upper case guaranteed by check constraints. Accepted by the owner. |
 | v1.11 | 2026-10-09 | §1.3 *Check constraints*: explicit `IS NOT NULL` for optional columns (a check accepts unknown; found in M1a step 5). Accepted by the owner. |
 | v1.12 | 2026-10-10 | §1.3 *Code documentation*: copyright line in object and script headers; repository "all rights reserved" (LICENSE). Accepted by the owner. |
+| v1.13 | 2026-10-11 | ADR-010: retention of business records set with the customer (§2.5); page response target (§12.4); ADR-008 to ADR-010 in §13. Accepted by the owner. |

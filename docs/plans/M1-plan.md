@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 3 — Build ([docs/sdlc.md](../sdlc.md)) |
-| **Status** | Accepted v1.6 (2026-10-09) |
+| **Status** | Accepted v1.7 (2026-10-11) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-06 |
 | **Input** | [spec.md](../spec.md) v1.3 §1.3, §2.1, §2.7, §3, §4, §7, §8 · [ADR-005](../adr/ADR-005-deployment-and-database-setup.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [M0 plan](M0-plan.md) |
@@ -123,11 +123,15 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | T-M1-28 | Old inbound and log data is purged by partition | Data older than the retention is removed with `DROP PARTITION`; newer data remains | Spec §1.3 (Partitioning) | b |
 | T-M1-29 | Shipment parties have the matching role | Shipment with a carrier without the `CARRIER` role rejected; a company with several roles accepted; removing a role used by a shipment rejected | BR-16 | a |
 | T-M1-30 | A shipment outside the CMR is rejected | Iceland → Liechtenstein rejected (no CMR party); Oman → Germany before 2020-12-22 accepted only because Germany is a party; a pickup date before both parties' dates rejected | BR-17 | a |
+| T-M1-31 | A failed deployment is undone completely | Guaranteed PDB restore point, deployment with a deliberate error, `FLASHBACK PLUGGABLE DATABASE`; objects and data identical to before (count and checksum per table) | ADR-010 §2 | a |
+| T-M1-32 | The previous application version can be redeployed | Redeploy of the previous APEX application artifact over a newer one; application opens, data unchanged | ADR-010 §2 | c |
+| T-M1-33 | A backup can be restored within the targets | Restore drill in DEV following the [recovery runbook](../operations/recovery-runbook.md) with marker rows; protocol with measured RPO ≤ 1 h and RTO ≤ 4 h | ADR-010 §1 | a |
+| T-M1-34 | Privileged activity is audited and attributed | DDL, object grant and proxy logon as `<developer>[EMK_DATA]` produce records in `UNIFIED_AUDIT_TRAIL` with `DBPROXY_USERNAME` | ADR-010 §3 | a |
 
 ## 6. Definition of Done
 
 - Each increment: its tests pass, pull request reviewed and merged.
-- M1: all tests T-M1-01 to T-M1-30 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
+- M1: all tests T-M1-01 to T-M1-34 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
 - `docs/setup.md`, the glossary and the Spanish copies describe the new steps.
 
 ## 7. Open Points
@@ -157,3 +161,4 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | v1.4 | 2026-10-07 | Party roles (`EMK_PARTY_ROLES`, BR-16) in step 3; test T-M1-29; places of taking over and delivery (spec v1.6). Accepted by the owner. |
 | v1.5 | 2026-10-08 | Step 0: check that the application ID is free; open point 3 verified (APEX session and role assignment behaviour); export option `partitioning: true` moved from step 12 to step 1. Accepted by the owner. |
 | v1.6 | 2026-10-09 | Step 7: restore, BR-16 and BR-17 in the APIs; test T-M1-30 (CMR applicability). Accepted by the owner. |
+| v1.7 | 2026-10-11 | ADR-010: tests T-M1-31 to T-M1-34 (flashback of a failed deployment, redeploy of the previous application, restore drill with measured RPO and RTO, audit of privileged activity). Accepted by the owner. |

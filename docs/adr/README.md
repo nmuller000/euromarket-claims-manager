@@ -11,6 +11,7 @@ Architecture Decision Records (ADRs) document the key design decisions of the pr
 | [ADR-007](ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted (`EMK_APP` references superseded by ADR-008) | 2026-10-07 |
 | [ADR-008](ADR-008-schema-separation.md) | Schema separation: `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted | 2026-10-10 |
 | [ADR-009](ADR-009-environments.md) | Environments (DTAP): one PDB per environment — DEV `FREEPDB1`, TEST `EMKTEST`, ACCEPTANCE `EMKACC`, PROD defined; only `EMK_DEPLOY` changes shared environments | Accepted (amended: acceptance environment) | 2026-10-10 |
+| [ADR-010](ADR-010-operations-and-release-strategy.md) | Operational baseline and release strategy: `ARCHIVELOG`, RMAN and recovery runbook with business-based targets, restore points and rollback matrix, Unified Auditing with pseudonymised archive, HTTPS, performance targets, edition constraints as growth path | Accepted | 2026-10-11 |
 
 ## Conventions
 

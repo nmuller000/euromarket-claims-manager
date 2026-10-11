@@ -9,6 +9,39 @@ How to build the local development environment for this project, in installation
 | Operating system | Windows 11 (10.0.26200), 64-bit; computer name without spaces or special characters |
 | CPU / RAM | Intel Core i5-8300H / 20 GB (the database uses at most 2 GB in the Free edition) |
 | Rights | Administrator (database installation, service restarts) |
+| Disk (internal) | **≈ 70 GB in total** for this project (software, the three PDBs, local fast recovery area, Data Pump), **up to ≈ 135 GB** at the Free data limit (§1.1). Reference machine: one SSD `C:` with 145 GB free after the current installation (≈ 12 GB): sufficient |
+| Disk (backup copies) | **External disk ≥ 128 GB, recommended 256 GB** (USB 3 SSD), for the copies of the backups outside the internal disk ([ADR-010](adr/ADR-010-operations-and-release-strategy.md) §1) |
+
+### 1.1 Disk Sizing
+
+Calculated on 2026-10-11 from the measured installation and the business design volume (spec §12.1: 200,000 shipments and 10,000 claims per year). **Expected** = synthetic data at the design volume in DEV, TEST and ACCEPTANCE, documents kept small (spec §12.2). **Maximum** = the Free edition limit of 12 GB user data reached. PROD is not installed on this machine (ADR-009).
+
+**Measured today**
+
+| Component | Size |
+|-----------|------|
+| Oracle home (`dbhomeFree`) | 3.4 GB |
+| APEX 24.2 files, ORDS, SQLcl, diagnostic logs | 1.5 GB |
+| CDB root, seed, redo logs, control files | 4.3 GB |
+| `FREEPDB1` with APEX (no project data yet) | 2.6 GB |
+| Project tablespaces (`C:\db_files`) | 0.15 GB |
+
+**Calculation**
+
+| Item | Expected | Maximum | Basis |
+|------|----------|---------|-------|
+| Software and logs | 6 GB | 6 GB | Measured + 1 GB for log growth |
+| Database without project data | 12 GB | 12 GB | Measured CDB and `FREEPDB1` + two PDBs (`EMKTEST`, `EMKACC`) of 2.6 GB each, built from the seed with the APEX runtime |
+| Project data, all environments | 5 GB | 12 GB | ≈ 1.7 GB per environment at the design volume (shipments, inbound records, journals, logs, corpus, sample documents); Free limit 12 GB in total |
+| Undo and temporary growth; second redo log members | 4 GB | 4 GB | 1 GB per PDB; 0.6 GB redo |
+| Data Pump exports (two kept) | 4 GB | 24 GB | Size of the project data, before each release in ACCEPTANCE |
+| Fast recovery area on the internal disk: last level 0, level 1 of the week, archived logs of 2 days, flashback logs for the restore point | 28 GB | 56 GB | Level 0 ≈ used blocks (17 / 24 GB); level 1 ≈ 0.5 / 2 GB per day; redo ≈ 0.5 / 2 GB per day; 25 % margin (alert at 80 %) |
+| **Internal disk** | **≈ 59 GB → ≈ 70 GB with 20 % reserve** | **≈ 114 GB → ≈ 135 GB** | Of this, ≈ 12 GB is already installed |
+| **External disk:** recovery window of 7 days = two level 0, up to 13 level 1, 8 days of archived logs | **58 GB** | **116 GB** | Same estimates, 25 % margin |
+
+- The fast recovery area stays on the **internal disk**: if the archived-log destination is missing (a USB disk unplugged), the database stops when no online redo log can be archived. RMAN copies the backups and archived logs to the external disk (archived logs every 30 minutes).
+- The **real redo volume** replaces the estimates after the switch to `ARCHIVELOG` (query in the recovery runbook §7); the sizes are reviewed when the synthetic data is loaded at the design volume (M5).
+- A company setup has backup storage on another server and off-site (ADR-010 §8).
 
 ## 2. Versions
 
