@@ -2,6 +2,10 @@
 -- 09b_reset_session.sql
 -- Restores session settings after the official utPLSQL scripts, which change
 -- them (heading, page size, current schema, error handling).
+--
+-- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
+-- Since:  2026-10-06
 -- =============================================================================
 
 ALTER SESSION SET CURRENT_SCHEMA = SYS;

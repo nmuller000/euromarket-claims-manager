@@ -5,6 +5,10 @@
 -- ALTER SESSION SET CURRENT_SCHEMA: the owner never logs in). install.sql writes
 -- its own install.log in the current folder and stops on any error; that log is
 -- then moved to logs/install_utplsql_<timestamp>_official.log.
+--
+-- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
+-- Since:  2026-10-06
 -- =============================================================================
 
 PROMPT Installing utPLSQL from &emk_utplsql_src (takes a few minutes)...

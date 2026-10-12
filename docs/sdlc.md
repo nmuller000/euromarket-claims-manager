@@ -4,7 +4,7 @@ This project follows a **lightweight AI-native SDLC** based on [The AI-native SD
 
 ## Current Stage
 
-> **Stage 3 — Build, milestone M1:** M0 is done (PR #6). `spec.md` v1.2 and the [M1 plan](plans/M1-plan.md) v1.0 are accepted. Next: increment M1a (data core).
+> **Stage 3 — Build, milestone M1:** M0 is done (PR #6). Increment M1a in progress: data core tables built and tested (steps 0–6); architecture and operations decided ([ADR-008](adr/ADR-008-schema-separation.md) to [ADR-011](adr/ADR-011-tablespace-encryption.md)); spec v1.13 and [M1 plan](plans/M1-plan.md) v1.8 accepted. Next: migration to the separated schemas (branch `feature/m1a-schema-separation`), then steps 7–12.
 
 ## Stages
 

@@ -1,9 +1,14 @@
 -- =============================================================================
 -- verify_admin.sql
--- Read-only checks of the admin layer (M0 tests T-M0-02 and T-M0-03).
--- Prints PASS/FAIL per check and stops with an error if any check fails.
+-- Read-only checks of the admin layer (M0 tests T-M0-02 and T-M0-03; M1 test
+-- T-M1-23 for ADR-007; ORDS AutoREST check). Prints PASS/FAIL per check and stops with an error if
+-- any check fails.
 -- Called by install_admin.sql, or standalone:
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/verify_admin.sql
+--
+-- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
+-- Since:  2026-10-06
 -- =============================================================================
 
 SET SERVEROUTPUT ON
@@ -24,43 +29,88 @@ DECLARE
         END IF;
     END check_result;
 BEGIN
-    -- Tablespace
+    -- Tablespaces
     SELECT COUNT(*) INTO l_count FROM dba_tablespaces
-    WHERE  tablespace_name = UPPER('&emk_tablespace') AND status = 'ONLINE';
-    check_result(l_count = 1, 'Tablespace &emk_tablespace exists and is online');
+    WHERE  tablespace_name IN (UPPER('&emk_tablespace'), UPPER('&emk_int_tablespace')) AND status = 'ONLINE';
+    check_result(l_count = 2, 'Tablespaces &emk_tablespace and &emk_int_tablespace exist and are online');
 
     -- Roles
     SELECT COUNT(*) INTO l_count FROM dba_roles
     WHERE  role IN (UPPER('&emk_owner_role'), UPPER('&emk_dev_role'), UPPER('&emk_ro_role'));
     check_result(l_count = 3, 'Roles &emk_owner_role, &emk_dev_role, &emk_ro_role exist');
 
-    -- Application schema: schema-only, correct tablespace, owner role
+    -- Schemas: schema-only, correct tablespace, owner role and developer role
     SELECT COUNT(*) INTO l_count FROM dba_users
-    WHERE  username = UPPER('&emk_app_schema')
-    AND    authentication_type = 'NONE'
+    WHERE  username = UPPER('&emk_app_schema') AND authentication_type = 'NONE'
     AND    default_tablespace = UPPER('&emk_tablespace');
     check_result(l_count = 1, 'Schema &emk_app_schema is schema-only with default tablespace &emk_tablespace');
 
-    SELECT COUNT(*) INTO l_count FROM dba_role_privs
-    WHERE  grantee = UPPER('&emk_app_schema') AND granted_role = UPPER('&emk_owner_role');
-    check_result(l_count = 1, 'Schema &emk_app_schema has role &emk_owner_role');
+    SELECT COUNT(*) INTO l_count FROM dba_users
+    WHERE  username = UPPER('&emk_int_schema') AND authentication_type = 'NONE'
+    AND    default_tablespace = UPPER('&emk_int_tablespace');
+    check_result(l_count = 1, 'Schema &emk_int_schema is schema-only with default tablespace &emk_int_tablespace');
 
-    -- Developer account and roles
     SELECT COUNT(*) INTO l_count FROM dba_role_privs
-    WHERE  grantee = UPPER('&emk_dev_user')
-    AND    granted_role IN ('DB_DEVELOPER_ROLE', UPPER('&emk_dev_role'));
-    check_result(l_count = 2, 'Account &emk_dev_user has DB_DEVELOPER_ROLE and &emk_dev_role');
+    WHERE  grantee IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'))
+    AND    granted_role IN (UPPER('&emk_owner_role'), UPPER('&emk_dev_role'));
+    check_result(l_count = 4, 'Schemas &emk_app_schema and &emk_int_schema have &emk_owner_role and &emk_dev_role');
+
+    -- Developer account: CREATE SESSION only, no roles, CIS profile (ADR-007)
+    SELECT COUNT(*) INTO l_count FROM dba_role_privs WHERE grantee = UPPER('&emk_dev_user');
+    check_result(l_count = 0, 'Account &emk_dev_user holds no roles');
+
+    SELECT COUNT(*) INTO l_count FROM dba_sys_privs
+    WHERE  grantee = UPPER('&emk_dev_user') AND privilege <> 'CREATE SESSION';
+    check_result(l_count = 0, 'Account &emk_dev_user has no system privilege other than CREATE SESSION');
+
+    SELECT COUNT(*) INTO l_count FROM dba_sys_privs
+    WHERE  grantee = UPPER('&emk_dev_user') AND privilege = 'CREATE SESSION';
+    check_result(l_count = 1, 'Account &emk_dev_user has CREATE SESSION (direct)');
+
+    SELECT COUNT(*) INTO l_count FROM dba_users
+    WHERE  username = UPPER('&emk_dev_user') AND profile = UPPER('&emk_dev_profile');
+    check_result(l_count = 1, 'Account &emk_dev_user uses profile &emk_dev_profile');
+
+    -- Service account keeps the DEFAULT profile (expiry or lockout would stop ORDS)
+    SELECT COUNT(*) INTO l_count FROM dba_users
+    WHERE  username = 'ORDS_PUBLIC_USER' AND profile = 'DEFAULT';
+    check_result(l_count = 1, 'Service account ORDS_PUBLIC_USER keeps profile DEFAULT');
 
     -- Least privilege: no default roles
     SELECT COUNT(*) INTO l_count FROM dba_role_privs
-    WHERE  grantee IN (UPPER('&emk_app_schema'), UPPER('&emk_dev_user'))
-    AND    granted_role IN ('DBA', 'CONNECT', 'RESOURCE');
-    check_result(l_count = 0, 'No DBA, CONNECT or RESOURCE for &emk_app_schema and &emk_dev_user');
+    WHERE  grantee IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'), UPPER('&emk_dev_user'))
+    AND    granted_role IN ('DBA', 'CONNECT', 'RESOURCE', 'DB_DEVELOPER_ROLE');
+    check_result(l_count = 0, 'No DBA, CONNECT, RESOURCE or DB_DEVELOPER_ROLE for the project accounts');
 
-    -- Proxy
+    -- Proxies
     SELECT COUNT(*) INTO l_count FROM proxy_users
-    WHERE  proxy = UPPER('&emk_dev_user') AND client = UPPER('&emk_app_schema');
-    check_result(l_count = 1, 'Proxy &emk_dev_user -> &emk_app_schema exists');
+    WHERE  proxy = UPPER('&emk_dev_user')
+    AND    client IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'));
+    check_result(l_count = 2, 'Proxy &emk_dev_user -> &emk_app_schema and &emk_int_schema exist');
+
+    -- Debugger ACL (jdwp) for the proxy schemas, local machine only
+    SELECT COUNT(*) INTO l_count FROM dba_host_aces
+    WHERE  UPPER(privilege) = 'JDWP'
+    AND    UPPER(principal) IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'))
+    AND    LOWER(host) IN ('localhost', '127.0.0.1');
+    check_result(l_count = 4, 'ACL jdwp on localhost and 127.0.0.1 for &emk_app_schema and &emk_int_schema');
+
+    SELECT COUNT(*) INTO l_count FROM dba_host_aces
+    WHERE  UPPER(principal) IN (UPPER('&emk_app_schema'), UPPER('&emk_int_schema'), UPPER('&emk_dev_user'))
+    AND    LOWER(host) NOT IN ('localhost', '127.0.0.1');
+    check_result(l_count = 0, 'No network ACL for the project accounts outside the local machine');
+
+    -- ORDS: project schemas are not REST-enabled (AutoREST would publish tables over HTTP)
+    BEGIN
+        EXECUTE IMMEDIATE
+            'SELECT COUNT(*) FROM ords_metadata.ords_schemas '
+            || 'WHERE parsing_schema IN (:app, :int) AND status = ''ENABLED'''
+            INTO l_count USING UPPER('&emk_app_schema'), UPPER('&emk_int_schema');
+        check_result(l_count = 0, 'Schemas &emk_app_schema and &emk_int_schema are not REST-enabled in ORDS');
+    EXCEPTION
+        WHEN OTHERS THEN
+            check_result(FALSE, 'ORDS REST status not readable: ' || SQLERRM);
+    END;
 
     -- APEX workspace and its primary schema
     SELECT COUNT(*) INTO l_count FROM apex_workspaces

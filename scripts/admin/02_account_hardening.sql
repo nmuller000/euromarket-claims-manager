@@ -2,7 +2,7 @@
 -- 02_account_hardening.sql
 -- Applies account best practices in FREEPDB1:
 --   1. Locks PDBADMIN (installation admin account, not used).
---   2. Converts proxy-only accounts to schema-only (NO AUTHENTICATION):
+--   2. Converts the proxy-only account APEX_PUBLIC_USER to schema-only (NO AUTHENTICATION):
 --      no password, no expiry, no direct logins; ORDS proxy access still works.
 --   3. Rotates the ORDS_PUBLIC_USER password (entered hidden, never stored).
 --
@@ -14,6 +14,10 @@
 --
 -- Rollback (if an APEX workspace stops working):
 --   ALTER USER <account> IDENTIFIED BY "<new password>";
+--
+-- Author: Natalia Müller
+-- Copyright (c) 2026 Natalia Müller. All rights reserved.
+-- Since:  2026-10-04
 -- =============================================================================
 
 WHENEVER SQLERROR EXIT FAILURE
@@ -27,7 +31,6 @@ ALTER USER PDBADMIN ACCOUNT LOCK;
 PROMPT
 PROMPT === Step 2/3: proxy-only accounts -> schema-only (NO AUTHENTICATION) ===
 ALTER USER APEX_PUBLIC_USER NO AUTHENTICATION;
-ALTER USER APEX_CERT_NMU    NO AUTHENTICATION;
 
 PROMPT
 PROMPT === Step 3/3: rotate ORDS_PUBLIC_USER password ===
@@ -44,8 +47,7 @@ SELECT username,
        TO_CHAR(expiry_date, 'YYYY-MM-DD') AS expiry_date,
        authentication_type
 FROM   dba_users
-WHERE  username IN ('PDBADMIN', 'APEX_PUBLIC_USER', 'APEX_CERT_NMU',
-                    'ORDS_PUBLIC_USER', 'DEV_USER')
+WHERE  username IN ('PDBADMIN', 'APEX_PUBLIC_USER', 'ORDS_PUBLIC_USER')
 ORDER  BY username;
 
 SET SQLFORMAT

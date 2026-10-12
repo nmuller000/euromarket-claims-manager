@@ -2,6 +2,9 @@
 *.log
 *.tmp
 
+# Local drafts (sdlc.md: drafts stay local; the exported src/ is the source of truth)
+/work/
+
 # Local SQLcl configuration (may contain credentials)
 /config/
 

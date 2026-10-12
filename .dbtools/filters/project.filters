@@ -60,6 +60,17 @@ object_name not like 'I_SNAP$%',
 
 export_type not in ('USER','USER_SYS_PRIVS','USER_ROLE_PRIVS'),
 
+-- EMK project filters ---------------------------------------------------------
+-- Grants received from schemas outside the project (e.g. UT3 for utPLSQL, SYS)
+-- belong to the admin layer (scripts/admin), not to the release. Grants made by
+-- the project schemas (e.g. EMK_APP to EMK_INT, ADR-007) are kept.
+not (export_type = 'ALL_TAB_PRIVS' and grantor not in ('EMK_APP', 'EMK_INT')),
+
+-- No ORDS REST services in the project schemas (checked by verify_admin.sql);
+-- without this, the export reports ORA-20012 "Schema not REST enabled".
+-- Remove when a REST service is added.
+export_type != 'ORDS_SCHEMA',
+
 -- Exclude certain database object types:
 -- object_type not in ('CONTEXT', 'SCHEDULE'),         
 

@@ -9,6 +9,40 @@ How to build the local development environment for this project, in installation
 | Operating system | Windows 11 (10.0.26200), 64-bit; computer name without spaces or special characters |
 | CPU / RAM | Intel Core i5-8300H / 20 GB (the database uses at most 2 GB in the Free edition) |
 | Rights | Administrator (database installation, service restarts) |
+| Disk (internal) | **≈ 70 GB in total** for this project (software, the three PDBs, local fast recovery area, Data Pump), **up to ≈ 135 GB** at the Free data limit (§1.1). Reference machine: one SSD `C:` with 145 GB free after the current installation (≈ 12 GB): sufficient |
+| Disk (backup copies) | **External disk ≥ 128 GB, recommended 256 GB** (USB 3 SSD), for the copies of the backups outside the internal disk ([ADR-010](adr/ADR-010-operations-and-release-strategy.md) §1) |
+
+### 1.1 Disk Sizing
+
+Calculated on 2026-10-11 from the measured installation and the business design volume (spec §12.1: 200,000 shipments and 10,000 claims per year). **Expected** = synthetic data at the design volume in DEV, TEST and ACCEPTANCE, documents kept small (spec §12.2). **Maximum** = the Free edition limit of 12 GB user data reached. PROD is not installed on this machine (ADR-009).
+
+**Measured today**
+
+| Component | Size |
+|-----------|------|
+| Oracle home (`dbhomeFree`) | 3.4 GB |
+| APEX 24.2 files, ORDS, SQLcl, diagnostic logs | 1.5 GB |
+| CDB root, seed, redo logs, control files | 4.3 GB |
+| `FREEPDB1` with APEX (no project data yet) | 2.6 GB |
+| Project tablespaces (`C:\db_files`) | 0.15 GB |
+
+**Calculation**
+
+| Item | Expected | Maximum | Basis |
+|------|----------|---------|-------|
+| Software and logs | 6 GB | 6 GB | Measured + 1 GB for log growth |
+| Database without project data | 12 GB | 12 GB | Measured CDB and `FREEPDB1` + two PDBs (`EMKTEST`, `EMKACC`) of 2.6 GB each, built from the seed with the APEX runtime |
+| Project data, all environments | 5 GB | 12 GB | ≈ 1.7 GB per environment at the design volume (shipments, inbound records, journals, logs, corpus, sample documents); Free limit 12 GB in total |
+| Undo and temporary growth; second redo log members | 4 GB | 4 GB | 1 GB per PDB; 0.6 GB redo |
+| Data Pump exports (two kept) | 4 GB | 24 GB | Size of the project data, before each release in ACCEPTANCE |
+| Fast recovery area on the internal disk: last level 0, level 1 of the week, archived logs of 2 days, flashback logs for the restore point | 28 GB | 56 GB | Level 0 ≈ used blocks (17 / 24 GB); level 1 ≈ 0.5 / 2 GB per day; redo ≈ 0.5 / 2 GB per day; 25 % margin (alert at 80 %) |
+| **Internal disk** | **≈ 59 GB → ≈ 70 GB with 20 % reserve** | **≈ 114 GB → ≈ 135 GB** | Of this, ≈ 12 GB is already installed |
+| **External disk:** recovery window of 7 days = two level 0, up to 13 level 1, 8 days of archived logs | **58 GB** | **116 GB** | Same estimates, 25 % margin |
+
+- The fast recovery area stays on the **internal disk**: if the archived-log destination is missing (a USB disk unplugged), the database stops when no online redo log can be archived. RMAN copies the backups and archived logs to the external disk (archived logs every 30 minutes).
+- The **real redo volume** replaces the estimates after the switch to `ARCHIVELOG` (query in the recovery runbook §7); the sizes are reviewed when the synthetic data is loaded at the design volume (M5).
+- A second partition on the same disk is **not** a separate medium: it does not protect against disk failure, theft or ransomware, and it reduces the space of `C:`. Backup copies go to an external disk that is disconnected and kept apart when not in use.
+- A company setup has backup storage on another server and off-site (ADR-010 §8).
 
 ## 2. Versions
 
@@ -156,8 +190,8 @@ Local email server for alert testing; to be documented when milestone M2 starts.
 ## 4. Project Setup
 
 ```powershell
-git clone https://github.com/nmuller000/ia-apex-project.git
-cd ia-apex-project
+git clone https://github.com/nmuller000/euromarket-claims-manager.git
+cd euromarket-claims-manager
 npm ci                     # installs ESLint from package-lock.json
 npm run lint
 ```
@@ -175,7 +209,7 @@ Third-party files are kept locally and not committed: source documents (e.g., th
 | 3 | `ords --config C:\ords\config config secret db.password` | Stores the new ORDS password; then restart ORDS. |
 | 4 | `scripts/admin/check_password_expiry.sql` | Read-only check; repeat periodically. |
 
-### 5.2 Project Database Objects (ADR-005)
+### 5.2 Project Database Objects (ADR-005, ADR-007)
 
 1. **Prerequisite:** create the datafile folder on the database server (once):
 
@@ -189,12 +223,22 @@ Third-party files are kept locally and not committed: source documents (e.g., th
    sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/install_admin.sql
    ```
 
-   Creates tablespace `EMK_DATA`, roles `EMK_OWNER_ROLE` / `EMK_DEVELOPER_ROLE` / `EMK_READONLY_ROLE`, schema `EMK_APP` (schema-only), developer account `EMK_DEV` and workspace `EMK_CLAIMS`, then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Names and sizes are in `scripts/admin/00_config.sql`. Each run writes its own log, `logs/install_admin_<YYYYMMDD_HH24MISS>.log`; prompts are not logged.
+   | Step | Creates or sets |
+   |------|-----------------|
+   | 1 Tablespaces | `EMK_DATA` (application) and `EMK_INT_DATA` (integration) |
+   | 2 Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE` (development privileges in proxy sessions, including PL/SQL debugging), `EMK_READONLY_ROLE` |
+   | 3 Schemas | `EMK_APP` and `EMK_INT`, schema-only (no password) |
+   | 4 Developer account | `EMK_DEV`: `CREATE SESSION` only, profile `ORA_CIS_PROFILE`, proxy to `EMK_APP` and `EMK_INT` |
+   | 5 APEX workspace | `EMK_CLAIMS` |
+   | 6 Network access | ACL `jdwp` on `localhost` / `127.0.0.1` for `EMK_APP` and `EMK_INT` (PL/SQL debugger) |
 
-3. **Work as the application schema** through the developer account (proxy authentication: the password asked is the one of `EMK_DEV`):
+   Then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Names and sizes are in `scripts/admin/00_config.sql`. Each run writes its own log, `logs/install_admin_<YYYYMMDD_HH24MISS>.log`; prompts are not logged. The personal account `DEV_USER` is not touched.
+
+3. **Work as the application or the integration schema** through the developer account (proxy authentication: the password asked is the one of `EMK_DEV`). `EMK_DEV` alone cannot create objects (`ORA-01031`):
 
    ```powershell
    sql -thin "EMK_DEV[EMK_APP]@localhost:1521/FREEPDB1"
+   sql -thin "EMK_DEV[EMK_INT]@localhost:1521/FREEPDB1"
    ```
 
 4. **Remove everything** (asks to type `YES`; close `EMK_DEV` sessions first). `UT3` (utPLSQL) is kept:
@@ -243,6 +287,27 @@ project init -name emk_claims -schemas EMK_APP -verbose
 ```
 
 This created `.dbtools/` (project configuration and export filters, default branch `main`) and appended an *Oracle SQLcl Projects* block to `.gitignore`. `src/` and `dist/` are filled from M1 with `project export` and `project stage`. A new clone does not need to run `project init` again.
+
+**APEX application 200** (`EuroMarket Claims Manager`, alias `EMK_CLAIMS`, workspace `EMK_CLAIMS`) was created once in App Builder and is exported, connected as `EMK_DEV[EMK_APP]`, with:
+
+```sql
+project export -objects APEX.200 -schemas EMK_APP -verbose
+```
+
+- The export is written to `src/database/emk_app/apex_apps/f200/`: `f200.sql` (installable) and `readable/` (YAML, for review and diffs).
+- Application roles are exported; user role assignments are not (`expAclAssignments: false`) and are created per environment.
+- `project export -list` reports "0 objects" for an APEX application: the counter covers database objects only. The debug output (`-debug`) shows `application_id=200` when the application is found.
+- `project export` overwrites files but does not delete the YAML of components removed in APEX. After deleting a component, remove its file from `readable/`, or delete `f200/` and export again.
+
+### 5.5 PL/SQL Debugger (SQL Developer for VS Code)
+
+Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXECUTE`/`DEBUG` on `SYS.DBMS_DEBUG_JDWP` through `EMK_DEVELOPER_ROLE`, and the ACL `jdwp` on `localhost` / `127.0.0.1` (script `08`). Steps ([Oracle documentation](https://docs.oracle.com/en/database/oracle/sql-developer-vscode/24.4/sqdnx/debugging-pl-sql-objects.html)):
+
+1. Connect as `EMK_DEV[EMK_APP]` (or `EMK_DEV[EMK_INT]`).
+2. Compile the package for debugging. If the editor icon does not take effect, use `ALTER PACKAGE <name> COMPILE DEBUG;` and check `user_plsql_object_settings.plsql_debug = 'TRUE'`.
+3. Set a breakpoint, choose the subprogram in **Execute → Debug**, enter the parameters, and select **127.0.0.1** as the debugger address. Do not run the ACL code the extension offers: the ACL already exists.
+4. **Stop** ends the debugged session with `ORA-30687: session terminated by debugger` (expected); its uncommitted work is rolled back.
+5. Afterwards recompile without debug information: `ALTER PACKAGE <name> COMPILE;`.
 
 ## 6. Verification
 

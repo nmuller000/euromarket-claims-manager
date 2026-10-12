@@ -131,3 +131,9 @@ Privileges that development needs in the proxy session (e.g., `DEBUG CONNECT SES
 - Oracle APEX 24.2 API Reference — [APEX_DATA_PARSER](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/APEX_DATA_PARSER.html)
 - Oracle AI Database JSON Developer's Guide 26ai — [JSON data type](https://docs.oracle.com/en/database/oracle/oracle-database/26/adjsn/overview-json-oracle-ai-database.html)
 - Oracle AI Database PL/SQL Packages and Types Reference 26ai — [DBMS_SCHEDULER](https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_SCHEDULER.html)
+
+---
+
+## Amendment (2026-10-07, before implementation)
+
+- The personal account `DEV_USER` is **outside the project** (ADR-005) and is not changed: no profile, no grants, no scripts. "People" in §3 means `EMK_DEV` only.
