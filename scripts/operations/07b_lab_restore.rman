@@ -1,0 +1,18 @@
+# =============================================================================
+# 07b_lab_restore.rman - Migration phase M.1, step 7b (called by 07_lab_restore.sql)
+# Restores and recovers the lab tablespace, then deletes the backups that are
+# no longer wanted: the lab backup and the unencrypted cold backup of step 3
+# (the validated encrypted level 0 of step 6b replaces it).
+# Arguments (RMAN USING): &1 = PDB, &2 = lab tablespace (from 00_config.sql)
+#
+# Author: Natalia Müller
+# Copyright (c) 2026 Natalia Müller. All rights reserved.
+# Since:  2026-10-12
+# =============================================================================
+
+RESTORE TABLESPACE &1.:&2.;
+RECOVER TABLESPACE &1.:&2.;
+
+DELETE NOPROMPT BACKUP TAG 'LAB';
+DELETE NOPROMPT BACKUP TAG 'COLD_NOARCHIVELOG';
+LIST BACKUP SUMMARY;

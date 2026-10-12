@@ -2,10 +2,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | v1.0 (2026-10-11) |
+| **Version** | v1.1 (2026-10-12) |
 | **Decision** | [ADR-010](../adr/ADR-010-operations-and-release-strategy.md) §1 (targets and their business basis), §8 (edition constraints) |
 | **Applies to** | CDB `FREE` with the PDBs of [ADR-009](../adr/ADR-009-environments.md) (DEV `FREEPDB1`, TEST `EMKTEST`, ACCEPTANCE `EMKACC`, PROD) |
-| **Status of commands** | Written from the 26ai documentation; each command is confirmed or corrected in the first restore drill (T-M1-33) before this runbook is used in production |
+| **Status of commands** | **Executed in DEV** ([drill 2026-10-12](drills/2026-10-12-m1-dev.md)): Appendix A, level 0 and validation, restore of a tablespace (as S5 for a data file), S6, S7. **Not yet executed:** S1–S4 (full CDB restore, point-in-time recovery, flashback); confirmed in the full drill T-M1-33 (M.5) |
 
 This runbook says what to do when data is lost or damaged: who decides, which recovery fits the damage, the commands, how to check the result and how to recover the business work of the lost period. It never contains passwords: operating-system authentication (`/ as sysdba`, `rman target /`) or a prompt is used.
 
@@ -212,7 +212,28 @@ RECOVER DATAFILE <file#>;
 ALTER PLUGGABLE DATABASE <pdb> OPEN;
 ```
 
-`<file#>` from `V$DATAFILE` or the error message. Block-level media recovery is included in Free.
+`<file#>` from `V$DATAFILE` or the error message. Block-level media recovery is included in Free. Executed for a whole tablespace (`RESTORE TABLESPACE <pdb>:<tablespace>`, `RECOVER TABLESPACE …`): `scripts/operations/07_lab_restore.sql`, 17 s.
+
+### S6 — Auto-login file of the keystore lost (`cwallet.sso`)
+
+Symptom: after a restart the keystore is `CLOSED`; encrypted data gives `ORA-28365`. No data is lost.
+
+1. Open the keystore **with the password** (`SET KEYSTORE OPEN … CONTAINER = ALL`): data readable again at once.
+2. Then recreate the local auto-login. Creating it while the keystore is closed fails with `ORA-46634`.
+3. Restart and check `OPEN` / `LOCAL_AUTOLOGIN`.
+
+Script and test: `scripts/operations/08_test_autologin_loss.sql` (T-M1-36).
+
+### S7 — Keystore password unknown, files present
+
+Symptom: `ORA-28353` when opening with the stored password; `orapki wallet display` reports *incorrect password*. While the local auto-login still opens the keystore on this server, the keys can be saved:
+
+1. Create an empty keystore with `orapki` in a new folder, `icacls … /reset` so that the Oracle service can read it, and verify the new stored password with `orapki`.
+2. `MERGE KEYSTORE` from the auto-login into the new keystore (`scripts/operations/09a_keystore_merge.sql`).
+3. Restart with the folders swapped, open with the new password, recreate the auto-login (`09b_keystore_swap.sql`); the master keys stay the same, so existing backups remain valid (validated).
+4. Copy the new `ewallet.p12` to the key copies; delete the old folder.
+
+If the auto-login is lost as well, the encrypted data can only come from Data Pump exports encrypted with their own password (ADR-011).
 
 ## 7. Monitoring of the Targets
 
@@ -255,7 +276,7 @@ Shown on the operations page of the application (ADR-010 §7) from M2.
 
 ## Appendix A — Switch from NOARCHIVELOG to ARCHIVELOG
 
-Done once per CDB, in a maintenance window: it **restarts the whole CDB**, so all PDBs (all environments on this machine) are unavailable for a few minutes. Steps from the [Administrator's Guide 26ai](https://docs.oracle.com/en/database/oracle/oracle-database/26/admin/managing-archived-redo-log-files.html).
+Executed on DEV with `scripts/operations/01_precheck.sql` to `04_postcheck.sql` ([drill 2026-10-12](drills/2026-10-12-m1-dev.md)). Done once per CDB, in a maintenance window; **ORDS is stopped first**: it **restarts the whole CDB**, so all PDBs (all environments on this machine) are unavailable for a few minutes. Steps from the [Administrator's Guide 26ai](https://docs.oracle.com/en/database/oracle/oracle-database/26/admin/managing-archived-redo-log-files.html).
 
 1. **Before:** check free disk space and the current settings:
 
@@ -283,7 +304,7 @@ ARCHIVE LOG LIST
 7. **Immediately take a level 0 backup:** backups taken in `NOARCHIVELOG` cannot be used with archived logs.
 8. Start ORDS; check the application.
 
-To verify in the migration: OS authentication of the Windows user (group `ORA_DBA`), whether the PDBs reopen with their saved state, and how RMAN is scheduled without stored passwords.
+Confirmed: OS authentication works for members of `ORA_DBA`; PDBs reopen with their saved state; RMAN and SQL*Plus messages appear in the language of the client (Spanish here). Still open: scheduling RMAN without stored passwords.
 
 ## Sources
 
@@ -294,3 +315,4 @@ To verify in the migration: OS authentication of the Windows user (group `ORA_DB
 | Version | Date | Change |
 |---------|------|--------|
 | v1.0 | 2026-10-11 | First version with ADR-010: targets, roles, prerequisites, worked example, scenarios S1–S5, monitoring, drill and protocol, switch to `ARCHIVELOG`. |
+| v1.1 | 2026-10-12 | Executed parts marked (drill 2026-10-12); scenarios S6 (lost auto-login) and S7 (unknown keystore password) from the drill; Appendix A confirmed. |

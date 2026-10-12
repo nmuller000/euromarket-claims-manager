@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 3 — Build ([docs/sdlc.md](../sdlc.md)) |
-| **Status** | Accepted v1.8 (2026-10-12) |
+| **Status** | Accepted v1.10 (2026-10-12) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-06 |
 | **Input** | [spec.md](../spec.md) v1.3 §1.3, §2.1, §2.7, §3, §4, §7, §8 · [ADR-005](../adr/ADR-005-deployment-and-database-setup.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [M0 plan](M0-plan.md) |
@@ -57,12 +57,25 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | 4 | `EMK_SHIPMENTS` (+ `_JN`, triggers) | Shipments; `cmr_note_no` unique including soft-deleted rows (BR-03) | 2, 3 |
 | 5 | `EMK_CLAIMS`, `EMK_CLAIM_DOCUMENTS`, `EMK_CLAIM_STATUS_HISTORY` (+ `_JN`, triggers) | Claims, documents (BLOB), status history; amount check constraints (BR-11) | 4 |
 | 6 | `EMK_EXCHANGE_RATES` | Daily ECB rates (filled in M1b) | 2 |
+| M | **Migration to the separated schemas** ([ADR-008](../adr/ADR-008-schema-separation.md) to [ADR-011](../adr/ADR-011-tablespace-encryption.md)), branch `feature/m1a-schema-separation`, phases below | Steps 7–12 are built on the final architecture | 0–6 |
 | 7 | `EMK_PARTY_API`, `EMK_SHIPMENT_API` | Create, update, soft delete (BR-13), restore (D-39); party roles (BR-16); CMR applicability (BR-17) | 3, 4 |
 | 8 | `EMK_CLAIM_API` + sequence `EMK_CLAIM_NO_SEQ` | Create claim (`claim_no` = `CLM-YYYY-NNNNNN`, BR-04, BR-11), state machine (BR-01, BR-02 through `EMK_SECURITY_PKG`), status history, soft delete | 1, 5 |
 | 9 | Views `EMK_V_PARTIES`, `EMK_V_SHIPMENTS`, `EMK_V_CLAIMS` | Active rows only (`deleted_yn = 'N'`) | 3–5 |
 | 10 | `tests/`: `TEST_EMK_*` suites, `install_tests.sql`, `run_tests.sql` | Unit tests; one command (SC-QA-02); coverage report | 1–9 |
 | 11 | `tests/`: `EMK_DATA_GEN_PKG` | Synthetic data with a fixed seed (≈ 500 shipments, 100 claims by default) | 3–8 |
 | 12 | `project.filters`, `project.config.json` | Exclude `TEST_EMK_%` and `EMK_DATA_GEN_PKG` from the export; schemas `EMK_APP, EMK_INT` (`partitioning: true` was set in step 1, with the first partitioned table `EMK_LOG`) | 10, 11 |
+
+#### Step M — Migration phases
+
+| Phase | Work | Proven by |
+|-------|------|-----------|
+| M.1 | Safety and operations (CDB, one restart): OS-authentication check, cold backup; `ARCHIVELOG`, `ARCHIVE_LAG_TARGET`, `WALLET_ROOT`, `TABLESPACE_ENCRYPTION`; keystore, master keys, local auto-login, two keystore copies; RMAN configuration, first level 0, validation; small restore of a lab tablespace | `log_mode = ARCHIVELOG`; keystore `OPEN`; `RESTORE DATABASE VALIDATE`; lab restore; T-M1-35, T-M1-36. **Done 2026-10-12:** [drill protocol](../operations/drills/2026-10-12-m1-dev.md), scripts in `scripts/operations/` |
+| M.2 | Admin scripts per environment (`EMK_ENV`): encrypted `EMK_DATA_TS`, `EMK_INT_TS`; schemas `EMK_DATA`, `EMK_API`, `EMK_UI`; `EMK_DEPLOY`; developer proxies (DEV only); audit policies; debugger ACL; `verify_admin.sql`, `uninstall_admin.sql` | `verify_admin.sql`; T-M1-34, T-M1-35 |
+| M.3 | Steps 1–6 rebuilt in `EMK_DATA` / `EMK_API` (object grants, schema-qualified names); the checks of steps 1–6 become utPLSQL suites in `tests/` | utPLSQL suites green |
+| M.4 | APEX parsing schema `EMK_UI`; SQLcl project per schema; export; `EMK_APP` and `src/database/emk_app/` retired | Export without `EMK_APP`; application opens |
+| M.5 | PDB `EMKTEST` from the seed with the admin scripts; first deployment of the artifact by `EMK_DEPLOY`; flashback of a failed deployment; restore drill with the keystore copy | T-M1-01, T-M1-31, T-M1-33 |
+
+`EMKACC` (ACCEPTANCE) stays defined in ADR-009 and is created when customer acceptance starts (M5), like PROD. Runbooks are reduced to what was executed in M.1 and M.5.
 
 ### 4.2 M1b — Import (integration schema `EMK_INT`, ADR-007)
 
@@ -165,3 +178,5 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | v1.6 | 2026-10-09 | Step 7: restore, BR-16 and BR-17 in the APIs; test T-M1-30 (CMR applicability). Accepted by the owner. |
 | v1.7 | 2026-10-11 | ADR-010: tests T-M1-31 to T-M1-34 (flashback of a failed deployment, redeploy of the previous application, restore drill with measured RPO and RTO, audit of privileged activity). Accepted by the owner. |
 | v1.8 | 2026-10-12 | ADR-011: tests T-M1-35 (encrypted tablespaces) and T-M1-36 (keystore loss without data loss). Accepted by the owner. |
+| v1.9 | 2026-10-12 | Step M: migration to the separated schemas in five phases (ADR-008 to ADR-011); checks of steps 1–6 committed as utPLSQL suites; `EMKACC` created at customer acceptance (M5). Accepted by the owner. |
+| v1.10 | 2026-10-12 | Phase M.1 done: `ARCHIVELOG`, keystore, encrypted level 0, lab restore; T-M1-35 and T-M1-36 passed (drill protocol). Accepted by the owner. |

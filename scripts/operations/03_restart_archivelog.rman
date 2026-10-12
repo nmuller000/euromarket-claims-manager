@@ -1,0 +1,38 @@
+# =============================================================================
+# 03_restart_archivelog.rman - Migration phase M.1, step 3 (maintenance window)
+# One restart of the CDB: the new static parameters take effect, a cold safety
+# backup is taken while the database is consistent (NOARCHIVELOG), and the
+# database is switched to ARCHIVELOG (recovery runbook, Appendix A).
+# All PDBs (all environments of this machine) are down for a few minutes.
+#
+# Before: ORDS stopped (Ctrl+C in its window); step 2 done.
+# Run from the repository root:
+#   rman target / cmdfile=scripts\operations\03_restart_archivelog.rman log=logs\operations\03_restart_archivelog.log
+# After: run step 4, then start ORDS again.
+#
+# The cold backup is not encrypted (no keystore yet). It is the safety net for
+# this phase and is deleted after the first encrypted level 0 is validated.
+#
+# Author: Natalia Müller
+# Copyright (c) 2026 Natalia Müller. All rights reserved.
+# Since:  2026-10-12
+# =============================================================================
+
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+
+# Cold, consistent backup of the whole CDB (into the fast recovery area)
+BACKUP AS COMPRESSED BACKUPSET DATABASE TAG 'COLD_NOARCHIVELOG';
+BACKUP CURRENT CONTROLFILE TAG 'COLD_NOARCHIVELOG';
+BACKUP SPFILE TAG 'COLD_NOARCHIVELOG';
+
+# Switch to ARCHIVELOG and open
+SQL 'ALTER DATABASE ARCHIVELOG';
+ALTER DATABASE OPEN;
+SQL 'ALTER PLUGGABLE DATABASE ALL OPEN';
+
+# First archived log, to prove that archiving works
+SQL 'ALTER SYSTEM ARCHIVE LOG CURRENT';
+
+LIST BACKUP SUMMARY;
+LIST ARCHIVELOG ALL;

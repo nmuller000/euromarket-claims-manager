@@ -1,0 +1,11 @@
+# =============================================================================
+# 09b_validate.rman - Migration phase M.1, step 9b (called by 09b_keystore_swap.sql)
+# Proves that the encrypted level 0 taken before the keystore swap can still be
+# read with the merged keystore.
+#
+# Author: Natalia Müller
+# Copyright (c) 2026 Natalia Müller. All rights reserved.
+# Since:  2026-10-12
+# =============================================================================
+
+RESTORE DATABASE VALIDATE;
