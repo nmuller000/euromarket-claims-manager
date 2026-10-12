@@ -41,6 +41,7 @@ Calculated on 2026-10-11 from the measured installation and the business design 
 
 - The fast recovery area stays on the **internal disk**: if the archived-log destination is missing (a USB disk unplugged), the database stops when no online redo log can be archived. RMAN copies the backups and archived logs to the external disk (archived logs every 30 minutes).
 - The **real redo volume** replaces the estimates after the switch to `ARCHIVELOG` (query in the recovery runbook §7); the sizes are reviewed when the synthetic data is loaded at the design volume (M5).
+- A second partition on the same disk is **not** a separate medium: it does not protect against disk failure, theft or ransomware, and it reduces the space of `C:`. Backup copies go to an external disk that is disconnected and kept apart when not in use.
 - A company setup has backup storage on another server and off-site (ADR-010 §8).
 
 ## 2. Versions

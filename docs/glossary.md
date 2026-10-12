@@ -75,41 +75,52 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | Term | Definition |
 |------|------------|
 | **ACL (network)** | Database rule that allows outbound connections only to approved hosts (`DBMS_NETWORK_ACL_ADMIN`). |
+| **AES-256 / AES-NI** | Advanced Encryption Standard with a 256-bit key, the encryption algorithm of TDE; AES-NI are CPU instructions that make it fast. |
 | **APEX** | Oracle Application Express: low-code framework for web applications that run inside the database. |
 | **APEX Advisor** | APEX tool that checks an application for security, performance and quality issues. |
 | **APEX Data Load** | APEX feature that loads CSV, Excel, JSON or XML files into tables with column mapping. |
 | **`APEX_MAIL`** | APEX package that queues and sends emails through the configured SMTP server. |
+| **Archived log** | Saved copy of a full online redo log ("a saved page of the database diary"); with archived logs a restored backup is brought forward to a later moment. Only in `ARCHIVELOG` mode. |
 | **ARCHIVELOG mode** | Database mode in which every filled online redo log is saved as an **archived redo log** before it is reused; needed for online backups, point-in-time recovery and restore points (ADR-010). The opposite, `NOARCHIVELOG`, allows only cold backups. |
 | **Artifact (deployment)** | ZIP file created by SQLcl `project` that contains one release and installs it on another database. |
 | **Authorization scheme** | APEX rule that decides whether a user can see a page or component. |
-| **Autonomous transaction** | PL/SQL block that commits independently of the calling transaction; used for logging. |
+| **Auto-login keystore (local)** | File `cwallet.sso` created from the keystore that opens the keys automatically when the database starts, but only on the computer where it was created. |
 | **Auto-scaling** | Automatic adjustment of CPU and memory to the current load (e.g., in Autonomous Database). |
+| **Autonomous transaction** | PL/SQL block that commits independently of the calling transaction; used for logging. |
+| **Backup piece** | File written by RMAN that contains a backup or part of it. |
 | **Block change tracking** | File in which Oracle records the changed blocks, so that an incremental backup reads only those blocks. |
 | **CDB / PDB** | Container Database / Pluggable Database. `FREEPDB1` is the PDB that hosts this project. |
 | **Changelog** | Liquibase file that lists database changes in order; each change is applied once and recorded. |
 | **Changeset** | One database change inside a changelog (e.g., add a column); Liquibase applies it once per database. |
 | **Checksum (SHA-256)** | Fingerprint calculated from a file's content; matching the published value proves a download is complete and unaltered. |
 | **Chunk** | A segment of a source document stored with its embedding. |
+| **Control file** | Small database file that acts as its table of contents: which data files and logs exist and which backups RMAN made. Saved automatically with each backup (`CONTROLFILE AUTOBACKUP`). |
 | **Corpus** | The collection of source documents the search works on; here, the CMR and the EU acts listed in spec §2.2. |
+| **Data file** | Operating-system file (`.DBF`) that stores the data of one tablespace. |
+| **Data Guard** | Oracle feature that keeps a standby copy of the database up to date from the redo of the primary; not available in the Free edition (growth path, ADR-010 §8). |
 | **Data Pump** | Oracle export/import utility (`expdp`/`impdp`) used for backups of schemas and data. |
 | **Database role** | Named set of privileges granted to users instead of granting privileges one by one. |
-| **Data Guard** | Oracle feature that keeps a standby copy of the database up to date from the redo of the primary; not available in the Free edition (growth path, ADR-010 §8). |
-| **Definer's rights** | Default PL/SQL mode: code runs with its owner's privileges; privileges received through roles are not active there. |
+| **DBID** | Identity number of a database; needed to find its backups when the control file is lost. |
 | **`DBMS_SCHEDULER`** | Oracle job scheduler used for background and recurring tasks. |
+| **Definer's rights** | Default PL/SQL mode: code runs with its owner's privileges; privileges received through roles are not active there. |
 | **ELT** | Extract, Load, Transform: data is first loaded raw into staging tables and then validated and transformed inside the database before reaching the operational tables. |
+| **Embedding** | Numeric vector representing the meaning of a text. |
+| **Encrypted tablespace** | Tablespace whose data files are stored encrypted by TDE: decrypted when read into memory, so users and applications see normal data, while copied files or backups are unreadable without the keystore (ADR-011). |
 | **Fast recovery area** | Disk location managed by Oracle for archived logs, backups and flashback logs (`DB_RECOVERY_FILE_DEST`). |
 | **Flashback (Database / PDB / Table)** | Oracle features that return a whole database, one PDB or one table to an earlier time without restoring a backup. |
-| **Embedding** | Numeric vector representing the meaning of a text. |
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
-| **Incremental backup (level 0 / level 1)** | RMAN backups: level 0 copies all blocks (the base); level 1 copies only blocks changed since the previous backup. |
 | **Identity column** | Column whose value Oracle generates (`GENERATED ALWAYS AS IDENTITY`); used for surrogate primary keys. |
+| **Incremental backup (level 0 / level 1)** | RMAN backups: level 0 copies all blocks (the base); level 1 copies only blocks changed since the previous backup. |
 | **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs (ADR-007). |
 | **Interval partitioning** | Range partitioning in which Oracle creates a new partition automatically for each interval (here: each month); old data is removed with `DROP PARTITION`. |
 | **IVF** | Inverted File Flat: partition-based vector index stored on disk. |
 | **Journal table** | Table `<TABLE>_JN` that keeps the previous version of each updated or deleted row, with operation, user and timestamp; filled by a trigger. |
+| **Key rotation (rekey)** | Replacing a master encryption key with a new one; the old keys stay in the keystore so older backups remain readable. |
+| **Keystore (wallet)** | Password-protected file (`ewallet.p12`) that holds the TDE master encryption keys, under `WALLET_ROOT`. "The safe of the keys": without it encrypted data cannot be read, also not from backups (ADR-011). |
 | **Liquibase** | Database change-management tool, integrated in SQLcl. |
 | **Load balancer** | Component that distributes requests across several server instances (e.g., several ORDS nodes). |
 | **Mailpit** | Local email testing server: receives emails over SMTP and shows them in a web page without delivering them. |
+| **Master encryption key** | TDE key, one per PDB, that encrypts the tablespace keys; stored only in the keystore. |
 | **NL-to-SQL** | Translating a natural-language question into SQL (ADR-002). |
 | **OAuth2 client credentials** | Flow in which a client application gets an access token with its own ID and secret; native in ORDS. |
 | **ONNX** | Open Neural Network Exchange: open format for trained AI models. An **ONNX model** is a file that Oracle can load and run inside the database (here, the embedding model of ADR-004). |
@@ -118,17 +129,20 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
 | **Party role** | Function a company plays in a shipment or claim (shipper, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |
+| **Point-in-time recovery** | Recovery of a database or PDB up to a chosen moment (for example just before a wrong mass update); later changes are lost. |
 | **Profile (password)** | Set of password and session rules assigned to an account (e.g., `ORA_CIS_PROFILE`: failed logins, expiry, reuse, complexity, inactivity lock). |
 | **Prompt injection** | Attack in which text processed by an LLM contains instructions that try to change its behaviour. |
 | **Proxy authentication** | One account connects and acts as another without its password (how ORDS uses APEX schemas). |
-| **Redo log** | Files in which the database writes every change before it is applied to the data files; online redo logs are reused in a cycle, archived redo logs are their saved copies. |
-| **Restore point (guaranteed)** | Name for a point in time to which a database or PDB can be returned with flashback; a guaranteed one keeps the needed logs until it is dropped (used before each deployment, ADR-010). |
-| **RMAN** | Recovery Manager: Oracle tool for backup, restore and recovery. |
 | **RAG** | Retrieval-Augmented Generation: grounding an LLM answer in retrieved documents. |
 | **Recall@5** | Share of questions whose correct source appears in the top 5 results. |
+| **Redo log** | Files in which the database writes every change before it is applied to the data files; online redo logs are reused in a cycle, archived redo logs are their saved copies. |
+| **Restore / recover** | Restore copies data files back from a backup; recover applies archived logs to bring them forward to the latest or to a chosen moment. |
+| **Restore point (guaranteed)** | Name for a point in time to which a database or PDB can be returned with flashback; a guaranteed one keeps the needed logs until it is dropped (used before each deployment, ADR-010). |
+| **Retention policy (recovery window)** | RMAN rule that says how long backups are kept, e.g. "recovery window of 7 days" = any moment of the last 7 days can be restored; older backups become obsolete and are deleted. |
+| **RMAN** | Recovery Manager: Oracle tool that makes backups (full and incremental, encrypted), checks them, deletes obsolete ones and restores and recovers the database; it records every backup in the control file ([backup runbook](operations/backup-runbook.md)). |
 | **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_APP`) or by `SYS` (`UT3`). |
-| **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Seed and publish (APEX)** | Translation workflow: seed copies the texts of the primary application, the XLIFF file is translated and applied, and publish creates the translated application. |
+| **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
 | **SGA / PGA** | System Global Area (shared memory) / Program Global Area (per-session memory). |
 | **SMTP** | Simple Mail Transfer Protocol: standard protocol for sending email. |
@@ -136,16 +150,20 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **SQLcl** | Oracle's command-line tool for SQL, scripts, Liquibase and projects. |
 | **SQLcl project** | SQLcl command set (`project init`, `export`, `stage`, `release`, `deploy`) that versions database and APEX changes with Liquibase (ADR-005). |
 | **Staging / landing table** | Table where inbound data is stored before it reaches the operational tables; here a generic landing table `EMK_INBOUND_RECORDS` keeps each record as received (JSON) with its processing status. |
-| **TDE** | Transparent Data Encryption: encrypts data files at rest; keys are kept in a keystore. |
+| **SYSKM** | Oracle administrative privilege for key management only (keystore and master keys), so that key handling can be separated from general database administration. |
 | **Tablespace** | Logical storage area of the database, backed by one or more data files on disk. |
+| **Tablespace key** | TDE key that encrypts the blocks of one tablespace; stored in the data file header, encrypted by the master key. |
+| **TDE** | Transparent Data Encryption: encrypts data when it is written to disk and decrypts it when read, without changes to SQL or applications; keys are kept in a keystore (ADR-011). |
 | **Token** | Unit of text (a word or part of a word) that a language model processes; models accept a maximum number of tokens per input. |
 | **Unified Auditing** | The only database auditing in 23ai/26ai: audit policies (`CREATE AUDIT POLICY`) write to `UNIFIED_AUDIT_TRAIL`, managed with `DBMS_AUDIT_MGMT`. |
 | **UTC** | Coordinated Universal Time; used to store technical timestamps. |
-| **XLIFF** | XML Localization Interchange File Format: standard file used to translate application texts. |
 | **utPLSQL** | Unit-testing framework for PL/SQL. |
+| **Validate (RMAN)** | RMAN check that reads backups and confirms they are complete and undamaged, without restoring anything (`RESTORE DATABASE VALIDATE`). |
 | **`VECTOR`** | Oracle data type that stores embeddings. |
+| **WALLET_ROOT** | Initialization parameter (26ai) that sets the folder of the keystore; the TDE keystore is in its subfolder `tde`. |
 | **Web Credentials** | APEX objects that store API keys securely, outside the code. |
 | **Workspace (APEX)** | Isolated development area in APEX, linked to one or more database schemas. |
+| **XLIFF** | XML Localization Interchange File Format: standard file used to translate application texts. |
 
 ### Methodology & Process
 

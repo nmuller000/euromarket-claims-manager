@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 3 — Build ([docs/sdlc.md](../sdlc.md)) |
-| **Status** | Accepted v1.7 (2026-10-11) |
+| **Status** | Accepted v1.8 (2026-10-12) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-06 |
 | **Input** | [spec.md](../spec.md) v1.3 §1.3, §2.1, §2.7, §3, §4, §7, §8 · [ADR-005](../adr/ADR-005-deployment-and-database-setup.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [M0 plan](M0-plan.md) |
@@ -127,11 +127,13 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | T-M1-32 | The previous application version can be redeployed | Redeploy of the previous APEX application artifact over a newer one; application opens, data unchanged | ADR-010 §2 | c |
 | T-M1-33 | A backup can be restored within the targets | Restore drill in DEV following the [recovery runbook](../operations/recovery-runbook.md) with marker rows; protocol with measured RPO ≤ 1 h and RTO ≤ 4 h | ADR-010 §1 | a |
 | T-M1-34 | Privileged activity is audited and attributed | DDL, object grant and proxy logon as `<developer>[EMK_DATA]` produce records in `UNIFIED_AUDIT_TRAIL` with `DBPROXY_USERNAME` | ADR-010 §3 | a |
+| T-M1-35 | Project tablespaces are encrypted | `DBA_TABLESPACES.ENCRYPTED = 'YES'` for every `EMK_%` tablespace (AES256); a known test string is found in the data file of an unencrypted test tablespace and not in the encrypted one; timing of the same full scan with cold cache in both, recorded | ADR-011 | a |
+| T-M1-36 | Losing the auto-login file loses no data | `cwallet.sso` removed → `ORA-28365` → auto-login recreated from the password keystore → data readable; restore drill T-M1-33 uses the keystore backup, not the live keystore | ADR-011 | a |
 
 ## 6. Definition of Done
 
 - Each increment: its tests pass, pull request reviewed and merged.
-- M1: all tests T-M1-01 to T-M1-34 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
+- M1: all tests T-M1-01 to T-M1-36 pass with evidence in the pull requests; spec §8.1 criteria for M1 (SC-DEP-01 to 04, SC-QA-01 to 03, 06) pass.
 - `docs/setup.md`, the glossary and the Spanish copies describe the new steps.
 
 ## 7. Open Points
@@ -162,3 +164,4 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | v1.5 | 2026-10-08 | Step 0: check that the application ID is free; open point 3 verified (APEX session and role assignment behaviour); export option `partitioning: true` moved from step 12 to step 1. Accepted by the owner. |
 | v1.6 | 2026-10-09 | Step 7: restore, BR-16 and BR-17 in the APIs; test T-M1-30 (CMR applicability). Accepted by the owner. |
 | v1.7 | 2026-10-11 | ADR-010: tests T-M1-31 to T-M1-34 (flashback of a failed deployment, redeploy of the previous application, restore drill with measured RPO and RTO, audit of privileged activity). Accepted by the owner. |
+| v1.8 | 2026-10-12 | ADR-011: tests T-M1-35 (encrypted tablespaces) and T-M1-36 (keystore loss without data loss). Accepted by the owner. |

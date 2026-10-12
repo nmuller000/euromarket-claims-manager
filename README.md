@@ -42,6 +42,7 @@ Business rules live in PL/SQL APIs, never in APEX pages. Details: [API design](d
 | **Scalability** | Monthly interval partitioning of append-only tables (logs, journals) with purge by partition; an index on every foreign key; stateless ORDS (several nodes behind a load balancer); growth path to Enterprise Edition or Autonomous Database without code changes | Designed; partitioning implemented | [spec §12](docs/spec.md) |
 | **Backup, recovery and release rollback** | Archive log mode, RMAN backups and a [recovery runbook](docs/operations/recovery-runbook.md) with restore drills; targets derived from the business (RPO ≤ 1 h, RTO ≤ 4 h); guaranteed restore point before each deployment, decision matrix for rollback vs. fix-forward, backward-compatible schema changes, pilot users through feature flags | Decided | [ADR-010](docs/adr/ADR-010-operations-and-release-strategy.md) |
 | **Database auditing, encryption in transit, performance targets** | Unified Auditing of DDL, grants and logons of the project schemas, 1 year online plus a pseudonymised archive; HTTPS outside DEV; page response p95 < 2 s and Apdex at the design volume, shown on an operations page | Decided | [ADR-010](docs/adr/ADR-010-operations-and-release-strategy.md) |
+| **Encryption at rest and key management** | Project tablespaces encrypted with TDE (AES-256); keys in a keystore that opens automatically only on its own server; RMAN backups and Data Pump exports encrypted; **keys never kept with the data** (keystore copies in two places apart from the backups). A lost backup disk exposes no personal data or business secrets | Decided | [ADR-011](docs/adr/ADR-011-tablespace-encryption.md), [backup runbook](docs/operations/backup-runbook.md) |
 
 ## Edition Constraints and Growth Path
 
@@ -53,6 +54,8 @@ The project runs on **Oracle AI Database 26ai Free** on one machine. What this e
 | RAC, parallel backup and recovery | One instance, one RMAN channel | Enterprise Edition / Autonomous Database |
 | Flashback Transaction, tablespace point-in-time recovery | Journal tables, PDB point-in-time recovery and flashback | Enterprise Edition |
 | Online encryption of existing tablespaces | Tablespaces created encrypted | Enterprise Edition + Advanced Security |
+| TDE in Enterprise Edition on premises | Included in Free | **Advanced Security option (extra cost per processor)**; Standard Edition 2 on premises: not available; Oracle Cloud: included |
+| Central key management (Oracle Key Vault, HSM) | Software keystore with two separate copies | Oracle Key Vault (separate licence), HSM or cloud vault |
 | More than 2 CPUs, 2 GB RAM, 12 GB data | Partitioning, sizing, document size limit | Enterprise Edition / Autonomous Database |
 | Separate servers, disks and off-site backups | All environments as PDBs of one CDB; backups in a separate folder | One server per environment, backup storage off-site |
 
@@ -77,6 +80,7 @@ The project follows an AI-native development life cycle ([docs/sdlc.md](docs/sdl
 | [Data model](docs/design/README.md) · [API design](docs/design/api-design.md) | Physical design, packages, call flows |
 | [SDLC](docs/sdlc.md) | Development stages and current status |
 | [Setup guide](docs/setup.md) | Local environment and database installation |
+| [Backup runbook](docs/operations/backup-runbook.md) | Routine backups: concepts in plain words, schedule, retention, where backups and keys are kept |
 | [Recovery runbook](docs/operations/recovery-runbook.md) | What to do when data is lost: scenarios, commands, business reconciliation, restore drills |
 | [Glossary](docs/glossary.md) | Functional and technical terms |
 
