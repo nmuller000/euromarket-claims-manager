@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
+| **Status** | Accepted v1.6 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
 | **Date** | 2026-10-07 |
-| **Schema** | `EMK_APP` |
+| **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); changed only through the APIs in `EMK_API` (object grants, no `DELETE` on soft-deleted tables) |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
 | **Input** | [spec.md](../spec.md) v1.6 §1.3, §2.1, §2.7, §3, §4, §12.1 · [Standard audit block](README.md#standard-audit-block) · [Reference data](data-model-reference.md) |
 | **Scope** | Claims management, not a transport management system: no tariffs (only the carriage charges of each shipment, BR-10), no employee table (users are APEX accounts, spec §7.1; data minimisation), one postal address per party (letters, M4) |
@@ -229,6 +229,11 @@ A company can play **several roles** (a forwarder that also carries with its own
 | v0.1 | 2026-10-07 | First draft. |
 | v1.0 | 2026-10-07 | Open points 1–7 decided. Accepted by the owner. |
 | v1.1 | 2026-10-07 | Party roles (`EMK_PARTY_ROLES`, BR-16); places of taking over and delivery; scope note (no tariffs, employees or address table). Accepted by the owner. |
+| v1.2 | 2026-10-08 | REGEXP patterns without ranges (design README, Common Rules). |
+| v1.3 | 2026-10-09 | Shipments: CMR note number and business dates normalised by check constraints; BR-17 (CMR applicability). |
+| v1.4 | 2026-10-09 | Claims: BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). |
+| v1.5 | 2026-10-09 | Explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). |
+| v1.6 | 2026-10-13 | Schema `EMK_DATA` instead of `EMK_APP` (ADR-008). |
 
 ## 10. Sources
 

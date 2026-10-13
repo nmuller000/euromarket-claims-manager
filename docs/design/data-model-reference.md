@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
+| **Status** | Accepted v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
-| **Schema** | `EMK_APP` |
+| **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); read by `EMK_API` through `SELECT` grants |
 | **Milestone** | M1a (plan step 2 and 6) |
 | **Input** | [spec.md](../spec.md) v1.4 §1.3, §3 · [M1 plan](../plans/M1-plan.md) v1.2 open points 4–8 · [Standard audit block](README.md#standard-audit-block) |
 

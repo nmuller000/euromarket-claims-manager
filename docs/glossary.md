@@ -111,7 +111,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
 | **Identity column** | Column whose value Oracle generates (`GENERATED ALWAYS AS IDENTITY`); used for surrogate primary keys. |
 | **Incremental backup (level 0 / level 1)** | RMAN backups: level 0 copies all blocks (the base); level 1 copies only blocks changed since the previous backup. |
-| **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs (ADR-007). |
+| **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs in `EMK_API` (ADR-007, ADR-008). |
 | **Interval partitioning** | Range partitioning in which Oracle creates a new partition automatically for each interval (here: each month); old data is removed with `DROP PARTITION`. |
 | **IVF** | Inverted File Flat: partition-based vector index stored on disk. |
 | **Journal table** | Table `<TABLE>_JN` that keeps the previous version of each updated or deleted row, with operation, user and timestamp; filled by a trigger. |
@@ -140,7 +140,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Restore point (guaranteed)** | Name for a point in time to which a database or PDB can be returned with flashback; a guaranteed one keeps the needed logs until it is dropped (used before each deployment, ADR-010). |
 | **Retention policy (recovery window)** | RMAN rule that says how long backups are kept, e.g. "recovery window of 7 days" = any moment of the last 7 days can be restored; older backups become obsolete and are deleted. |
 | **RMAN** | Recovery Manager: Oracle tool that makes backups (full and incremental, encrypted), checks them, deletes obsolete ones and restores and recovers the database; it records every backup in the control file ([backup runbook](operations/backup-runbook.md)). |
-| **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_APP`) or by `SYS` (`UT3`). |
+| **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_DATA`) or by `SYS` (`UT3`). |
 | **Seed and publish (APEX)** | Translation workflow: seed copies the texts of the primary application, the XLIFF file is translated and applied, and publish creates the translated application. |
 | **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
@@ -211,6 +211,7 @@ Codes used in the documents to refer to items and to trace them from problem to 
 | **R-nn** | Risk and its mitigation | spec §11 | R-01 — memory limit of 2 GB |
 | **ADR-nnn** | Architecture Decision Record | `docs/adr/` | ADR-005 — hybrid deployment |
 | **M0–M5 / X1–X4** | MVP milestone / extension milestone | spec §9 | M0 — foundations |
+| **M.1–M.5** | Migration phase of step M of the M1 plan (move to the separated schemas); not a milestone: M.3 is a phase inside milestone M1, M3 is the legal-search milestone | M1 plan §4.1 | M.1 — safety and operations |
 | **T-Mn-nn** | Test of a milestone plan | `docs/plans/` | T-M0-04 — clean rebuild |
 | **PR #n** | Pull request number on GitHub | GitHub | PR #5 |
 

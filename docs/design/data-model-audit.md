@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.1 (2026-10-08): `created_on` / `jn_on` described as UTC date-time (§2) |
+| **Status** | Accepted v1.2 (2026-10-13): schemas per ADR-008. v1.1 (2026-10-08): `created_on` / `jn_on` described as UTC date-time (§2) |
 | **Date** | 2026-10-07 |
-| **Schema** | `EMK_APP` |
+| **Schema** | `EMK_DATA`: journals, their triggers and the claim status history · `EMK_API`: `EMK_LOG` ([ADR-008](../adr/ADR-008-schema-separation.md) §4) |
 | **Milestone** | M1a (plan steps 1, 3–5) |
 | **Input** | [spec.md](../spec.md) v1.6 §1.3 (*Change history*, *Partitioning*, *Logging*), §4, FR-09 · [Standard audit block](README.md#standard-audit-block) · [Operational data](data-model-operational.md) |
 

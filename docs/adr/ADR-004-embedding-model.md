@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · the schema of the model (`EMK_APP`) is open since [ADR-008](ADR-008-schema-separation.md) removed that schema; to be decided before milestone M3 |
 | **Date** | 2026-10-04 |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [spec.md](../spec.md) §2.2, §6.1, §12 · [intent.md](../intent.md) §7 (Q2) · [ADR-001](ADR-001-hnsw-vector-index.md) · SC-AI-01, SC-AI-03, SC-AI-05 · R-01, R-07 |

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · references to `EMK_APP` (APIs, APEX primary schema) and private synonyms superseded by [ADR-008](ADR-008-schema-separation.md) (`EMK_API`, schema-qualified names); tablespace `EMK_INT_DATA` replaced by `EMK_INT_TS` ([ADR-011](ADR-011-tablespace-encryption.md)) |
 | **Date** | 2026-10-07 |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [spec.md](../spec.md) §1.3, §7, §12 · [ADR-005](ADR-005-deployment-and-database-setup.md) (amends the developer-account privileges) · [M1 plan](../plans/M1-plan.md) (M1b) · FR-03, FR-12, BR-14, SC-SEC-08 |
