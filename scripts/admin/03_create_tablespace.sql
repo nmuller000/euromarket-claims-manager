@@ -1,9 +1,9 @@
 -- =============================================================================
 -- 03_create_tablespace.sql
 -- Creates the project tablespaces if they do not exist:
---   &emk_tablespace     application data (EMK_APP)
+--   &emk_tablespace     application data (EMK_APP; single-schema layout, DEV only, retired in M.4)
 --   &emk_int_tablespace inbound data of the integration schema (EMK_INT, ADR-007)
--- Prerequisite: the folder &emk_datafile_dir exists on the DATABASE SERVER
+-- Prerequisite: the folder &emk_legacy_datafile_dir exists on the DATABASE SERVER
 -- (see docs/setup.md). Folders are not created from SQL because the datafile
 -- is written by the database server, not by the SQLcl client.
 -- Called by install_admin.sql (requires 00_config.sql).
@@ -34,12 +34,12 @@ DECLARE
             BEGIN
                 EXECUTE IMMEDIATE
                     'CREATE TABLESPACE ' || p_name
-                    || ' DATAFILE ''&emk_datafile_dir.\' || p_file || ''''
+                    || ' DATAFILE ''&emk_legacy_datafile_dir.\' || p_file || ''''
                     || ' SIZE ' || p_initial || ' AUTOEXTEND ON NEXT ' || p_next || ' MAXSIZE ' || p_max;
             EXCEPTION
                 WHEN e_file_create THEN
                     RAISE_APPLICATION_ERROR(-20003,
-                        'Cannot create the datafile in &emk_datafile_dir. '
+                        'Cannot create the datafile in &emk_legacy_datafile_dir. '
                         || 'Create that folder on the database server (docs/setup.md) and run again. '
                         || SQLERRM);
             END;
@@ -52,6 +52,6 @@ BEGIN
     create_tablespace('&emk_tablespace', '&emk_datafile',
                       '&emk_ts_initial', '&emk_ts_next', '&emk_ts_max');
     create_tablespace('&emk_int_tablespace', '&emk_int_datafile',
-                      '&emk_int_ts_initial', '&emk_int_ts_next', '&emk_int_ts_max');
+                      '&emk_int_ts_initial_old', '&emk_int_ts_next_old', '&emk_int_ts_max_old');
 END;
 /

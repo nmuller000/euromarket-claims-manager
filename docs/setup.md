@@ -209,45 +209,47 @@ Third-party files are kept locally and not committed: source documents (e.g., th
 | 3 | `ords --config C:\ords\config config secret db.password` | Stores the new ORDS password; then restart ORDS. |
 | 4 | `scripts/admin/check_password_expiry.sql` | Read-only check; repeat periodically. |
 
-### 5.2 Project Database Objects (ADR-005, ADR-007)
+### 5.2 Project Database Objects (ADR-005, ADR-007, ADR-008, ADR-009)
 
-1. **Prerequisite:** create the datafile folder on the database server (once):
+1. **Prerequisites:** the TDE keystore is open (`scripts/operations/`, [backup runbook](operations/backup-runbook.md) §7), because the project tablespaces are created encrypted. Create an entry for the deployment account `EMK_DEPLOY` in the password manager before the first run.
 
-   ```powershell
-   New-Item -ItemType Directory -Force C:\db_files\ia_apex_project
-   ```
-
-2. **Install** (idempotent; asks for the `EMK_DEV` password and the workspace administrator only when they are created):
+2. **Install** (idempotent; asks for the environment first, and for the `EMK_DEV` and `EMK_DEPLOY` passwords and the workspace administrator only when they are created):
 
    ```powershell
    sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/install_admin.sql
    ```
 
+   The environment (`DEV`, `TEST`, `ACC`, `PROD`) decides, through `scripts/admin/00_config.sql`, the target PDB, the data folder (`<emk_datafile_root>\emk_<env>`, separate from Oracle's files, D-53) and whether developer access is created (DEV only, ADR-009). The script stops if it is connected to another PDB than the one of the environment.
+
    | Step | Creates or sets |
    |------|-----------------|
-   | 1 Tablespaces | `EMK_DATA` (application) and `EMK_INT_DATA` (integration) |
-   | 2 Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE` (development privileges in proxy sessions, including PL/SQL debugging), `EMK_READONLY_ROLE` |
-   | 3 Schemas | `EMK_APP` and `EMK_INT`, schema-only (no password) |
-   | 4 Developer account | `EMK_DEV`: `CREATE SESSION` only, profile `ORA_CIS_PROFILE`, proxy to `EMK_APP` and `EMK_INT` |
-   | 5 APEX workspace | `EMK_CLAIMS` |
-   | 6 Network access | ACL `jdwp` on `localhost` / `127.0.0.1` for `EMK_APP` and `EMK_INT` (PL/SQL debugger) |
+   | 1 Roles | `EMK_OWNER_ROLE`, `EMK_READONLY_ROLE`; `EMK_DEVELOPER_ROLE` (debugging in proxy sessions) in DEV only |
+   | 2 Tablespaces | `EMK_DATA_TS` and `EMK_INT_TS`, **encrypted** (AES256), in the data folder of the environment (created when the client runs on the database server). DEV also keeps the M1a tablespaces `EMK_DATA` and `EMK_INT_DATA` until migration phase M.4 |
+   | 3 Schemas | `EMK_DATA` (tables), `EMK_API` (APIs, views, log), `EMK_UI` (APEX parsing schema, owns nothing), `EMK_INT` (integration): schema-only. DEV also keeps `EMK_APP` until M.4 |
+   | 4 Deployment account | `EMK_DEPLOY`: profile `DEFAULT`, schema privileges on `EMK_DATA`, `EMK_API`, `EMK_INT` only (create, alter, drop, DML, `GRANT ANY OBJECT PRIVILEGE`) |
+   | 5 Developer account (DEV) | `EMK_DEV`: `CREATE SESSION` only, profile `ORA_CIS_PROFILE`, proxy to `EMK_DATA`, `EMK_API`, `EMK_INT` (and `EMK_APP` until M.4) |
+   | 6 APEX workspace | `EMK_CLAIMS` with schema `EMK_UI` |
+   | 7 Network access | ACL `jdwp` on `localhost` / `127.0.0.1` for the proxy schemas (DEV only, PL/SQL debugger) |
+   | 8 Database auditing | Policies `EMK_AUD_DDL`, `EMK_AUD_GRANTS`, `EMK_AUD_SESSIONS` enabled for `EMK_DATA`, `EMK_API`, `EMK_INT`, `EMK_DEPLOY` (ADR-010 §3); `EMK_AUD_DEPLOY_DML` records every `INSERT`, `UPDATE`, `DELETE` of `EMK_DEPLOY`, which can change data in the project schemas |
 
-   Then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Names and sizes are in `scripts/admin/00_config.sql`. Each run writes its own log, `logs/install_admin_<YYYYMMDD_HH24MISS>.log`; prompts are not logged. The personal account `DEV_USER` is not touched.
+   Then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Each run writes its own log, `logs/install_admin_<ENV>_<YYYYMMDD_HH24MISS>.log`; prompts are not logged. The personal account `DEV_USER` is not touched.
 
-3. **Work as the application or the integration schema** through the developer account (proxy authentication: the password asked is the one of `EMK_DEV`). `EMK_DEV` alone cannot create objects (`ORA-01031`):
+3. **Work as a schema** through the developer account (DEV; proxy authentication: the password asked is the one of `EMK_DEV`). `EMK_DEV` alone cannot create objects (`ORA-01031`):
 
    ```powershell
-   sql -thin "EMK_DEV[EMK_APP]@localhost:1521/FREEPDB1"
-   sql -thin "EMK_DEV[EMK_INT]@localhost:1521/FREEPDB1"
+   sql -thin "EMK_DEV[EMK_DATA]@localhost:1521/FREEPDB1"
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1"
    ```
 
-4. **Remove everything** (asks to type `YES`; close `EMK_DEV` sessions first). `UT3` (utPLSQL) is kept:
+   Every structural change made this way is audited with the person (`DBPROXY_USERNAME`): test `tests/admin/t_m1_34_audit.sql` (T-M1-34).
+
+4. **Remove everything** (asks for the environment and to type `YES`; close project sessions first). `UT3` (utPLSQL) and the keystore are kept:
 
    ```powershell
    sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/uninstall_admin.sql
    ```
 
-   To rebuild, run `install_admin.sql` and then `09_install_utplsql.sql` (§5.3) again, which restores the utPLSQL grants of `EMK_APP`.
+   To rebuild, run `install_admin.sql` and then `09_install_utplsql.sql` (§5.3) again.
 
 ### 5.3 utPLSQL
 

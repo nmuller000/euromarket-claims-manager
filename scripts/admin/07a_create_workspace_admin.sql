@@ -27,7 +27,7 @@ BEGIN
 
     APEX_INSTANCE_ADMIN.ADD_WORKSPACE(
         p_workspace      => '&emk_workspace',
-        p_primary_schema => '&emk_app_schema'
+        p_primary_schema => '&emk_ui_schema'
     );
 
     -- Switch to the new workspace to create its administrator
@@ -38,7 +38,7 @@ BEGIN
         p_email_address                => '&emk_ws_admin_email',
         p_web_password                 => '&emk_ws_admin_pwd',
         p_developer_privs              => 'ADMIN:CREATE:DATA_LOADER:EDIT:HELP:MONITOR:SQL',
-        p_default_schema               => '&emk_app_schema',
+        p_default_schema               => '&emk_ui_schema',
         p_change_password_on_first_use => 'N'
     );
 

@@ -1,11 +1,13 @@
 -- =============================================================================
 -- 06_create_dev_user.sql
+-- DEV only (ADR-009): install_admin.sql calls it when &emk_dev_access = Y.
 -- Developer account &emk_dev_user (ADR-005, hardened by ADR-007):
 --   - created if missing (password asked only then);
 --   - CREATE SESSION only, granted directly; no roles (Oracle guideline for
 --     proxy accounts: in a proxy session the privileges of the target schema apply);
 --   - password profile &emk_dev_profile (CIS baseline);
---   - proxy access to &emk_app_schema and &emk_int_schema;
+--   - proxy access to &emk_data_schema, &emk_api_schema, &emk_int_schema
+--     (and &emk_app_schema until migration phase M.4);
 --   - &emk_dev_role (development privileges in the proxy session, e.g. debugging)
 --     granted to the target schemas.
 -- Order matters: CREATE SESSION is granted directly BEFORE the roles are
@@ -39,7 +41,7 @@ GRANT CREATE SESSION TO &emk_dev_user;
 -- 2. Password profile for people
 ALTER USER &emk_dev_user PROFILE &emk_dev_profile;
 
--- 3. Proxy: &emk_dev_user may connect as each schema (EMK_DEV[EMK_APP], EMK_DEV[EMK_INT])
+-- 3. Proxy: &emk_dev_user may connect as each schema (e.g. EMK_DEV[EMK_DATA])
 DECLARE
     PROCEDURE grant_proxy (p_client IN VARCHAR2) IS
         l_count PLS_INTEGER;
@@ -58,14 +60,19 @@ DECLARE
         END IF;
     END grant_proxy;
 BEGIN
-    grant_proxy('&emk_app_schema');
+    grant_proxy('&emk_data_schema');
+    grant_proxy('&emk_api_schema');
     grant_proxy('&emk_int_schema');
+    grant_proxy('&emk_app_schema');
 END;
 /
 
--- 4. Development privileges for the proxy sessions go to the target schemas
+-- 4. Development privileges for the proxy sessions go to the target schemas:
+--    developer role (debugging) and owner role (creating objects in the session)
+GRANT &emk_dev_role, &emk_owner_role TO &emk_data_schema;
+GRANT &emk_dev_role, &emk_owner_role TO &emk_api_schema;
+GRANT &emk_dev_role, &emk_owner_role TO &emk_int_schema;
 GRANT &emk_dev_role TO &emk_app_schema;
-GRANT &emk_dev_role TO &emk_int_schema;
 
 -- 5. The developer account holds no roles (removes DB_DEVELOPER_ROLE and
 --    &emk_dev_role granted by earlier versions of this script)

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 3 — Build ([docs/sdlc.md](../sdlc.md)) |
-| **Status** | Accepted v1.10 (2026-10-12) |
+| **Status** | Accepted v1.11 (2026-10-13) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-06 |
 | **Input** | [spec.md](../spec.md) v1.3 §1.3, §2.1, §2.7, §3, §4, §7, §8 · [ADR-005](../adr/ADR-005-deployment-and-database-setup.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [M0 plan](M0-plan.md) |
@@ -70,7 +70,7 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | Phase | Work | Proven by |
 |-------|------|-----------|
 | M.1 | Safety and operations (CDB, one restart): OS-authentication check, cold backup; `ARCHIVELOG`, `ARCHIVE_LAG_TARGET`, `WALLET_ROOT`, `TABLESPACE_ENCRYPTION`; keystore, master keys, local auto-login, two keystore copies; RMAN configuration, first level 0, validation; small restore of a lab tablespace | `log_mode = ARCHIVELOG`; keystore `OPEN`; `RESTORE DATABASE VALIDATE`; lab restore; T-M1-35, T-M1-36. **Done 2026-10-12:** [drill protocol](../operations/drills/2026-10-12-m1-dev.md), scripts in `scripts/operations/` |
-| M.2 | Admin scripts per environment (`EMK_ENV`): encrypted `EMK_DATA_TS`, `EMK_INT_TS`; schemas `EMK_DATA`, `EMK_API`, `EMK_UI`; `EMK_DEPLOY`; developer proxies (DEV only); audit policies; debugger ACL; `verify_admin.sql`, `uninstall_admin.sql` | `verify_admin.sql`; T-M1-34, T-M1-35 |
+| M.2 | Admin scripts per environment (`EMK_ENV`): encrypted `EMK_DATA_TS`, `EMK_INT_TS`; schemas `EMK_DATA`, `EMK_API`, `EMK_UI`; `EMK_DEPLOY`; developer proxies (DEV only); audit policies; debugger ACL; `verify_admin.sql`, `uninstall_admin.sql` | `verify_admin.sql`; T-M1-34, T-M1-35. **Done 2026-10-13:** 29/29 checks, idempotent second run, T-M1-34 6/6 (`tests/admin/t_m1_34_audit.sql`); data files in a folder per environment apart from Oracle's (D-53) |
 | M.3 | Steps 1–6 rebuilt in `EMK_DATA` / `EMK_API` (object grants, schema-qualified names); the checks of steps 1–6 become utPLSQL suites in `tests/` | utPLSQL suites green |
 | M.4 | APEX parsing schema `EMK_UI`; SQLcl project per schema; export; `EMK_APP` and `src/database/emk_app/` retired | Export without `EMK_APP`; application opens |
 | M.5 | PDB `EMKTEST` from the seed with the admin scripts; first deployment of the artifact by `EMK_DEPLOY`; flashback of a failed deployment; restore drill with the keystore copy | T-M1-01, T-M1-31, T-M1-33 |
@@ -180,3 +180,4 @@ Application objects are created in `EMK_APP` and `EMK_INT` (connected as `EMK_DE
 | v1.8 | 2026-10-12 | ADR-011: tests T-M1-35 (encrypted tablespaces) and T-M1-36 (keystore loss without data loss). Accepted by the owner. |
 | v1.9 | 2026-10-12 | Step M: migration to the separated schemas in five phases (ADR-008 to ADR-011); checks of steps 1–6 committed as utPLSQL suites; `EMKACC` created at customer acceptance (M5). Accepted by the owner. |
 | v1.10 | 2026-10-12 | Phase M.1 done: `ARCHIVELOG`, keystore, encrypted level 0, lab restore; T-M1-35 and T-M1-36 passed (drill protocol). Accepted by the owner. |
+| v1.11 | 2026-10-13 | Phase M.2 done: admin scripts per environment (asked at run time), encrypted tablespaces in a separate data folder, separated schemas, `EMK_DEPLOY`, audit policies; T-M1-34 and T-M1-35 passed. Accepted by the owner. |
