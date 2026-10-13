@@ -208,6 +208,7 @@ Third-party files are kept locally and not committed: source documents (e.g., th
 | 2 | `scripts/admin/02_account_hardening.sql` | Locks unused accounts, makes proxy-only accounts schema-only, rotates the ORDS password. |
 | 3 | `ords --config C:\ords\config config secret db.password` | Stores the new ORDS password; then restart ORDS. |
 | 4 | `scripts/admin/check_password_expiry.sql` | Read-only check; repeat periodically. |
+| 5 | `scripts/admin/rotate_password.sql` | Changes the password of `EMK_DEV`, `EMK_DEPLOY` or `ORDS_PUBLIC_USER` before it expires, or after it expired or the account was locked (also unlocks); proves the new password by logging in and prints the next steps (for ORDS: `config secret`). |
 
 ### 5.2 Project Database Objects (ADR-005, ADR-007, ADR-008, ADR-009)
 
@@ -329,5 +330,6 @@ Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXE
 - After a database restart, restart ORDS.
 - Check account expiry before it affects ORDS: `scripts/admin/check_password_expiry.sql`.
 - Back up schemas with Data Pump (`expdp`) before large changes.
-- Accounts of people use `ORA_CIS_PROFILE` (ADR-007): the password expires every 90 days and the account **locks after 120 days without login** (`ORA-28000`). Unlock as `SYS`: `ALTER USER emk_dev ACCOUNT UNLOCK;`.
+- Accounts of people use `ORA_CIS_PROFILE` (ADR-007): the password expires every 90 days and the account **locks after 120 days without login** (`ORA-28000`). `rotate_password.sql` sets a new password and unlocks the account.
+- Scripts that ask for a password never show it, not even when the statement fails (`scripts/admin/00_set_password.sql`): use passwords of 16+ characters made of letters, digits and the special characters `- _ . ! # % + = : ? @` (personal accounts need at least one special character: `ORA12C_VERIFY_FUNCTION` of `ORA_CIS_PROFILE`).
 - Privileges used inside PL/SQL must be granted **directly** to the owning schema: roles are disabled in definer's-rights code. Symptom: a statement works in SQLcl but fails inside a package with an insufficient-privileges error.

@@ -44,6 +44,11 @@ FROM   dual;
 -- Listener address of the database server (host:port), used by test scripts that connect
 DEFINE emk_db_address = localhost:1521
 
+-- Container database (CDB) of this PDB and its Windows service (derived; used for restarts)
+COLUMN cfg_cdb NEW_VALUE emk_cdb_name NOPRINT
+SELECT name AS cfg_cdb FROM v$database;
+DEFINE emk_win_service = OracleService&emk_cdb_name
+
 -- Developer access (personal accounts, proxies, developer role, debugger ACL): DEV only
 COLUMN cfg_dev NEW_VALUE emk_dev_access NOPRINT
 SELECT CASE '&emk_env' WHEN 'DEV' THEN 'Y' ELSE 'N' END AS cfg_dev FROM dual;
@@ -116,6 +121,11 @@ DEFINE emk_audited_users = "&emk_data_schema, &emk_api_schema, &emk_int_schema, 
 -- 5. APEX and tools
 -- -----------------------------------------------------------------------------
 DEFINE emk_workspace     = EMK_CLAIMS
+-- ORDS (standalone): program and configuration folder of this machine
+DEFINE emk_ords_exe      = C:\ords\bin\ords.exe
+DEFINE emk_ords_config   = C:\ords\config
+-- Vector memory pool for HNSW indexes, in MB (ADR-001)
+DEFINE emk_vector_memory_mb = 128
 -- utPLSQL (09_install_utplsql.sql; installer extracted from the release ZIP)
 DEFINE emk_ut3_schema    = UT3
 DEFINE emk_ut3_ts        = USERS

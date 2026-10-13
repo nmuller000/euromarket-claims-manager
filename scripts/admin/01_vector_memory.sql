@@ -6,7 +6,7 @@
 -- Idempotent: if the target value is already active, it only verifies.
 --
 -- Requirements:
---   * Oracle AI Database 26ai Free on Windows (service OracleServiceFREE).
+--   * Oracle AI Database 26ai Free on Windows (service OracleService<CDB>, derived).
 --   * PowerShell opened "as Administrator" (needed to restart the service).
 --   * Run from the repository root with SQLcl and the thin driver:
 --       sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/01_vector_memory.sql
@@ -25,9 +25,11 @@ SET VERIFY OFF
 SET FEEDBACK OFF
 SET SQLFORMAT
 
-DEFINE target_mb = 128
-
+ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST, ACC or PROD): '
 SPOOL logs/01_vector_memory.log
+@@00_config.sql
+@@00_check_context.sql
+DEFINE target_mb = &emk_vector_memory_mb
 
 ALTER SESSION SET CONTAINER = CDB$ROOT;
 

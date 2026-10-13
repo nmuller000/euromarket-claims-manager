@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.13 (2026-10-11) |
+| **Status** | Accepted v1.14 (2026-10-13) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -523,7 +523,7 @@ See [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md): question + allow-listed 
 
 ### 7.2 Accounts and Secrets
 
-- Password expiry stays enabled. Proxy-only accounts are schema-only; unused admin accounts are locked; the ORDS account is rotated with `scripts/admin/rotate_ords_password.sql`.
+- Password expiry stays enabled. Proxy-only accounts are schema-only; unused admin accounts are locked; passwords of the accounts that have one (`EMK_DEV`, `EMK_DEPLOY`, `ORDS_PUBLIC_USER`) are rotated with `scripts/admin/rotate_password.sql`, which never shows the password, also when the change fails.
 - **Profiles (ADR-007):** accounts of people use `ORA_CIS_PROFILE` (CIS baseline: 5 failed logins, 90-day lifetime, reuse after 365 days and 20 changes, `ORA12C_VERIFY_FUNCTION`, lock after 120 inactive days); service accounts (`ORDS_PUBLIC_USER`) keep `DEFAULT` with controlled rotation, because expiry or lockout would stop the application; schema-only accounts need no profile.
 - **Proxy account:** `EMK_DEV` holds `CREATE SESSION` only (Oracle guideline); in a proxy session the privileges of the target schema apply.
 - Passwords are entered at run time (`ACCEPT ... HIDE`) or stored in the ORDS wallet; API keys and SMTP credentials in APEX settings or Web Credentials, never in files.
@@ -689,7 +689,7 @@ ia_apex_project/
 | R-05 | Prompt injection through documents. | FR-22, SC-SEC-10. |
 | R-06 | Source formats change. | Stored snapshots; re-runnable ingestion. |
 | R-07 | Embedding model licence unsuitable. | Verify in ADR-004. |
-| R-08 | Service passwords expire. | `check_password_expiry.sql`, `rotate_ords_password.sql`. |
+| R-08 | Service passwords expire. | `check_password_expiry.sql`, `rotate_password.sql`. |
 | R-09 | No suitable EU LLM provider. | Compare providers in ADR-003; MVP does not depend on it. |
 | R-10 | CMR rules misinterpreted. | Rules verified against the official text (§5); SC-QA-04; disclaimer. |
 | R-11 | Not enough time for all extensions. | MVP first; every milestone releasable. |
@@ -776,3 +776,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.11 | 2026-10-09 | §1.3 *Check constraints*: explicit `IS NOT NULL` for optional columns (a check accepts unknown; found in M1a step 5). Accepted by the owner. |
 | v1.12 | 2026-10-10 | §1.3 *Code documentation*: copyright line in object and script headers; repository "all rights reserved" (LICENSE). Accepted by the owner. |
 | v1.13 | 2026-10-11 | ADR-010: retention of business records set with the customer (§2.5); page response target (§12.4); ADR-008 to ADR-010 in §13. Accepted by the owner. |
+| v1.14 | 2026-10-13 | Password rotation for all accounts with a password (`rotate_password.sql`, replaces `rotate_ords_password.sql`). Accepted by the owner. |
