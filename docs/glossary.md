@@ -98,11 +98,12 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Corpus** | The collection of source documents the search works on; here, the CMR and the EU acts listed in spec §2.2. |
 | **Data file** | Operating-system file (`.DBF`) that stores the data of one tablespace. |
 | **Data Guard** | Oracle feature that keeps a standby copy of the database up to date from the redo of the primary; not available in the Free edition (growth path, ADR-010 §8). |
-| **Data Pump** | Oracle export/import utility (`expdp`/`impdp`) used for backups of schemas and data. |
+| **Data Pump** | Oracle export/import utility (`expdp`/`impdp`, or the `DBMS_DATAPUMP` API) that writes objects and rows to a dump file and reads them back: a **logical** copy, used to move schemas (migration phase M.3); backups for recovery are made with RMAN. Dump encryption is not available in 26ai Free (`ORA-00439`). |
 | **Database role** | Named set of privileges granted to users instead of granting privileges one by one. |
 | **DBID** | Identity number of a database; needed to find its backups when the control file is lost. |
 | **`DBMS_SCHEDULER`** | Oracle job scheduler used for background and recurring tasks. |
 | **Definer's rights** | Default PL/SQL mode: code runs with its owner's privileges; privileges received through roles are not active there. |
+| **Dump file** | File written by Data Pump with the definitions (and optionally the rows) of the exported objects. Before an import, a `SQL_FILE` job writes the DDL it would run without changing the database (preview). |
 | **ELT** | Extract, Load, Transform: data is first loaded raw into staging tables and then validated and transformed inside the database before reaching the operational tables. |
 | **Embedding** | Numeric vector representing the meaning of a text. |
 | **Encrypted tablespace** | Tablespace whose data files are stored encrypted by TDE: decrypted when read into memory, so users and applications see normal data, while copied files or backups are unreadable without the keystore (ADR-011). |

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | v1.1 (2026-10-12) |
+| **Version** | v1.2 (2026-10-15) |
 | **Decision** | [ADR-010](../adr/ADR-010-operations-and-release-strategy.md) §1 (targets and their business basis), §8 (edition constraints) |
 | **Applies to** | CDB `FREE` with the PDBs of [ADR-009](../adr/ADR-009-environments.md) (DEV `FREEPDB1`, TEST `EMKTEST`, ACCEPTANCE `EMKACC`, PROD) |
 | **Status of commands** | **Executed in DEV** ([drill 2026-10-12](drills/2026-10-12-m1-dev.md)): Appendix A, level 0 and validation, restore of a tablespace (as S5 for a data file), S6, S7. **Not yet executed:** S1–S4 (full CDB restore, point-in-time recovery, flashback); confirmed in the full drill T-M1-33 (M.5) |
@@ -233,7 +233,7 @@ Symptom: `ORA-28353` when opening with the stored password; `orapki wallet displ
 3. Restart with the folders swapped, open with the new password, recreate the auto-login (`09b_keystore_swap.sql`); the master keys stay the same, so existing backups remain valid (validated).
 4. Copy the new `ewallet.p12` to the key copies; delete the old folder.
 
-If the auto-login is lost as well, the encrypted data can only come from Data Pump exports encrypted with their own password (ADR-011).
+If the auto-login is lost as well, the encrypted data can only come from Data Pump exports encrypted with their own password (ADR-011). **In 26ai Free such exports cannot be made** (`ORA-00439`, 2026-10-15): there, the keystore copies are the only protection against this case (two places per ADR-011; the second, a dedicated USB stick, still pending; open point 11 of the [M1 plan](../plans/M1-plan.md)).
 
 ## 7. Monitoring of the Targets
 
@@ -316,3 +316,4 @@ Confirmed: OS authentication works for members of `ORA_DBA`; PDBs reopen with th
 |---------|------|--------|
 | v1.0 | 2026-10-11 | First version with ADR-010: targets, roles, prerequisites, worked example, scenarios S1–S5, monitoring, drill and protocol, switch to `ARCHIVELOG`. |
 | v1.1 | 2026-10-12 | Executed parts marked (drill 2026-10-12); scenarios S6 (lost auto-login) and S7 (unknown keystore password) from the drill; Appendix A confirmed. |
+| v1.2 | 2026-10-15 | S7: encrypted Data Pump exports are not available in 26ai Free (`ORA-00439`). |

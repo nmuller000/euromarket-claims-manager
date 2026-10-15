@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · **Data Pump export encryption is not enabled in 26ai Free** in any mode (`ORA-00439: feature not enabled: Dump File Encryption`; `PASSWORD` and `TRANSPARENT` tested 2026-10-15, migration phase M.3), although the licensing manual lists it under Advanced Security as included in Free. The statements below on encrypted Data Pump exports (decision, diagram, keystore-loss table, licence table) do not hold in Free; replacement: open point 11 of the [M1 plan](../plans/M1-plan.md); growth path: Enterprise Edition with Advanced Security, or Oracle Cloud |
 | **Date** | 2026-10-12 (proposed and accepted) |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [ADR-010](ADR-010-operations-and-release-strategy.md) §4 (encryption at rest), §1 (backups), §8 (edition constraints) · [ADR-008](ADR-008-schema-separation.md) (schemas and tablespaces) · [ADR-009](ADR-009-environments.md) (environments) · [Backup runbook](../operations/backup-runbook.md) (routine, concepts in plain words) · [Recovery runbook](../operations/recovery-runbook.md) · spec §1.3 (data protection), §2.5 |

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.15 (2026-10-13) |
+| **Status** | Accepted v1.16 (2026-10-15) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -752,12 +752,13 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md) | NL-to-SQL through the AI gateway | Accepted | X2 |
 | ADR-003 | EU LLM provider (Q3) | Open | X1 |
 | ADR-006 | Email delivery: real SMTP with TLS vs. local Mailpit only | Open | M2 |
-| [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted | M3 |
-| [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted | M1 |
-| [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted | M1 |
+| [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted (schema of the model open since ADR-008; decided before M3) | M3 |
+| [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted (developer-account privileges amended by ADR-007; single schema `EMK_APP` superseded by ADR-008) | M1 |
+| [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted (`EMK_APP` references and private synonyms superseded by ADR-008; `EMK_INT_DATA` replaced by `EMK_INT_TS`) | M1 |
 | [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted | M1 |
-| [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted | M1 |
-| [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted | M1 |
+| [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted (amended: acceptance environment) | M1 |
+| [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted (logical export cannot be encrypted in Free: open point) | M1 |
+| [ADR-011](adr/ADR-011-tablespace-encryption.md) | Encryption at rest, key management and encrypted backups: TDE tablespace encryption, local auto-login keystore, encrypted RMAN backups; keys never kept with the data | Accepted (Data Pump export encryption not enabled in Free, `ORA-00439`) | M1 |
 
 ## 14. Revision History
 
@@ -783,3 +784,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.13 | 2026-10-11 | ADR-010: retention of business records set with the customer (§2.5); page response target (§12.4); ADR-008 to ADR-010 in §13. Accepted by the owner. |
 | v1.14 | 2026-10-13 | Password rotation for all accounts with a password (`rotate_password.sql`, replaces `rotate_ords_password.sql`). Accepted by the owner. |
 | v1.15 | 2026-10-13 | Aligned with ADR-008/009/011: §1.3 *Schemas and references* (separated schemas, schema-qualified names, no synonyms); §7.5 schemas, tablespaces, deployment account, utPLSQL access, APEX parsing schema, admin layer per environment, transition note; §1.3 ELT target `EMK_API`; §7.2 `EMK_DEPLOY` as service account; §10 repository structure. |
+| v1.16 | 2026-10-15 | §13 aligned with the ADR index (`docs/adr/README.md`): ADR-011 added; statuses with the amendments of ADR-004, 005, 007, 009, 010 and 011. |

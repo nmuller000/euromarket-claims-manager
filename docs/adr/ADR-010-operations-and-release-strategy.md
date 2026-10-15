@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · the logical export before each release (Data Pump) cannot be encrypted in 26ai Free (`ORA-00439`, verified 2026-10-15 in migration phase M.3, see [ADR-011](ADR-011-tablespace-encryption.md)); how the independent logical copy is made in Free is an open point ([M1 plan](../plans/M1-plan.md), open point 11), decided before the first release in ACCEPTANCE |
 | **Date** | 2026-10-11 (proposed 2026-10-10) |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [ADR-008](ADR-008-schema-separation.md) (schemas, `EMK_DEPLOY`) · [ADR-009](ADR-009-environments.md) (DTAP) · [Recovery runbook](../operations/recovery-runbook.md) · spec §1.3, §2.5, §8, §12 · M1 plan |

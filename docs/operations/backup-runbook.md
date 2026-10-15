@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | v1.1 (2026-10-12) |
+| **Version** | v1.2 (2026-10-15) |
 | **Decisions** | [ADR-010](../adr/ADR-010-operations-and-release-strategy.md) §1 (backup strategy, targets) · [ADR-011](../adr/ADR-011-tablespace-encryption.md) (encryption, keystore, encrypted backups) |
 | **Companion** | [Recovery runbook](recovery-runbook.md): what to do when data is lost. This runbook covers the **routine**: what is backed up, when, for how long, where everything is kept and who checks it |
 | **Status of commands** | Configuration, keystore and first encrypted level 0 **executed in DEV** (`scripts/operations/`, [drill 2026-10-12](drills/2026-10-12-m1-dev.md)). **Not yet built:** routine level 1, copy to the external disk and scheduling (with the external disk) |
@@ -92,7 +92,7 @@ Times are outside the support hours (Monday–Friday 08:00–18:00, ADR-010).
 | Archived logs → fast recovery area | Continuously; a log switch at least every 30 min (`ARCHIVE_LAG_TARGET = 1800`) | Until backed up and outside the window | RPO ≤ 1 h |
 | Copy of archived logs and backups → external disk | Every 30 min (archived logs), after each level 0 / level 1 (backups) | Recovery window of 7 days | Copy outside the internal disk |
 | Control file and server parameter file | Automatically after each backup (`CONTROLFILE AUTOBACKUP ON`) | With the backups | Restore when the control file is lost |
-| Data Pump export of the project schemas, encrypted with its own password | Before each release in ACCEPTANCE and PROD | Two latest | Independent logical copy |
+| Data Pump export of the project schemas, encrypted with its own password. **Not possible in 26ai Free** (`ORA-00439`, 2026-10-15): open point 11 of the [M1 plan](../plans/M1-plan.md), decided before the first ACCEPTANCE release | Before each release in ACCEPTANCE and PROD | Two latest | Independent logical copy |
 | Keystore backup | After every key operation (`WITH BACKUP`) and checked monthly | As long as the oldest database backup | The keys for every backup |
 
 **DEV machine (laptop):** the machine is not always on at 22:00; the scheduled tasks run as soon as possible after a missed start (Windows Task Scheduler option).
@@ -195,3 +195,4 @@ SELECT con_id, status, wallet_type FROM v$encryption_wallet;
 |---------|------|--------|
 | v1.0 | 2026-10-12 | First version with ADR-011: concepts in plain words, golden rules, schedule and retention, locations of backups and keystore, routine tasks, RMAN example, keystore creation. |
 | v1.1 | 2026-10-12 | Executed parts marked (drill 2026-10-12); actual key copies; password verification with `orapki`; lock files. |
+| v1.2 | 2026-10-15 | Data Pump export encryption not available in 26ai Free (`ORA-00439`): logical copy marked as open point. |

@@ -34,7 +34,7 @@ Calculated on 2026-10-11 from the measured installation and the business design 
 | Database without project data | 12 GB | 12 GB | Measured CDB and `FREEPDB1` + two PDBs (`EMKTEST`, `EMKACC`) of 2.6 GB each, built from the seed with the APEX runtime |
 | Project data, all environments | 5 GB | 12 GB | ≈ 1.7 GB per environment at the design volume (shipments, inbound records, journals, logs, corpus, sample documents); Free limit 12 GB in total |
 | Undo and temporary growth; second redo log members | 4 GB | 4 GB | 1 GB per PDB; 0.6 GB redo |
-| Data Pump exports (two kept) | 4 GB | 24 GB | Size of the project data, before each release in ACCEPTANCE |
+| Data Pump exports (two kept) | 4 GB | 24 GB | Size of the project data, before each release in ACCEPTANCE; reserved until open point 11 of the [M1 plan](plans/M1-plan.md) decides the logical copy (export encryption is not available in Free) |
 | Fast recovery area on the internal disk: last level 0, level 1 of the week, archived logs of 2 days, flashback logs for the restore point | 28 GB | 56 GB | Level 0 ≈ used blocks (17 / 24 GB); level 1 ≈ 0.5 / 2 GB per day; redo ≈ 0.5 / 2 GB per day; 25 % margin (alert at 80 %) |
 | **Internal disk** | **≈ 59 GB → ≈ 70 GB with 20 % reserve** | **≈ 114 GB → ≈ 135 GB** | Of this, ≈ 12 GB is already installed |
 | **External disk:** recovery window of 7 days = two level 0, up to 13 level 1, 8 days of archived logs | **58 GB** | **116 GB** | Same estimates, 25 % margin |
@@ -329,7 +329,7 @@ Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXE
 
 - After a database restart, restart ORDS.
 - Check account expiry before it affects ORDS: `scripts/admin/check_password_expiry.sql`.
-- Back up schemas with Data Pump (`expdp`) before large changes.
+- Before a large change: a guaranteed restore point (ADR-010); backups for recovery are made with RMAN ([backup runbook](operations/backup-runbook.md)). Data Pump moves schemas (logical copy); its exports cannot be encrypted in 26ai Free (`ORA-00439`).
 - Accounts of people use `ORA_CIS_PROFILE` (ADR-007): the password expires every 90 days and the account **locks after 120 days without login** (`ORA-28000`). `rotate_password.sql` sets a new password and unlocks the account.
 - Scripts that ask for a password never show it, not even when the statement fails (`scripts/admin/00_set_password.sql`): use passwords of 16+ characters made of letters, digits and the special characters `- _ . ! # % + = : ? @` (personal accounts need at least one special character: `ORA12C_VERIFY_FUNCTION` of `ORA_CIS_PROFILE`).
 - Privileges used inside PL/SQL must be granted **directly** to the owning schema: roles are disabled in definer's-rights code. Symptom: a statement works in SQLcl but fails inside a package with an insufficient-privileges error.
