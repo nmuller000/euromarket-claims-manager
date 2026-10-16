@@ -37,6 +37,8 @@ SET FEEDBACK OFF
 SET SQLFORMAT DEFAULT
 WHENEVER SQLERROR EXIT FAILURE
 
+-- PROD is not offered (tests never run there); the check below still refuses it.
+ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST or ACC): '
 @@00_config.sql
 @@00_check_context.sql
 
