@@ -4,7 +4,7 @@ This project follows a **lightweight AI-native SDLC** based on [The AI-native SD
 
 ## Current Stage
 
-> **Stage 3 — Build, milestone M1:** M0 is done (PR #6). Increment M1a in progress: data core tables built and tested (steps 0–6); architecture and operations decided ([ADR-008](adr/ADR-008-schema-separation.md) to [ADR-011](adr/ADR-011-tablespace-encryption.md)); spec v1.16 and [M1 plan](plans/M1-plan.md) v1.14 accepted. Step M, migration to the separated schemas (branch `feature/m1a-schema-separation`): phases M.1 and M.2 done, **phase M.3 in progress** (a phase of milestone M1, not milestone M3): structure moved to `EMK_DATA`/`EMK_API` (2026-10-15), utPLSQL suites next; then M.4, M.5 and steps 7–12.
+> **Stage 3 — Build, milestone M1:** M0 is done (PR #6). Increment M1a in progress: data core tables built and tested (steps 0–6); architecture and operations decided ([ADR-008](adr/ADR-008-schema-separation.md) to [ADR-011](adr/ADR-011-tablespace-encryption.md)); spec v1.17 and [M1 plan](plans/M1-plan.md) v1.15 accepted; focus on the MVP components of the intent, built in DEV only (deferred items listed as improvements in the M1 plan, §2). Step M, migration to the separated schemas (branch `feature/m1a-schema-separation`): phases M.1 and M.2 done, **phase M.3 in progress** (a phase of milestone M1, not milestone M3): structure moved to `EMK_DATA`/`EMK_API` (2026-10-15), key utPLSQL suites next; then M.4 and steps 7–12 (phase M.5 moved to M5).
 
 ## Stages
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · scope of Release 1 (2026-10-16): the MVP is built in **DEV only**; TEST is built from the repository at the MVP release (M5) if time allows, otherwise it stays an improvement; ACCEPTANCE and PROD stay defined as growth path ([M1 plan](../plans/M1-plan.md), §2) |
 | **Date** | 2026-10-10 |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [ADR-005](ADR-005-deployment-and-database-setup.md) (deployment method) · [ADR-008](ADR-008-schema-separation.md) (schemas, `EMK_DEPLOY`) · spec §8 (SC-DEP-01 to 04) · M1 plan T-M1-01 |
