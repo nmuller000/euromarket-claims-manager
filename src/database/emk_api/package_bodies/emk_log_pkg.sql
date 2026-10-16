@@ -1,4 +1,13 @@
 create or replace package body emk_api.emk_log_pkg as
+    /**
+     * Implementation of EMK_LOG_PKG; its specification documents the
+     * public subprograms.
+     *
+     * @author Natalia Müller
+     * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
 
     g_level varchar2(10 char) := c_info;   -- minimum level of this session
 
@@ -179,4 +188,4 @@ end emk_log_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"a29e189ab5b9aaa93b2ffe3ed1a87fc4e52923ff","type":"PACKAGE_BODY","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"3db9a71fafd8f4a9fba56121b7fcd409e366cf8f","type":"PACKAGE_BODY","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}

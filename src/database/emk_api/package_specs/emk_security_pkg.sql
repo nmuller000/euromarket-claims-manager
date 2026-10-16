@@ -9,6 +9,8 @@ create or replace package emk_api.emk_security_pkg as
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 
     -- Static identifiers of the application roles (glossary, Application Roles)
@@ -44,4 +46,4 @@ end emk_security_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"f7ceb4dfe1bbaae7decab211eb4e110438f82f62","type":"PACKAGE_SPEC","name":"EMK_SECURITY_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"0c20de10eb25c86c34880d7c6e7829343e7c0d02","type":"PACKAGE_SPEC","name":"EMK_SECURITY_PKG","schemaName":"EMK_API","sxml":""}

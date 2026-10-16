@@ -1,4 +1,13 @@
 create or replace package body emk_api.emk_security_pkg as
+    /**
+     * Implementation of EMK_SECURITY_PKG; its specification documents the
+     * public subprograms.
+     *
+     * @author Natalia Müller
+     * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
 
     function has_role (
         in_role_static_id in varchar2
@@ -44,4 +53,4 @@ end emk_security_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"68f9061c859f742c49f76f92e2c68605c5f19d22","type":"PACKAGE_BODY","name":"EMK_SECURITY_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"9a141893efc148aa5c82571502850e0ea63fd8e3","type":"PACKAGE_BODY","name":"EMK_SECURITY_PKG","schemaName":"EMK_API","sxml":""}

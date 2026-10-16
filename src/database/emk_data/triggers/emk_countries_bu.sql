@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_countries_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_countries_bu enable;
 
 
--- sqlcl_snapshot {"hash":"8ae4ffd6bcee90632bf7a3399319e9a46626c35c","type":"TRIGGER","name":"EMK_COUNTRIES_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"eadc19c613cc6059b5b2575067a584ac02ee4de5","type":"TRIGGER","name":"EMK_COUNTRIES_BU","schemaName":"EMK_DATA","sxml":""}

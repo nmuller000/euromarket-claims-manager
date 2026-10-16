@@ -8,6 +8,8 @@ create or replace editionable trigger emk_data.emk_shipments_jn_aud after
      *
      * @author Natalia Müller
      * @since  2026-10-09
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 declare
     l_operation emk_shipments_jn.jn_operation%type;
@@ -77,4 +79,4 @@ end;
 alter trigger emk_data.emk_shipments_jn_aud enable;
 
 
--- sqlcl_snapshot {"hash":"8039dd512c8f64b45066cab0d403a2c2911b130c","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"a3b0354a71dbab77b83842179d37a942729ad553","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}

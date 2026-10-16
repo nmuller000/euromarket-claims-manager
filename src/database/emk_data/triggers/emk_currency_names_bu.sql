@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_currency_names_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_currency_names_bu enable;
 
 
--- sqlcl_snapshot {"hash":"65de9c4a56cbfb9cbcfbee784bca6b6154a052f8","type":"TRIGGER","name":"EMK_CURRENCY_NAMES_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"9fbc8cf7848d42f633eef1940692b91b709ae362","type":"TRIGGER","name":"EMK_CURRENCY_NAMES_BU","schemaName":"EMK_DATA","sxml":""}

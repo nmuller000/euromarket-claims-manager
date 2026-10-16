@@ -10,6 +10,8 @@ create or replace package emk_api.emk_log_pkg as
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 
     c_debug constant varchar2(10 char) := 'DEBUG';
@@ -96,4 +98,4 @@ end emk_log_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"de4110797e5ffebf783cef46380b80e509be26c2","type":"PACKAGE_SPEC","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"bde7ce77ec469d64fcec1d90571cf1ee5f957399","type":"PACKAGE_SPEC","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}
