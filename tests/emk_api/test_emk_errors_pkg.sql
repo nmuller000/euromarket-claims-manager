@@ -16,7 +16,7 @@ create or replace package test_emk_errors_pkg as
     --%suite(Error codes shared with EMK_DATA (EMK_API))
     --%suitepath(emk_api)
 
-    --%test(Every error constant matches its named exception (PRAGMA EXCEPTION_INIT uses literals))
+    --%test(Every error constant matches its named exception (PRAGMA EXCEPTION_INIT uses literals), and every constant is checked)
     procedure matches_constants_to_exceptions;
 
     --%test(The document trigger raises exactly emk_errors_pkg.c_document_immutable)
@@ -28,7 +28,8 @@ end test_emk_errors_pkg;
 create or replace package body test_emk_errors_pkg as
 
     procedure matches_constants_to_exceptions is
-        l_matched pls_integer := 0;
+        l_matched   pls_integer := 0;
+        l_constants pls_integer;
     begin
         -- Raise each constant and catch it only by its named exception
         begin raise_application_error(emk_errors_pkg.c_not_authorized, 'test');
@@ -51,7 +52,29 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_document_immutable then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_reference_not_valid, 'test');
         exception when emk_errors_pkg.e_reference_not_valid then l_matched := l_matched + 1; end;
-        ut.expect(l_matched).to_equal(10);
+        -- Step 7: party and shipment APIs
+        begin raise_application_error(emk_errors_pkg.c_record_changed, 'test');
+        exception when emk_errors_pkg.e_record_changed then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_record_locked, 'test');
+        exception when emk_errors_pkg.e_record_locked then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'test');
+        exception when emk_errors_pkg.e_vat_country_mismatch then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_duplicate_vat, 'test');
+        exception when emk_errors_pkg.e_duplicate_vat then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_in_use, 'test');
+        exception when emk_errors_pkg.e_party_in_use then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_shipment_in_use, 'test');
+        exception when emk_errors_pkg.e_shipment_in_use then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_cmr_not_applicable, 'test');
+        exception when emk_errors_pkg.e_cmr_not_applicable then l_matched := l_matched + 1; end;
+        ut.expect(l_matched).to_equal(17);
+        -- Every constant of the package is checked above: a new code needs its line here
+        select count(*)
+        into   l_constants
+        from   user_source
+        where  name = 'EMK_ERRORS_PKG' and type = 'PACKAGE'
+        and    regexp_like(text, '^\s*c_[a-z_]+\s+constant\s+pls_integer', 'i');
+        ut.expect(l_constants).to_equal(l_matched);
     end matches_constants_to_exceptions;
 
     procedure raises_document_immutable is

@@ -15,6 +15,8 @@ create or replace package emk_api.emk_errors_pkg as
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 
     -- General and security --------------------------------------------------
@@ -27,6 +29,12 @@ create or replace package emk_api.emk_errors_pkg as
     c_invalid_argument constant pls_integer := -20003;  -- missing or malformed parameter
     e_invalid_argument exception;
     pragma exception_init ( e_invalid_argument, -20003 );
+    c_record_changed constant pls_integer := -20004;  -- D-43, row changed by another user since it was read
+    e_record_changed exception;
+    pragma exception_init ( e_record_changed, -20004 );
+    c_record_locked constant pls_integer := -20005;  -- D-43, row locked by another transaction (ORA-00054)
+    e_record_locked exception;
+    pragma exception_init ( e_record_locked, -20005 );
 
     -- Parties ----------------------------------------------------------------
     c_party_role_missing constant pls_integer := -20101;  -- BR-16, party lacks the required role
@@ -35,11 +43,26 @@ create or replace package emk_api.emk_errors_pkg as
     c_party_role_in_use constant pls_integer := -20102;  -- BR-16, role used by a shipment
     e_party_role_in_use exception;
     pragma exception_init ( e_party_role_in_use, -20102 );
+    c_vat_country_mismatch constant pls_integer := -20103;  -- VAT prefix does not match the party's country
+    e_vat_country_mismatch exception;
+    pragma exception_init ( e_vat_country_mismatch, -20103 );
+    c_duplicate_vat constant pls_integer := -20104;  -- VAT number already used, also by a soft-deleted party (D-39)
+    e_duplicate_vat exception;
+    pragma exception_init ( e_duplicate_vat, -20104 );
+    c_party_in_use constant pls_integer := -20105;  -- party has active shipments
+    e_party_in_use exception;
+    pragma exception_init ( e_party_in_use, -20105 );
 
     -- Shipments --------------------------------------------------------------
     c_duplicate_cmr_note constant pls_integer := -20201;  -- BR-03, CMR note number reused by a carrier
     e_duplicate_cmr_note exception;
     pragma exception_init ( e_duplicate_cmr_note, -20201 );
+    c_shipment_in_use constant pls_integer := -20202;  -- shipment has active claims
+    e_shipment_in_use exception;
+    pragma exception_init ( e_shipment_in_use, -20202 );
+    c_cmr_not_applicable constant pls_integer := -20203;  -- BR-17, no CMR party on the pickup date
+    e_cmr_not_applicable exception;
+    pragma exception_init ( e_cmr_not_applicable, -20203 );
 
     -- Claims -----------------------------------------------------------------
     c_invalid_transition constant pls_integer := -20301;  -- BR-01, status change not allowed
@@ -60,4 +83,4 @@ end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"0ba351518c86778937f89d36839d78bfd8429bf7","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"63ca1626f9809ac776f215b2c61e02108b7ff524","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
