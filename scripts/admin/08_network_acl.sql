@@ -6,7 +6,8 @@
 -- M1a: PL/SQL debugging from SQL Developer for VS Code. The debugger uses
 --      DBMS_DEBUG_JDWP, so the database session connects back to the debugger
 --      on the developer's machine; this needs the ACL privilege "jdwp".
---      Granted to the schemas used in proxy sessions, for the local machine only.
+--      Granted to the schemas used in proxy sessions, for the local machine
+--      only, and only where developer access is allowed (DEV, ADR-009).
 -- M2:  SMTP host and port for e-mail alerts (to be added here).
 --
 -- Called by install_admin.sql (requires 00_config.sql).
@@ -40,9 +41,14 @@ DECLARE
     END append_ace;
 BEGIN
     -- Debugger on the local machine only (all ports: the debugger chooses its port)
-    append_ace('localhost', 'jdwp', '&emk_app_schema');
-    append_ace('127.0.0.1', 'jdwp', '&emk_app_schema');
-    append_ace('localhost', 'jdwp', '&emk_int_schema');
-    append_ace('127.0.0.1', 'jdwp', '&emk_int_schema');
+    IF '&emk_dev_access' = 'Y' THEN
+        FOR s IN (SELECT column_value AS schema_name
+                  FROM   TABLE(sys.odcivarchar2list('&emk_data_schema', '&emk_api_schema',
+                                                     '&emk_int_schema')))
+        LOOP
+            append_ace('localhost', 'jdwp', s.schema_name);
+            append_ace('127.0.0.1', 'jdwp', s.schema_name);
+        END LOOP;
+    END IF;
 END;
 /

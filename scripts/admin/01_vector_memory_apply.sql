@@ -28,12 +28,12 @@ PROMPT === Step 2/3: set VECTOR_MEMORY_SIZE = &target_mb.M (applies on next star
 ALTER SYSTEM SET vector_memory_size = &target_mb.M SCOPE = SPFILE;
 
 PROMPT
-PROMPT === Step 3/3: restart OracleServiceFREE and wait for the listener ===
+PROMPT === Step 3/3: restart &emk_win_service and wait for the listener ===
 DISCONNECT
-HOST powershell -NoProfile -Command "Restart-Service -Name OracleServiceFREE -Force -ErrorAction Stop; for ($i = 0; $i -lt 36; $i++) { if ((lsnrctl status | Out-String) -match '\x22FREE\x22') { break }; Start-Sleep -Seconds 5 }; Start-Sleep -Seconds 10; Write-Host 'Service restarted'"
+HOST powershell -NoProfile -Command "Restart-Service -Name &emk_win_service -Force -ErrorAction Stop; for ($i = 0; $i -lt 36; $i++) { if ((lsnrctl status | Out-String) -match '\x22&emk_cdb_name\x22') { break }; Start-Sleep -Seconds 5 }; Start-Sleep -Seconds 10; Write-Host 'Service restarted'"
 
 PROMPT
 PROMPT === Reconnect: enter the SYS password ===
-CONNECT sys@localhost:1521/FREE AS SYSDBA
+CONNECT sys@//&emk_db_address/&emk_cdb_name AS SYSDBA
 
 @@01_vector_memory_verify.sql

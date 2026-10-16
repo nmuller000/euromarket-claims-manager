@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
+| **Status** | Accepted v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
 | **Schema** | `EMK_API` (APIs, services, views, log) · `EMK_DATA` (tables, journals, triggers) · `EMK_UI` (APEX parsing schema, no objects) · `EMK_INT` (integration, M1b) — [ADR-008](../adr/ADR-008-schema-separation.md) |
 | **Milestone** | M1a (plan steps 1, 7, 8) |
 | **Input** | [spec.md](../spec.md) §1, §2.7, §4, §7.1 · [Data model](README.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [ADR-008](../adr/ADR-008-schema-separation.md) |
@@ -42,7 +42,7 @@ flowchart TB
         subgraph services["Shared services"]
             sec["EMK_SECURITY_PKG<br/>has_role · assert_role"]
             log["EMK_LOG_PKG<br/>autonomous transaction"]
-            err["EMK_ERRORS<br/>error codes"]
+            err["EMK_ERRORS_PKG<br/>error codes"]
             logt[("EMK_LOG<br/>partitioned")]
         end
         views["Views EMK_V_* (step 9)<br/>active rows only"]
@@ -94,7 +94,7 @@ flowchart LR
     ship --> log
     claim --> log
     sec --> log
-    party --> err["EMK_ERRORS"]
+    party --> err["EMK_ERRORS_PKG"]
     ship --> err
     claim --> err
     sec --> err
@@ -220,7 +220,7 @@ Checked against the SmartDB properties (Oracle: [The SmartDB Manifesto](https://
 | Integration calls the APIs only (EXECUTE grants) | ✅ | ADR-007 |
 | Rules within a row as constraints, rules across tables in the APIs | ✅ | Constraints without ranges and with explicit `IS NOT NULL` (P-20, P-22) |
 | Lost update protection and no waiting on locks | ✅ | §4.2 |
-| Errors never swallowed; named exceptions | ✅ | `EMK_ERRORS`; log failures propagate (D-33) |
+| Errors never swallowed; named exceptions | ✅ | `EMK_ERRORS_PKG`; log failures propagate (D-33) |
 | **The connect user does not own the objects** | ✅ **Met by ADR-008** | Found in this review (APEX parsed as the owner `EMK_APP`); resolved by the separation into `EMK_DATA`, `EMK_API` and the connect user `EMK_UI`, which owns nothing and has `EXECUTE` on the APIs and `SELECT` on the views only |
 
 ## 7. Error Codes Added in Step 7

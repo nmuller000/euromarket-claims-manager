@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · implemented in DEV in phases M.2–M.4 of the M1 plan (2026-10-16), with three details: in DEV the developer account also has a proxy to `EMK_UI` (`CREATE SESSION` only, still no password) to export and import application 200 as its parsing schema; each schema exports only the grants it makes; the DEV workspace was created again with `EMK_UI` as first schema, because APEX cannot remove the first schema of a workspace (`ORA-20987`) |
 | **Date** | 2026-10-10 |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | Supersedes the single application schema of [ADR-005](ADR-005-deployment-and-database-setup.md) and the `EMK_APP` references of [ADR-007](ADR-007-integration-schema-and-account-hardening.md) · [API design](../design/api-design.md) §6 · spec §1.1, §7 |

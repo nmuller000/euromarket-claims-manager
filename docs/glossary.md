@@ -98,20 +98,22 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Corpus** | The collection of source documents the search works on; here, the CMR and the EU acts listed in spec §2.2. |
 | **Data file** | Operating-system file (`.DBF`) that stores the data of one tablespace. |
 | **Data Guard** | Oracle feature that keeps a standby copy of the database up to date from the redo of the primary; not available in the Free edition (growth path, ADR-010 §8). |
-| **Data Pump** | Oracle export/import utility (`expdp`/`impdp`) used for backups of schemas and data. |
+| **Data Pump** | Oracle export/import utility (`expdp`/`impdp`, or the `DBMS_DATAPUMP` API) that writes objects and rows to a dump file and reads them back: a **logical** copy, used to move schemas (migration phase M.3); backups for recovery are made with RMAN. Dump encryption is not available in 26ai Free (`ORA-00439`). |
 | **Database role** | Named set of privileges granted to users instead of granting privileges one by one. |
 | **DBID** | Identity number of a database; needed to find its backups when the control file is lost. |
 | **`DBMS_SCHEDULER`** | Oracle job scheduler used for background and recurring tasks. |
 | **Definer's rights** | Default PL/SQL mode: code runs with its owner's privileges; privileges received through roles are not active there. |
+| **Dump file** | File written by Data Pump with the definitions (and optionally the rows) of the exported objects. Before an import, a `SQL_FILE` job writes the DDL it would run without changing the database (preview). |
 | **ELT** | Extract, Load, Transform: data is first loaded raw into staging tables and then validated and transformed inside the database before reaching the operational tables. |
 | **Embedding** | Numeric vector representing the meaning of a text. |
 | **Encrypted tablespace** | Tablespace whose data files are stored encrypted by TDE: decrypted when read into memory, so users and applications see normal data, while copied files or backups are unreadable without the keystore (ADR-011). |
 | **Fast recovery area** | Disk location managed by Oracle for archived logs, backups and flashback logs (`DB_RECOVERY_FILE_DEST`). |
+| **First schema (APEX workspace)** | The database schema a workspace is created with. APEX cannot remove or change it later; to use another one, the workspace is created again. |
 | **Flashback (Database / PDB / Table)** | Oracle features that return a whole database, one PDB or one table to an earlier time without restoring a backup. |
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
 | **Identity column** | Column whose value Oracle generates (`GENERATED ALWAYS AS IDENTITY`); used for surrogate primary keys. |
 | **Incremental backup (level 0 / level 1)** | RMAN backups: level 0 copies all blocks (the base); level 1 copies only blocks changed since the previous backup. |
-| **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs (ADR-007). |
+| **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs in `EMK_API` (ADR-007, ADR-008). |
 | **Interval partitioning** | Range partitioning in which Oracle creates a new partition automatically for each interval (here: each month); old data is removed with `DROP PARTITION`. |
 | **IVF** | Inverted File Flat: partition-based vector index stored on disk. |
 | **Journal table** | Table `<TABLE>_JN` that keeps the previous version of each updated or deleted row, with operation, user and timestamp; filled by a trigger. |
@@ -126,6 +128,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **ONNX** | Open Neural Network Exchange: open format for trained AI models. An **ONNX model** is a file that Oracle can load and run inside the database (here, the embedding model of ADR-004). |
 | **ORDS** | Oracle REST Data Services: web listener that serves APEX and REST APIs. |
 | **p50 / p95 (percentile)** | p50 (median): half of the requests are faster. p95: 95 of every 100 requests are faster; the rest form the "slow tail" that an average hides. |
+| **Parsing schema (APEX)** | Database schema whose privileges an APEX application uses to run its SQL and PL/SQL (here `EMK_UI`, which owns nothing). |
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
 | **Party role** | Function a company plays in a shipment or claim (shipper, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |
@@ -140,7 +143,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Restore point (guaranteed)** | Name for a point in time to which a database or PDB can be returned with flashback; a guaranteed one keeps the needed logs until it is dropped (used before each deployment, ADR-010). |
 | **Retention policy (recovery window)** | RMAN rule that says how long backups are kept, e.g. "recovery window of 7 days" = any moment of the last 7 days can be restored; older backups become obsolete and are deleted. |
 | **RMAN** | Recovery Manager: Oracle tool that makes backups (full and incremental, encrypted), checks them, deletes obsolete ones and restores and recovers the database; it records every backup in the control file ([backup runbook](operations/backup-runbook.md)). |
-| **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_APP`) or by `SYS` (`UT3`). |
+| **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_DATA`) or by `SYS` (`UT3`). |
 | **Seed and publish (APEX)** | Translation workflow: seed copies the texts of the primary application, the XLIFF file is translated and applied, and publish creates the translated application. |
 | **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
@@ -158,6 +161,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Unified Auditing** | The only database auditing in 23ai/26ai: audit policies (`CREATE AUDIT POLICY`) write to `UNIFIED_AUDIT_TRAIL`, managed with `DBMS_AUDIT_MGMT`. |
 | **UTC** | Coordinated Universal Time; used to store technical timestamps. |
 | **utPLSQL** | Unit-testing framework for PL/SQL. |
+| **Unit test suite (utPLSQL)** | Package `TEST_EMK_<NAME>` whose procedures are tests, marked with annotations (`--%suite`, `--%test`, `--%throws`); it lives in the schema of the objects it tests, is never installed in PROD, and every change of a test is rolled back by utPLSQL. |
 | **Validate (RMAN)** | RMAN check that reads backups and confirms they are complete and undamaged, without restoring anything (`RESTORE DATABASE VALIDATE`). |
 | **`VECTOR`** | Oracle data type that stores embeddings. |
 | **WALLET_ROOT** | Initialization parameter (26ai) that sets the folder of the keystore; the TDE keystore is in its subfolder `tde`. |
@@ -211,6 +215,7 @@ Codes used in the documents to refer to items and to trace them from problem to 
 | **R-nn** | Risk and its mitigation | spec §11 | R-01 — memory limit of 2 GB |
 | **ADR-nnn** | Architecture Decision Record | `docs/adr/` | ADR-005 — hybrid deployment |
 | **M0–M5 / X1–X4** | MVP milestone / extension milestone | spec §9 | M0 — foundations |
+| **M.1–M.5** | Migration phase of step M of the M1 plan (move to the separated schemas); not a milestone: M.3 is a phase inside milestone M1, M3 is the legal-search milestone | M1 plan §4.1 | M.1 — safety and operations |
 | **T-Mn-nn** | Test of a milestone plan | `docs/plans/` | T-M0-04 — clean rebuild |
 | **PR #n** | Pull request number on GitHub | GitHub | PR #5 |
 

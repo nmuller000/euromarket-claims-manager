@@ -1,16 +1,16 @@
 -- =============================================================================
 -- 02_account_hardening.sql
--- Applies account best practices in FREEPDB1:
+-- Applies account best practices in the PDB of the environment (00_config.sql):
 --   1. Locks PDBADMIN (installation admin account, not used).
 --   2. Converts the proxy-only account APEX_PUBLIC_USER to schema-only (NO AUTHENTICATION):
 --      no password, no expiry, no direct logins; ORDS proxy access still works.
---   3. Rotates the ORDS_PUBLIC_USER password (entered hidden, never stored).
+--   3. Rotates the ORDS_PUBLIC_USER password (entered hidden, never stored or
+--      shown, also if the change fails: 00_set_password.sql).
 --
--- Run as SYS in FREEPDB1 with ORDS stopped (SQLcl, thin driver):
+-- Run as SYS in the PDB of the environment with ORDS stopped (SQLcl, thin driver):
 --   sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/02_account_hardening.sql
 --
--- Afterwards update ORDS with the same new password:
---   C:\ords\bin\ords.exe --config C:\ords\config config secret db.password
+-- Afterwards update ORDS with the same new password (command printed at the end).
 --
 -- Rollback (if an APEX workspace stops working):
 --   ALTER USER <account> IDENTIFIED BY "<new password>";
@@ -21,8 +21,13 @@
 -- =============================================================================
 
 WHENEVER SQLERROR EXIT FAILURE
+SET SERVEROUTPUT ON
 SET VERIFY OFF
 SET FEEDBACK OFF
+
+ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST, ACC or PROD): '
+@@00_config.sql
+@@00_check_context.sql
 
 PROMPT
 PROMPT === Step 1/3: lock PDBADMIN ===
@@ -34,10 +39,10 @@ ALTER USER APEX_PUBLIC_USER NO AUTHENTICATION;
 
 PROMPT
 PROMPT === Step 3/3: rotate ORDS_PUBLIC_USER password ===
-PROMPT Use a new strong password (16+ characters). Avoid double quotes, single quotes and the ampersand character.
-ACCEPT ords_pwd CHAR PROMPT 'New password for ORDS_PUBLIC_USER: ' HIDE
-ALTER USER ORDS_PUBLIC_USER IDENTIFIED BY "&ords_pwd";
-UNDEFINE ords_pwd
+DEFINE emk_pwd_prompt    = "New password for ORDS_PUBLIC_USER"
+DEFINE emk_pwd_stmt_head = "ALTER USER ORDS_PUBLIC_USER"
+DEFINE emk_pwd_stmt_tail = ""
+@@00_set_password.sql
 
 SET SQLFORMAT ansiconsole
 PROMPT
@@ -50,5 +55,11 @@ FROM   dba_users
 WHERE  username IN ('PDBADMIN', 'APEX_PUBLIC_USER', 'ORDS_PUBLIC_USER')
 ORDER  BY username;
 
+PROMPT
+PROMPT Next: &emk_ords_exe --config &emk_ords_config config secret db.password
+PROMPT (same new password), then start ORDS. Store the password in the password manager.
+
 SET SQLFORMAT
 SET FEEDBACK ON
+
+EXIT

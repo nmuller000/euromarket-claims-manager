@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.13 (2026-10-11) |
+| **Status** | Accepted v1.19 (2026-10-16) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -67,15 +67,15 @@ Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in det
 | **Check constraints** | Patterns in `REGEXP_LIKE` constraints use explicit character lists and the match parameter `'c'`, never ranges: Oracle evaluates ranges such as `[A-Z]` with the session sort (`NLS_SORT`), so a linguistic sort accepts lower-case letters and the rule would depend on the client. A check is satisfied when its condition is TRUE or unknown, so every optional column compared in a check needs an explicit `IS NOT NULL` ([design README](design/README.md#common-rules-spec-13)). |
 | **Normalised values** | Values that a key or a calculation depends on are guaranteed by check constraints, not only by the APIs: business dates have no time part (`col = TRUNC(col)`); the CMR note number is stored trimmed and upper case (`cmr_note_no = UPPER(TRIM(cmr_note_no))`, BR-03). |
 | **Currencies** | Amounts stored in their original currency (ISO 4217 code). KPIs are converted to **EUR** with daily rates in `EMK_EXCHANGE_RATES` (source: ECB reference rates, loaded as reference data). |
-| **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS`. An APEX error-handling function shows clear messages to users. |
+| **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS_PKG`. An APEX error-handling function shows clear messages to users. |
 | **Logging** | `EMK_LOG_PKG` writes to `EMK_LOG` in an autonomous transaction (level, module, message, context, timestamp). |
-| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`. |
+| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`; local variables `l_`, package variables `g_`, constants `c_`, named exceptions `e_`, explicit parameter mode. The [Trivadis PL/SQL & SQL Coding Guidelines](https://trivadis.github.io/plsql-and-sql-coding-guidelines/v4.2/) present prefixes as one possible set and require consistency; there `c_` often means a cursor, here cursors are declared in `for` loops without a prefix. |
 | **Code documentation** | Every package, type, trigger and view starts with a `/** … */` header **inside** the object (after `AS`/`IS`), because text before `CREATE` is not stored in the database and is lost on export: purpose, `@author`, the copyright line `Copyright (c) 2026 Natalia Müller. All rights reserved.`, `@since`. Every public subprogram is documented in the package specification: description, `@param`, `@return`, `@throws`; `@usage` only for entry points (APEX page, job). History is kept in Git, not in headers. Tables and columns are documented with `COMMENT ON`. Scripts in `scripts/` (files, not stored objects) keep a `--` header: purpose, how to run, `Author`, the copyright line, `Since`. The repository is "all rights reserved" ([LICENSE](../LICENSE)). |
 | **Keys** | Operational, log and history tables: surrogate key `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; natural but mutable values (CMR note number, VAT number, email) are unique keys or attributes, never the primary key. Reference tables based on standards use the **ISO code** as primary key (`country_code` ISO 3166-1 alpha-2, `currency_code` ISO 4217). |
 | **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems are separate columns (e.g., `eu_vat_prefix`: `EL` for Greece; empty outside the EU — the `XI` prefix of Northern Ireland traders belongs to their VAT number, not to a country). Reference rows are not soft-deleted. |
 | **Soft delete** | Operational tables (parties, contacts, shipments, claims, documents) are never physically deleted: `deleted_yn CHAR(1) DEFAULT ON NULL 'N' NOT NULL` (`Y`/`N`), plus `deleted_at` and `deleted_by`. Views and APEX pages show only `deleted_yn = 'N'`. Logs, history and inbound tables are append-only and never deleted (retention by dropping monthly partitions). Soft delete is not GDPR erasure (FR-41). |
-| **External data (ELT)** | All inbound data (file imports, ECB rates, REST [EXT]) enters the **integration schema `EMK_INT`** (ADR-007): each record is stored **as received** (JSON) in `EMK_INBOUND_RECORDS` with status `PENDING`; a **`DBMS_SCHEDULER` job per batch** reads it through a versioned source view (`EMK_V_IN_<SOURCE>_V<n>`), applies **technical** validation, and passes valid rows in batches to the `EMK_APP` APIs, which apply the **business** rules and `MERGE` into operational tables; each record is marked `LOADED` or `REJECTED` with a reason. Batches can be reprocessed without duplicates. |
-| **Schemas and references** | `EMK_APP` owns operational data and business APIs; `EMK_INT` owns inbound data and only calls `EMK_APP` APIs through direct `EXECUTE` grants (one direction; ADR-007). Own objects are referenced without schema prefix; another schema's objects through **private synonyms**; no public synonyms (except tools such as utPLSQL); no schema-wide grants. |
+| **External data (ELT)** | All inbound data (file imports, ECB rates, REST [EXT]) enters the **integration schema `EMK_INT`** (ADR-007): each record is stored **as received** (JSON) in `EMK_INBOUND_RECORDS` with status `PENDING`; a **`DBMS_SCHEDULER` job per batch** reads it through a versioned source view (`EMK_V_IN_<SOURCE>_V<n>`), applies **technical** validation, and passes valid rows in batches to the `EMK_API` APIs, which apply the **business** rules and `MERGE` into operational tables; each record is marked `LOADED` or `REJECTED` with a reason. Batches can be reprocessed without duplicates. |
+| **Schemas and references** | Separated schemas (ADR-008): `EMK_DATA` owns tables, journals and their triggers; `EMK_API` owns business code, views and the log; `EMK_UI` is the APEX parsing schema and owns nothing; `EMK_INT` owns inbound data and only calls `EMK_API` through direct `EXECUTE` grants (one direction; ADR-007). Another schema's objects are referenced with **schema-qualified names** (`emk_data.emk_claims`); no synonyms (except tools such as utPLSQL); privileges are object grants from the owner, never schema-wide grants. |
 | **Partitioning** | Interval partitioning **by month** only for append-only, ever-growing tables: `EMK_INBOUND_RECORDS`, `EMK_LOG`, journal tables `<TABLE>_JN`, `EMK_ALERT_LOG`. Old data is purged with `DROP PARTITION`. Operational tables are not partitioned at the design volume (§12.1) but keep date columns so they can be. Partitioning is included in the Free edition. The key is a virtual column `created_on DATE` = UTC date-time of `created_at` (journals: `jn_on` of `jn_at`), because interval partitioning does not accept `TIMESTAMP WITH TIME ZONE`. |
 | **Audit columns** | All tables carry `created_at` and `created_by`; tables that are updated also carry `updated_at` and `updated_by`. Timestamps are `TIMESTAMP WITH TIME ZONE DEFAULT ON NULL SYSTIMESTAMP`. The user is the APEX user, otherwise the proxy user (`EMK_DEV`), otherwise the session user: `COALESCE(SYS_CONTEXT('APEX$SESSION','APP_USER'), SYS_CONTEXT('USERENV','PROXY_USER'), SYS_CONTEXT('USERENV','SESSION_USER'))`. `updated_*` is set by a technical `BEFORE UPDATE` trigger, so it is also set when APEX updates a table directly. |
 | **Change history** | Each operational table has a journal table `<TABLE>_JN`, filled by an `AFTER UPDATE OR DELETE` trigger with the **previous row**, the operation, the user and the timestamp (FR-09). `EMK_CLAIM_STATUS_HISTORY` remains the business history of status changes (§4). Triggers are used only for audit columns and journals, never for business rules. |
@@ -523,8 +523,8 @@ See [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md): question + allow-listed 
 
 ### 7.2 Accounts and Secrets
 
-- Password expiry stays enabled. Proxy-only accounts are schema-only; unused admin accounts are locked; the ORDS account is rotated with `scripts/admin/rotate_ords_password.sql`.
-- **Profiles (ADR-007):** accounts of people use `ORA_CIS_PROFILE` (CIS baseline: 5 failed logins, 90-day lifetime, reuse after 365 days and 20 changes, `ORA12C_VERIFY_FUNCTION`, lock after 120 inactive days); service accounts (`ORDS_PUBLIC_USER`) keep `DEFAULT` with controlled rotation, because expiry or lockout would stop the application; schema-only accounts need no profile.
+- Password expiry stays enabled. Proxy-only accounts are schema-only; unused admin accounts are locked; passwords of the accounts that have one (`EMK_DEV`, `EMK_DEPLOY`, `ORDS_PUBLIC_USER`) are rotated with `scripts/admin/rotate_password.sql`, which never shows the password, also when the change fails.
+- **Profiles (ADR-007):** accounts of people use `ORA_CIS_PROFILE` (CIS baseline: 5 failed logins, 90-day lifetime, reuse after 365 days and 20 changes, `ORA12C_VERIFY_FUNCTION`, lock after 120 inactive days); service accounts (`ORDS_PUBLIC_USER`, `EMK_DEPLOY`) keep `DEFAULT` with controlled rotation, because expiry or lockout would stop the application; schema-only accounts need no profile.
 - **Proxy account:** `EMK_DEV` holds `CREATE SESSION` only (Oracle guideline); in a proxy session the privileges of the target schema apply.
 - Passwords are entered at run time (`ACCEPT ... HIDE`) or stored in the ORDS wallet; API keys and SMTP credentials in APEX settings or Web Credentials, never in files.
 - **Email:** development uses a local mail catcher (Mailpit) with no credentials and no real delivery. A real SMTP server with TLS is optional and configured outside the repository.
@@ -544,22 +544,27 @@ Applied before each release (M5, then each extension):
 
 Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII redaction, prompt-injection defence, audit log.
 
-### 7.5 Database Setup (ADR-005, ADR-007)
+### 7.5 Database Setup (ADR-005, ADR-007 to ADR-009)
 
-**Naming:** prefix `EMK_` = **E**uro**M**ar**K**et; the suffix states the function (`APP` application, `DEV` developer, `INT` integration, `DATA` tablespace, `…_ROLE` role).
+**Naming:** prefix `EMK_` = **E**uro**M**ar**K**et; the suffix states the function (`DATA` data, `API` business code, `UI` user interface, `INT` integration, `DEPLOY` deployment, `DEV` developer, `…_TS` tablespace, `…_ROLE` role).
 
 | Object | Name | Rule |
 |--------|------|------|
-| Tablespaces | `EMK_DATA`, `EMK_INT_DATA` | `C:\db_files\ia_apex_project\`; maximum sizes in `00_config.sql`; `EMK_INT_DATA` isolates inbound growth |
-| Application schema | `EMK_APP` | Schema-only; operational data and business APIs; reached through proxy |
-| Integration schema | `EMK_INT` | Schema-only; inbound data, source views, batch jobs, REST [X3]; only `EXECUTE` on `EMK_APP` APIs (ADR-007) |
+| Tablespaces | `EMK_DATA_TS`, `EMK_INT_TS` | Encrypted (ADR-011); one data folder per environment apart from Oracle's files (`emk_datafile_root` in `00_config.sql`); maximum sizes in `00_config.sql`; `EMK_INT_TS` isolates inbound growth |
+| Data schema | `EMK_DATA` | Schema-only; tables, journals and their triggers, unit tests of these objects (not in PROD); reached through proxy (DEV) |
+| API schema | `EMK_API` | Schema-only; business packages, views, `EMK_LOG`, unit tests of the packages (not in PROD); object grants from `EMK_DATA` |
+| UI schema | `EMK_UI` | Schema-only; APEX parsing schema; owns nothing; `EXECUTE` on the APIs and `SELECT` on the views |
+| Integration schema | `EMK_INT` | Schema-only; inbound data, source views, batch jobs, REST [X3]; only `EXECUTE` on `EMK_API` APIs (ADR-007) |
+| Deployment account | `EMK_DEPLOY` | Service account of the pipeline; schema privileges limited to the project schemas; its own schema holds the Liquibase tables (ADR-008) |
 | Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE`, `EMK_READONLY_ROLE` | No `CONNECT`, `RESOURCE` or `DBA`; privileges used inside PL/SQL and quotas are granted directly |
-| Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; works in `EMK_APP` and `EMK_INT` through proxy (ADR-007 amends ADR-005). `DEV_USER` is not used by this project |
-| Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_APP` only |
-| APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Primary schema `EMK_APP` |
+| Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; DEV only; works in `EMK_DATA`, `EMK_API` and `EMK_INT` through proxy, one proxy per schema (ADR-007, ADR-008); a proxy to `EMK_UI` exports and imports the APEX application as its parsing schema. `DEV_USER` is not used by this project |
+| Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_DATA` and `EMK_API` only (the schemas that own unit tests, M1 plan open point 1); never installed in PROD |
+| APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Parsing schema `EMK_UI` (ADR-008), which is also the first schema of the workspace (APEX cannot change it later) |
 
-- **Admin layer:** `scripts/install_admin.sql` runs idempotent SQLcl scripts as `SYS` in `FREEPDB1`.
-- **Application layer:** SQLcl `project` (Liquibase); `project deploy` applies each change once.
+- **Admin layer:** `scripts/install_admin.sql` asks for the environment and runs idempotent scripts as `SYS` in its PDB (DEV `FREEPDB1`, TEST `EMKTEST`; ADR-009).
+- **Application layer:** SQLcl `project` (Liquibase); `project deploy` by `EMK_DEPLOY` applies each change once.
+- **Scripts:** a script run from the command line ends with `EXIT`, so that it returns to the shell and the next one can start (unattended runs also need its prompts as arguments, with CI); a script called by another (`@@`) never does.
+- **Reference data:** idempotent `MERGE` scripts in `data/reference/`, loaded in DEV with `load_reference_data.sql` and added to a release with `project stage add-custom`.
 
 ---
 
@@ -645,7 +650,7 @@ Milestones are ordered by business value. Each one is releasable.
 | **M2 — Deadlines & alerts** | `EMK_DEADLINE_API`, holidays, alert job, home-page alerts, email digest (Mailpit), network ACL for SMTP, ADR-006 | F-05, F-06 | SC-QA-04, 05, SC-SEC-12 |
 | **M3 — Legal search** | ONNX model, corpus ingestion, HNSW index, search page, golden set | F-07 | SC-AI-01, 03, 05, SC-SEC-01 |
 | **M4 — Letters & liability cap** | Letter templates EN/DE, SDR rates, liability cap | F-08, F-09 | SC-QA-01 (coverage) |
-| **M5 — MVP release** | German translation + language selector, security checklist, volume test, README EN/DE, diagrams, demo, GitHub release | F-15 | SC-SEC-02, 11, SC-QA-07, 08, SC-DOC-01, 03 |
+| **M5 — MVP release** | German translation + language selector, security checklist, volume test, README EN/DE, diagrams, demo, GitHub release; if time allows: TEST environment built from the repository, deployment by `EMK_DEPLOY`, flashback and restore drill (M1 phase M.5, moved 2026-10-16) | F-15 | SC-SEC-02, 11, SC-QA-07, 08, SC-DOC-01, 03 |
 | X1 — AI gateway | Gateway, grounded answers, summaries/translation | F-10, F-11 | SC-SEC-03, 04, 09, 10, SC-AI-02, 06 |
 | X2 — NL-to-SQL | Views, validator, analytics page | F-12 | SC-AI-04, SC-SEC-05 |
 | X3 — REST API | ORDS + OAuth2 | F-13 | SC-SEC-08 |
@@ -663,16 +668,18 @@ ia_apex_project/
 ├── README.md               # Entry point, EN + DE (M5)
 ├── package.json · eslint.config.js
 ├── .dbtools/ · src/ · dist/  # SQLcl project: application objects, APEX app 200, releases (ADR-005; replaces db/ and apex/)
+├── data/reference/         # Reference data: idempotent MERGE scripts and their loader
 ├── data/sources/           # Third-party source documents (CMR text…), not committed
 ├── docs/
 │   ├── sdlc.md · intent.md · spec.md · glossary.md · setup.md
-│   ├── adr/ · plans/ · compliance/ · demo/
+│   ├── adr/ · plans/ · design/ · operations/ · compliance/ · demo/
 ├── scripts/
-│   ├── install_admin.sql   # Orchestrator (SYS, FREEPDB1): calls admin/* only
+│   ├── install_admin.sql   # Orchestrator (SYS, PDB of the environment): calls admin/* only
 │   ├── uninstall_admin.sql # Cleanup; requires typing YES
-│   └── admin/              # 00_config, tablespace, roles, schema, workspace, utilities
+│   ├── admin/              # 00_config, tablespaces, roles, schemas, accounts, audit, workspace, utilities
+│   └── operations/         # 00_config, ARCHIVELOG, keystore, RMAN, restore drills (ADR-010, ADR-011)
 ├── static/                 # APEX static files (css, img, js)
-├── tests/                  # utPLSQL suites
+├── tests/                  # utPLSQL suites; admin/ checks of the admin layer
 └── logs/                   # Local logs, not committed
 ```
 
@@ -689,7 +696,7 @@ ia_apex_project/
 | R-05 | Prompt injection through documents. | FR-22, SC-SEC-10. |
 | R-06 | Source formats change. | Stored snapshots; re-runnable ingestion. |
 | R-07 | Embedding model licence unsuitable. | Verify in ADR-004. |
-| R-08 | Service passwords expire. | `check_password_expiry.sql`, `rotate_ords_password.sql`. |
+| R-08 | Service passwords expire. | `check_password_expiry.sql`, `rotate_password.sql`. |
 | R-09 | No suitable EU LLM provider. | Compare providers in ADR-003; MVP does not depend on it. |
 | R-10 | CMR rules misinterpreted. | Rules verified against the official text (§5); SC-QA-04; disclaimer. |
 | R-11 | Not enough time for all extensions. | MVP first; every milestone releasable. |
@@ -747,12 +754,13 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md) | NL-to-SQL through the AI gateway | Accepted | X2 |
 | ADR-003 | EU LLM provider (Q3) | Open | X1 |
 | ADR-006 | Email delivery: real SMTP with TLS vs. local Mailpit only | Open | M2 |
-| [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted | M3 |
-| [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted | M1 |
-| [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted | M1 |
-| [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted | M1 |
-| [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted | M1 |
-| [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted | M1 |
+| [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted (schema of the model open since ADR-008; decided before M3) | M3 |
+| [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted (developer-account privileges amended by ADR-007; single schema `EMK_APP` superseded by ADR-008) | M1 |
+| [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted (`EMK_APP` references and private synonyms superseded by ADR-008; `EMK_INT_DATA` replaced by `EMK_INT_TS`) | M1 |
+| [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted (implemented in DEV in phases M.2–M.4; DEV proxy to `EMK_UI` for the APEX export) | M1 |
+| [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted (amended: acceptance environment; MVP in DEV only, TEST at M5 if time allows) | M1 |
+| [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted (logical export cannot be encrypted in Free: open point) | M1 |
+| [ADR-011](adr/ADR-011-tablespace-encryption.md) | Encryption at rest, key management and encrypted backups: TDE tablespace encryption, local auto-login keystore, encrypted RMAN backups; keys never kept with the data | Accepted (Data Pump export encryption not enabled in Free, `ORA-00439`) | M1 |
 
 ## 14. Revision History
 
@@ -776,3 +784,9 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.11 | 2026-10-09 | §1.3 *Check constraints*: explicit `IS NOT NULL` for optional columns (a check accepts unknown; found in M1a step 5). Accepted by the owner. |
 | v1.12 | 2026-10-10 | §1.3 *Code documentation*: copyright line in object and script headers; repository "all rights reserved" (LICENSE). Accepted by the owner. |
 | v1.13 | 2026-10-11 | ADR-010: retention of business records set with the customer (§2.5); page response target (§12.4); ADR-008 to ADR-010 in §13. Accepted by the owner. |
+| v1.14 | 2026-10-13 | Password rotation for all accounts with a password (`rotate_password.sql`, replaces `rotate_ords_password.sql`). Accepted by the owner. |
+| v1.15 | 2026-10-13 | Aligned with ADR-008/009/011: §1.3 *Schemas and references* (separated schemas, schema-qualified names, no synonyms); §7.5 schemas, tablespaces, deployment account, utPLSQL access, APEX parsing schema, admin layer per environment, transition note; §1.3 ELT target `EMK_API`; §7.2 `EMK_DEPLOY` as service account; §10 repository structure. |
+| v1.16 | 2026-10-15 | §13 aligned with the ADR index (`docs/adr/README.md`): ADR-011 added; statuses with the amendments of ADR-004, 005, 007, 009, 010 and 011. |
+| v1.17 | 2026-10-16 | Focus on the MVP components of the intent: M5 takes the deferred M1 phase M.5 (TEST environment, deployment by `EMK_DEPLOY`, flashback, restore drill) if time allows; ADR-009 status (MVP in DEV only). Accepted by the owner. |
+| v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |
+| v1.19 | 2026-10-16 | Phase M.4 done: §7.5 developer proxy to `EMK_UI` for the APEX export, first schema of the workspace, script rule (`EXIT` only in scripts run from the command line), reference data in `data/reference/`; transition note removed (`EMK_APP` retired); §10 `data/reference/`; §13 ADR-008 status. |

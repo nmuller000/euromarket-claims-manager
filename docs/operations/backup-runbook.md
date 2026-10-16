@@ -2,10 +2,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | v1.0 (2026-10-12) |
+| **Version** | v1.2 (2026-10-15) |
 | **Decisions** | [ADR-010](../adr/ADR-010-operations-and-release-strategy.md) §1 (backup strategy, targets) · [ADR-011](../adr/ADR-011-tablespace-encryption.md) (encryption, keystore, encrypted backups) |
 | **Companion** | [Recovery runbook](recovery-runbook.md): what to do when data is lost. This runbook covers the **routine**: what is backed up, when, for how long, where everything is kept and who checks it |
-| **Status of commands** | Written from the 26ai documentation; the RMAN scripts in `scripts/operations/rman/` are written, run and checked in migration phase 1 together with the first restore drill, and only then committed |
+| **Status of commands** | Configuration, keystore and first encrypted level 0 **executed in DEV** (`scripts/operations/`, [drill 2026-10-12](drills/2026-10-12-m1-dev.md)). **Not yet built:** routine level 1, copy to the external disk and scheduling (with the external disk) |
 
 ---
 
@@ -92,7 +92,7 @@ Times are outside the support hours (Monday–Friday 08:00–18:00, ADR-010).
 | Archived logs → fast recovery area | Continuously; a log switch at least every 30 min (`ARCHIVE_LAG_TARGET = 1800`) | Until backed up and outside the window | RPO ≤ 1 h |
 | Copy of archived logs and backups → external disk | Every 30 min (archived logs), after each level 0 / level 1 (backups) | Recovery window of 7 days | Copy outside the internal disk |
 | Control file and server parameter file | Automatically after each backup (`CONTROLFILE AUTOBACKUP ON`) | With the backups | Restore when the control file is lost |
-| Data Pump export of the project schemas, encrypted with its own password | Before each release in ACCEPTANCE and PROD | Two latest | Independent logical copy |
+| Data Pump export of the project schemas, encrypted with its own password. **Not possible in 26ai Free** (`ORA-00439`, 2026-10-15): open point 11 of the [M1 plan](../plans/M1-plan.md), decided before the first ACCEPTANCE release | Before each release in ACCEPTANCE and PROD | Two latest | Independent logical copy |
 | Keystore backup | After every key operation (`WITH BACKUP`) and checked monthly | As long as the oldest database backup | The keys for every backup |
 
 **DEV machine (laptop):** the machine is not always on at 22:00; the scheduled tasks run as soon as possible after a missed start (Windows Task Scheduler option).
@@ -103,16 +103,16 @@ Times are outside the support hours (Monday–Friday 08:00–18:00, ADR-010).
 
 | Item | DEV (reference machine) | Company setup |
 |------|-------------------------|---------------|
-| Data files | `C:\app\natal\product\26ai\oradata\FREE`, `C:\db_files` (internal disk) | Database server, data storage |
-| Fast recovery area | `C:\app\natal\product\26ai\fast_recovery_area` (internal disk; size in [setup.md §1.1](../setup.md)) | Separate storage on the database server |
+| Data files | `<ORACLE_BASE>\oradata\<DB>` and the project tablespace folder of the admin configuration (internal disk) | Database server, data storage |
+| Fast recovery area | `<ORACLE_BASE>\fast_recovery_area` (internal disk; size in [setup.md §1.1](../setup.md)) | Separate storage on the database server |
 | Backup copies | External USB disk (≥ 128 GB, recommended 256 GB), folder `emk_backups` | Backup server or appliance + off-site copy |
-| Keystore (live) | `WALLET_ROOT` = `C:\app\natal\product\26ai\admin\FREE\wallet`, keystore in its subfolder `tde` (outside the data folders; access: Oracle service and administrators only) | Database server, restricted folder, or a key manager (Oracle Key Vault, HSM) |
-| Keystore copy 1 | Password manager (KeePassXC): `ewallet.p12` as attachment of the keystore entry | Key custodian 1, or the key manager |
-| Keystore copy 2 | A second small USB stick, **not** the backup disk, kept in another place | Key custodian 2 in a safe, other site |
+| Keystore (live) | `WALLET_ROOT` = `<ORACLE_BASE>\admin\<DB>\wallet`, keystore in its subfolder `tde` (outside the data folders; access: Oracle service and administrators only) | Database server, restricted folder, or a key manager (Oracle Key Vault, HSM) |
+| Keystore copy 1 | Password manager (KeePassXC): `ewallet.p12` attached to the keystore entry; the `.kdbx` file has its own off-disk copy (cloud) | Key custodian 1, or the key manager |
+| Keystore copy 2 | A dedicated USB stick, **not** the backup disk, kept in another place (**pending**) | Key custodian 2 in a safe, other site |
 | Keystore password | Password manager (KeePassXC) | Two custodians (four-eyes) |
 | DBID, locations, contacts | Record of the database (recovery runbook §3, prerequisite 6), kept outside the server | Operations documentation |
 
-The paths are confirmed in migration phase 1. The `WALLET_ROOT` folder must exist before the keystore is created; its permissions on Windows (Oracle service and administrators only) are checked then.
+The scripts contain no fixed paths: `scripts/operations/00_config.sql` derives them from the database (`ORACLE_BASE` from `V$DIAG_INFO`, `WALLET_ROOT` and the fast recovery area from `V$PARAMETER`, data folders from `V$DATAFILE`) and prints them at the start of each script. The `WALLET_ROOT` folder must exist before the keystore is created; its permissions on Windows (Oracle service and administrators only) are checked then.
 
 ---
 
@@ -156,7 +156,7 @@ RESTORE DATABASE VALIDATE;
 DELETE NOPROMPT OBSOLETE;
 ```
 
-The production scripts (`scripts/operations/rman/level0.rman`, `level1.rman`, `archivelog.rman`, `validate.rman`) follow this example, add the copy to the external disk, and are committed only after they ran successfully and the first restore drill was recorded.
+Executed version: `scripts/operations/06a_enable_bct.sql` (block change tracking) and `06b_rman_level0.rman` (configuration, encrypted level 0, validation). Level 1, the copy to the external disk and scheduling are added with the external disk.
 
 ## 7. Keystore: Who Creates It and How
 
@@ -164,7 +164,10 @@ The production scripts (`scripts/operations/rman/level0.rman`, `level1.rman`, `a
 |----------|--------|
 | Who | A person with the key-management privilege `SYSKM` (or `SYSDBA`): in a company the DBA or security officer, with two custodians for the password — not a developer |
 | How | With SQL commands (`ADMINISTER KEY MANAGEMENT`), once per CDB, from an admin script that asks the password at run time |
-| When | Migration phase 1, in the same restart window as `ARCHIVELOG` (`WALLET_ROOT` and `TABLESPACE_ENCRYPTION` need a restart) |
+| When | Migration phase 1, in the same restart window as `ARCHIVELOG` (`WALLET_ROOT` and `TABLESPACE_ENCRYPTION` need a restart). Executed: `scripts/operations/05_create_keystore.sql` |
+| Verify | **Right after creation, open the keystore file with the password stored in the password manager:** `orapki wallet display -wallet <WALLET_ROOT>\tde`. A keystore whose stored password does not open it cannot be managed (drill 2026-10-12: the stored password did not match; recovered with S7 of the recovery runbook) |
+| Password | Letters and digits only; copied from the password manager only when the hidden prompt appears (the clipboard is cleared after 10 s) |
+| Files | `ewallet.p12` (keystore, copied to the key copies), `cwallet.sso` (auto-login, stays on the server), `*.lck` (empty lock files, left in place, never copied) |
 
 Reference commands (ADR-011). Before them: the `WALLET_ROOT` folder is created by hand (Oracle creates the `tde` subfolder itself, otherwise `ORA-46693`), and the password is read without echo — `SET VERIFY OFF`, no `SPOOL`, `ACCEPT keystore_pwd CHAR PROMPT 'Keystore password: ' HIDE`, and `UNDEFINE keystore_pwd` at the end — so that it appears in no file and no screen output.
 
@@ -191,3 +194,5 @@ SELECT con_id, status, wallet_type FROM v$encryption_wallet;
 | Version | Date | Change |
 |---------|------|--------|
 | v1.0 | 2026-10-12 | First version with ADR-011: concepts in plain words, golden rules, schedule and retention, locations of backups and keystore, routine tasks, RMAN example, keystore creation. |
+| v1.1 | 2026-10-12 | Executed parts marked (drill 2026-10-12); actual key copies; password verification with `orapki`; lock files. |
+| v1.2 | 2026-10-15 | Data Pump export encryption not available in 26ai Free (`ORA-00439`): logical copy marked as open point. |

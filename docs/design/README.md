@@ -33,11 +33,11 @@ Defined **once** here; every table document only states which part applies ("aud
 
 | Area | Document | Schema | Milestone | Status |
 |------|----------|--------|-----------|--------|
-| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_APP` | M1a | Accepted v1.2 |
-| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_APP` | M1a | Accepted v1.5 |
-| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_APP` | M1a | Accepted v1.1 |
+| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_DATA` | M1a | Accepted v1.3 |
+| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_DATA` | M1a | Accepted v1.6 |
+| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_DATA`, `EMK_API` (log) | M1a | Accepted v1.2 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
-| PL/SQL APIs (architecture, packages, flows) | [api-design.md](api-design.md) | `EMK_APP` | M1a | Accepted v1.0 |
+| PL/SQL APIs (architecture, packages, flows) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.1 |
 
 ## Common Rules (spec §1.3)
 

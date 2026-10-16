@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted · developer-account privileges amended by [ADR-007](ADR-007-integration-schema-and-account-hardening.md) · single schema `EMK_APP`, tablespace `EMK_DATA` and APEX primary schema superseded by [ADR-008](ADR-008-schema-separation.md) and [ADR-011](ADR-011-tablespace-encryption.md) |
 | **Date** | 2026-10-04 |
 | **Deciders** | Solution Architect (project owner) |
 | **Related** | [spec.md](../spec.md) §7, §10 · [intent.md](../intent.md) §7 (Q1, Q5) · SC-DEP-01 to SC-DEP-04 |

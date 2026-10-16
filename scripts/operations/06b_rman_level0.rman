@@ -1,0 +1,33 @@
+# =============================================================================
+# 06b_rman_level0.rman - Migration phase M.1, step 6b (ADR-010, ADR-011)
+# RMAN configuration (retention, control file autobackup, encrypted and
+# compressed backups), an encrypted level 0 backup of the whole CDB with the
+# archived logs, and its validation. The database stays open. No paths: the
+# backups go to the fast recovery area (00_config.sql, step 2).
+#
+# Before: step 5 done (keystore OPEN; encrypted backups need it), step 6a done.
+# Run from the repository root:
+#   rman target / cmdfile=scripts\operations\06b_rman_level0.rman log=logs\operations\06b_rman_level0.log
+# Check: Select-String -Path logs\operations\06b_rman_level0.log -Pattern 'ORA-|RMAN-[0-9]|Recovery Manager (complete|terminado)'
+#
+# Author: Natalia Müller
+# Copyright (c) 2026 Natalia Müller. All rights reserved.
+# Since:  2026-10-12
+# =============================================================================
+
+# Configuration (stored in the control file; repeating it changes nothing)
+CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE ENCRYPTION FOR DATABASE ON;
+CONFIGURE DEVICE TYPE DISK BACKUP TYPE TO COMPRESSED BACKUPSET;
+SHOW ALL;
+
+# Encrypted level 0 of the whole CDB, with the archived logs
+BACKUP INCREMENTAL LEVEL 0 DATABASE TAG 'LEVEL0' PLUS ARCHIVELOG TAG 'LEVEL0_ARCH';
+
+# Proof that the backup can be restored (reads, restores nothing)
+RESTORE DATABASE VALIDATE;
+RESTORE ARCHIVELOG ALL VALIDATE;
+
+LIST BACKUP SUMMARY;
+REPORT NEED BACKUP;
