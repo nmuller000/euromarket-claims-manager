@@ -117,12 +117,15 @@ DEFINE emk_aud_grants    = EMK_AUD_GRANTS
 DEFINE emk_aud_sessions  = EMK_AUD_SESSIONS
 -- Data changes made by the deployment account (it can read and change data, ADR-008)
 DEFINE emk_aud_deploy_dml = EMK_AUD_DEPLOY_DML
-DEFINE emk_audited_users = "&emk_data_schema, &emk_api_schema, &emk_int_schema, &emk_deploy_user"
+-- EMK_UI: in DEV a person can open a proxy session in it (06_create_dev_user.sql)
+DEFINE emk_audited_users = "&emk_data_schema, &emk_api_schema, &emk_ui_schema, &emk_int_schema, &emk_deploy_user"
 
 -- -----------------------------------------------------------------------------
 -- 5. APEX and tools
 -- -----------------------------------------------------------------------------
 DEFINE emk_workspace     = EMK_CLAIMS
+-- APEX application of the project (parsing schema &emk_ui_schema, ADR-008)
+DEFINE emk_apex_app_id   = 200
 -- ORDS (standalone): program and configuration folder of this machine
 DEFINE emk_ords_exe      = C:\ords\bin\ords.exe
 DEFINE emk_ords_config   = C:\ords\config
@@ -132,21 +135,5 @@ DEFINE emk_vector_memory_mb = 128
 DEFINE emk_ut3_schema    = UT3
 DEFINE emk_ut3_ts        = USERS
 DEFINE emk_utplsql_src   = data/tools/utPLSQL/source
-
--- -----------------------------------------------------------------------------
--- 6. Single-schema layout of M1a steps 0-6 (DEV only; retired in migration M.4)
--- -----------------------------------------------------------------------------
-DEFINE emk_app_schema     = EMK_APP
-DEFINE emk_tablespace     = EMK_DATA
-DEFINE emk_datafile       = emk_data01.dbf
-DEFINE emk_ts_initial     = 100M
-DEFINE emk_ts_next        = 50M
-DEFINE emk_ts_max         = 2G
-DEFINE emk_int_tablespace = EMK_INT_DATA
-DEFINE emk_int_datafile   = emk_int_data01.dbf
-DEFINE emk_int_ts_initial_old = 50M
-DEFINE emk_int_ts_next_old    = 50M
-DEFINE emk_int_ts_max_old     = 1G
-DEFINE emk_legacy_datafile_dir = &emk_datafile_root\ia_apex_project
 
 PROMPT === Configuration: environment &emk_env, PDB &emk_pdb, data files &emk_datafile_dir, developer access &emk_dev_access

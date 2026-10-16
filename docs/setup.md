@@ -225,15 +225,15 @@ Third-party files are kept locally and not committed: source documents (e.g., th
    | Step | Creates or sets |
    |------|-----------------|
    | 1 Roles | `EMK_OWNER_ROLE`, `EMK_READONLY_ROLE`; `EMK_DEVELOPER_ROLE` (debugging in proxy sessions) in DEV only |
-   | 2 Tablespaces | `EMK_DATA_TS` and `EMK_INT_TS`, **encrypted** (AES256), in the data folder of the environment (created when the client runs on the database server). DEV also keeps the M1a tablespaces `EMK_DATA` and `EMK_INT_DATA` until migration phase M.4 |
-   | 3 Schemas | `EMK_DATA` (tables), `EMK_API` (APIs, views, log), `EMK_UI` (APEX parsing schema, owns nothing), `EMK_INT` (integration): schema-only. DEV also keeps `EMK_APP` until M.4 |
+   | 2 Tablespaces | `EMK_DATA_TS` and `EMK_INT_TS`, **encrypted** (AES256), in the data folder of the environment (created when the client runs on the database server) |
+   | 3 Schemas | `EMK_DATA` (tables), `EMK_API` (APIs, views, log), `EMK_UI` (APEX parsing schema, owns nothing), `EMK_INT` (integration): schema-only |
    | 4 Deployment account | `EMK_DEPLOY`: profile `DEFAULT`, schema privileges on `EMK_DATA`, `EMK_API`, `EMK_INT` only (create, alter, drop, DML, `GRANT ANY OBJECT PRIVILEGE`) |
-   | 5 Developer account (DEV) | `EMK_DEV`: `CREATE SESSION` only, profile `ORA_CIS_PROFILE`, proxy to `EMK_DATA`, `EMK_API`, `EMK_INT` (and `EMK_APP` until M.4) |
-   | 6 APEX workspace | `EMK_CLAIMS` with schema `EMK_UI` |
+   | 5 Developer account (DEV) | `EMK_DEV`: `CREATE SESSION` only, profile `ORA_CIS_PROFILE`, proxy to `EMK_DATA`, `EMK_API`, `EMK_INT`, and to `EMK_UI` (`CREATE SESSION` only) for the APEX export and import |
+   | 6 APEX workspace | `EMK_CLAIMS` with first schema `EMK_UI`, and its administrator (name, email and password asked only when it is created). APEX cannot change the first schema later: a workspace created with another schema is removed and created again (`ORA-20987`) |
    | 7 Network access | ACL `jdwp` on `localhost` / `127.0.0.1` for the proxy schemas (DEV only, PL/SQL debugger) |
-   | 8 Database auditing | Policies `EMK_AUD_DDL`, `EMK_AUD_GRANTS`, `EMK_AUD_SESSIONS` enabled for `EMK_DATA`, `EMK_API`, `EMK_INT`, `EMK_DEPLOY` (ADR-010 §3); `EMK_AUD_DEPLOY_DML` records every `INSERT`, `UPDATE`, `DELETE` of `EMK_DEPLOY`, which can change data in the project schemas |
+   | 8 Database auditing | Policies `EMK_AUD_DDL`, `EMK_AUD_GRANTS`, `EMK_AUD_SESSIONS` enabled for `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`, `EMK_DEPLOY` (ADR-010 §3); `EMK_AUD_DEPLOY_DML` records every `INSERT`, `UPDATE`, `DELETE` of `EMK_DEPLOY`, which can change data in the project schemas |
 
-   Then runs `verify_admin.sql` (expected: `RESULT: all checks passed`). Each run writes its own log, `logs/install_admin_<ENV>_<YYYYMMDD_HH24MISS>.log`; prompts are not logged. The personal account `DEV_USER` is not touched.
+   Then runs the checks of `verify_admin.sql` (expected: `RESULT: all checks passed`) and returns to the shell: scripts run from the command line end with `EXIT`. Each run writes its own log, `logs/install_admin_<ENV>_<YYYYMMDD_HH24MISS>.log`; prompts are not logged. The personal account `DEV_USER` is not touched.
 
 3. **Work as a schema** through the developer account (DEV; proxy authentication: the password asked is the one of `EMK_DEV`). `EMK_DEV` alone cannot create objects (`ORA-01031`):
 
@@ -292,23 +292,28 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
 
    Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-16: 33 in `EMK_DATA`, 9 in `EMK_API`).
 
-### 5.4 SQLcl Project (ADR-005)
+### 5.4 SQLcl Project (ADR-005, ADR-008)
 
-The application layer is versioned with SQLcl `project`. It was initialised once, from the repository root, connected as `EMK_DEV[EMK_APP]`:
-
-```sql
-project init -name emk_claims -schemas EMK_APP -verbose
-```
-
-This created `.dbtools/` (project configuration and export filters, default branch `main`) and appended an *Oracle SQLcl Projects* block to `.gitignore`. `src/` and `dist/` are filled from M1 with `project export` and `project stage`. A new clone does not need to run `project init` again.
-
-**APEX application 200** (`EuroMarket Claims Manager`, alias `EMK_CLAIMS`, workspace `EMK_CLAIMS`) was created once in App Builder and is exported, connected as `EMK_DEV[EMK_APP]`, with:
+The application layer is versioned with SQLcl `project`. `.dbtools/` holds the project configuration (schemas `EMK_DATA`, `EMK_API`, `EMK_UI`; `EMK_INT` is added with its first objects) and the export filters; a new clone does not run `project init` again. Each schema is exported through its own proxy, from the repository root (ADR-008 §5):
 
 ```sql
-project export -objects APEX.200 -schemas EMK_APP -verbose
+-- connected as EMK_DEV[EMK_DATA]
+project export -schemas EMK_DATA -verbose
+-- connected as EMK_DEV[EMK_API]
+project export -schemas EMK_API -verbose
 ```
 
-- The export is written to `src/database/emk_app/apex_apps/f200/`: `f200.sql` (installable) and `readable/` (YAML, for review and diffs).
+- The export is written to `src/database/<schema>/`. Each schema exports only the grants it makes (for example `EMK_DATA` to `EMK_API`); unit test packages (`TEST_EMK_%`) are not exported.
+- `project export -schemas <schema> -list` shows what would be exported, without writing files.
+
+**APEX application 200** (`EuroMarket Claims Manager`, alias `EMK_CLAIMS`, workspace `EMK_CLAIMS`) is exported as its parsing schema, connected as `EMK_DEV[EMK_UI]`:
+
+```sql
+project export -objects APEX.200 -schemas EMK_UI -verbose
+```
+
+- The export is written to `src/database/emk_ui/apex_apps/f200/`: `f200.sql` (installable) and `readable/` (YAML, for review and diffs).
+- `f200.sql` is installed by its parsing schema or by an account with `APEX_ADMINISTRATOR_ROLE` (as the file states). Into a new workspace, set the workspace, the application ID and the schema with `APEX_APPLICATION_INSTALL` before running it.
 - Application roles are exported; user role assignments are not (`expAclAssignments: false`) and are created per environment.
 - `project export -list` reports "0 objects" for an APEX application: the counter covers database objects only. The debug output (`-debug`) shows `application_id=200` when the application is found.
 - `project export` overwrites files but does not delete the YAML of components removed in APEX. After deleting a component, remove its file from `readable/`, or delete `f200/` and export again.
@@ -317,7 +322,7 @@ project export -objects APEX.200 -schemas EMK_APP -verbose
 
 Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXECUTE`/`DEBUG` on `SYS.DBMS_DEBUG_JDWP` through `EMK_DEVELOPER_ROLE`, and the ACL `jdwp` on `localhost` / `127.0.0.1` (script `08`). Steps ([Oracle documentation](https://docs.oracle.com/en/database/oracle/sql-developer-vscode/24.4/sqdnx/debugging-pl-sql-objects.html)):
 
-1. Connect as `EMK_DEV[EMK_APP]` (or `EMK_DEV[EMK_INT]`).
+1. Connect as the owner of the code, e.g. `EMK_DEV[EMK_API]` (or `EMK_DEV[EMK_DATA]`, `EMK_DEV[EMK_INT]`).
 2. Compile the package for debugging. If the editor icon does not take effect, use `ALTER PACKAGE <name> COMPILE DEBUG;` and check `user_plsql_object_settings.plsql_debug = 'TRUE'`.
 3. Set a breakpoint, choose the subprogram in **Execute → Debug**, enter the parameters, and select **127.0.0.1** as the debugger address. Do not run the ACL code the extension offers: the ACL already exists.
 4. **Stop** ends the debugged session with `ORA-30687: session terminated by debugger` (expected); its uncommitted work is rolled back.
@@ -334,6 +339,7 @@ Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXE
 | Project objects | `@scripts/admin/verify_admin.sql` (as `SYS`) | `RESULT: all checks passed` |
 | utPLSQL | `SELECT ut.version() FROM dual;` (as `EMK_DEV[EMK_API]`) | `v.3.2.3.x` |
 | Unit tests | `@tests/run_tests.sql` as `EMK_DEV[EMK_DATA]` and as `EMK_DEV[EMK_API]` | `0 failed, 0 errored` |
+| Reference data | `@data/reference/load_reference_data.sql` as `EMK_DEV[EMK_DATA]` (idempotent) | `0` rows merged on a second run; 60, 60, 32, 32 |
 | ORDS / APEX | Open `http://localhost:8080/ords/` | APEX landing page |
 | Tooling | `npm run lint` | Runs without configuration errors |
 

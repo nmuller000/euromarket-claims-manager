@@ -107,7 +107,7 @@ See §6.
 | # | Check | Expected |
 |---|-------|----------|
 | 1 | `SELECT name, open_mode FROM v$pdbs` | All PDBs `READ WRITE` |
-| 2 | `@scripts/verify_admin.sql` | All checks pass |
+| 2 | `@scripts/admin/verify_admin.sql` | All checks pass |
 | 3 | Invalid objects in the project schemas (`DBA_OBJECTS`, `status = 'INVALID'`) | None |
 | 4 | Smoke test suite (utPLSQL) in the PDB | Green |
 | 5 | **Point reached:** newest `created_at` / `updated_at` in `EMK_DATA.EMK_CLAIMS`, `EMK_SHIPMENTS`, `EMK_CLAIM_DOCUMENTS` | Recorded as the real RPO |

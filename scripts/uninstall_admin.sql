@@ -29,9 +29,9 @@ ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST, ACC or PROD): '
 PROMPT
 PROMPT This removes in &emk_env (&emk_pdb): audit policies &emk_aud_ddl, &emk_aud_grants, &emk_aud_sessions, &emk_aud_deploy_dml;
 PROMPT workspace &emk_workspace; network ACL entries; accounts &emk_deploy_user, &emk_dev_user,
-PROMPT &emk_ui_schema, &emk_api_schema, &emk_data_schema, &emk_int_schema, &emk_app_schema (with ALL
-PROMPT their objects); roles &emk_owner_role, &emk_dev_role, &emk_ro_role; tablespaces &emk_data_ts,
-PROMPT &emk_int_ts, &emk_tablespace, &emk_int_tablespace including their data files.
+PROMPT &emk_ui_schema, &emk_api_schema, &emk_data_schema, &emk_int_schema (with ALL their objects);
+PROMPT roles &emk_owner_role, &emk_dev_role, &emk_ro_role; tablespaces &emk_data_ts, &emk_int_ts
+PROMPT including their data files.
 ACCEPT emk_confirm CHAR PROMPT 'Type YES to continue: '
 
 BEGIN
@@ -51,12 +51,14 @@ SPOOL &emk_log_file
 DECLARE
     l_count PLS_INTEGER;
 
-    PROCEDURE drop_policy (p_name IN VARCHAR2, p_users IN VARCHAR2) IS
+    -- Disabled for each account that has it enabled (the list may have changed since install)
+    PROCEDURE drop_policy (p_name IN VARCHAR2) IS
     BEGIN
-        SELECT COUNT(*) INTO l_count FROM audit_unified_enabled_policies WHERE policy_name = UPPER(p_name);
-        IF l_count > 0 THEN
-            EXECUTE IMMEDIATE 'NOAUDIT POLICY ' || p_name || ' BY ' || p_users;
-        END IF;
+        FOR e IN (SELECT entity_name FROM audit_unified_enabled_policies
+                  WHERE  policy_name = UPPER(p_name) AND entity_type = 'USER')
+        LOOP
+            EXECUTE IMMEDIATE 'NOAUDIT POLICY ' || p_name || ' BY ' || e.entity_name;
+        END LOOP;
         SELECT COUNT(*) INTO l_count FROM audit_unified_policies WHERE policy_name = UPPER(p_name);
         IF l_count > 0 THEN
             EXECUTE IMMEDIATE 'DROP AUDIT POLICY ' || p_name;
@@ -109,10 +111,10 @@ DECLARE
     END drop_tablespace;
 BEGIN
     -- 1. Audit policies (before the audited accounts disappear)
-    drop_policy('&emk_aud_ddl',        '&emk_audited_users');
-    drop_policy('&emk_aud_grants',     '&emk_audited_users');
-    drop_policy('&emk_aud_sessions',   '&emk_audited_users');
-    drop_policy('&emk_aud_deploy_dml', '&emk_deploy_user');
+    drop_policy('&emk_aud_ddl');
+    drop_policy('&emk_aud_grants');
+    drop_policy('&emk_aud_sessions');
+    drop_policy('&emk_aud_deploy_dml');
 
     -- 2. APEX workspace (keeps the schemas; they are dropped below)
     SELECT COUNT(*) INTO l_count FROM apex_workspaces WHERE workspace = UPPER('&emk_workspace');
@@ -133,8 +135,7 @@ BEGIN
               FROM   dba_host_aces
               WHERE  UPPER(principal) IN (UPPER('&emk_data_schema'), UPPER('&emk_api_schema'),
                                           UPPER('&emk_ui_schema'), UPPER('&emk_int_schema'),
-                                          UPPER('&emk_deploy_user'), UPPER('&emk_dev_user'),
-                                          UPPER('&emk_app_schema')))
+                                          UPPER('&emk_deploy_user'), UPPER('&emk_dev_user')))
     LOOP
         DBMS_NETWORK_ACL_ADMIN.REMOVE_HOST_ACE(
             host             => a.host,
@@ -154,7 +155,6 @@ BEGIN
     drop_user('&emk_api_schema');
     drop_user('&emk_data_schema');
     drop_user('&emk_int_schema');
-    drop_user('&emk_app_schema');
 
     -- 5. Roles
     drop_role('&emk_owner_role');
@@ -164,10 +164,10 @@ BEGIN
     -- 6. Tablespaces and data files
     drop_tablespace('&emk_int_ts');
     drop_tablespace('&emk_data_ts');
-    drop_tablespace('&emk_int_tablespace');
-    drop_tablespace('&emk_tablespace');
 END;
 /
 
 UNDEFINE emk_confirm
 SPOOL OFF
+
+EXIT

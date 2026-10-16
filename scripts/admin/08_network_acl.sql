@@ -44,7 +44,7 @@ BEGIN
     IF '&emk_dev_access' = 'Y' THEN
         FOR s IN (SELECT column_value AS schema_name
                   FROM   TABLE(sys.odcivarchar2list('&emk_data_schema', '&emk_api_schema',
-                                                     '&emk_int_schema', '&emk_app_schema')))
+                                                     '&emk_int_schema')))
         LOOP
             append_ace('localhost', 'jdwp', s.schema_name);
             append_ace('127.0.0.1', 'jdwp', s.schema_name);

@@ -1,9 +1,8 @@
 -- =============================================================================
 -- 15_workspace_schemas.sql
 -- Assigns &emk_ui_schema to the APEX workspace &emk_workspace (ADR-008: the
--- parsing schema of application 200). A new workspace already has it as primary
--- schema (07a); in DEV the workspace was created with the M1a schema, so it is
--- added here. The application itself is switched in migration phase M.4.
+-- parsing schema of application &emk_apex_app_id). A new workspace already has
+-- it as primary schema (07a); this keeps the assignment if it was removed.
 -- Idempotent. Called by install_admin.sql (requires 00_config.sql).
 --
 -- Author: Natalia Müller

@@ -41,7 +41,7 @@ BEGIN
 END;
 /
 
--- Desired state on every run (also moves EMK_INT from its M1a tablespace)
+-- Desired state on every run
 ALTER USER &emk_data_schema DEFAULT TABLESPACE &emk_data_ts QUOTA UNLIMITED ON &emk_data_ts;
 ALTER USER &emk_api_schema  DEFAULT TABLESPACE &emk_data_ts QUOTA UNLIMITED ON &emk_data_ts;
 ALTER USER &emk_ui_schema   DEFAULT TABLESPACE &emk_data_ts;

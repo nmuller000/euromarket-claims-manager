@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.18 (2026-10-16) |
+| **Status** | Accepted v1.19 (2026-10-16) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -557,13 +557,14 @@ Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII 
 | Integration schema | `EMK_INT` | Schema-only; inbound data, source views, batch jobs, REST [X3]; only `EXECUTE` on `EMK_API` APIs (ADR-007) |
 | Deployment account | `EMK_DEPLOY` | Service account of the pipeline; schema privileges limited to the project schemas; its own schema holds the Liquibase tables (ADR-008) |
 | Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE`, `EMK_READONLY_ROLE` | No `CONNECT`, `RESOURCE` or `DBA`; privileges used inside PL/SQL and quotas are granted directly |
-| Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; DEV only; works in `EMK_DATA`, `EMK_API` and `EMK_INT` through proxy, one proxy per schema (ADR-007, ADR-008). `DEV_USER` is not used by this project |
+| Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; DEV only; works in `EMK_DATA`, `EMK_API` and `EMK_INT` through proxy, one proxy per schema (ADR-007, ADR-008); a proxy to `EMK_UI` exports and imports the APEX application as its parsing schema. `DEV_USER` is not used by this project |
 | Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_DATA` and `EMK_API` only (the schemas that own unit tests, M1 plan open point 1); never installed in PROD |
-| APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Parsing schema `EMK_UI` (ADR-008) |
+| APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Parsing schema `EMK_UI` (ADR-008), which is also the first schema of the workspace (APEX cannot change it later) |
 
 - **Admin layer:** `scripts/install_admin.sql` asks for the environment and runs idempotent scripts as `SYS` in its PDB (DEV `FREEPDB1`, TEST `EMKTEST`; ADR-009).
 - **Application layer:** SQLcl `project` (Liquibase); `project deploy` by `EMK_DEPLOY` applies each change once.
-- **Transition:** until migration phase M.4 (M1 plan, step M) DEV still holds the single-schema layout of M1a (`EMK_APP`, tablespaces `EMK_DATA` and `EMK_INT_DATA`); it is retired in M.4.
+- **Scripts:** a script run from the command line ends with `EXIT`, so that it returns to the shell and the next one can start (unattended runs also need its prompts as arguments, with CI); a script called by another (`@@`) never does.
+- **Reference data:** idempotent `MERGE` scripts in `data/reference/`, loaded in DEV with `load_reference_data.sql` and added to a release with `project stage add-custom`.
 
 ---
 
@@ -667,6 +668,7 @@ ia_apex_project/
 ├── README.md               # Entry point, EN + DE (M5)
 ├── package.json · eslint.config.js
 ├── .dbtools/ · src/ · dist/  # SQLcl project: application objects, APEX app 200, releases (ADR-005; replaces db/ and apex/)
+├── data/reference/         # Reference data: idempotent MERGE scripts and their loader
 ├── data/sources/           # Third-party source documents (CMR text…), not committed
 ├── docs/
 │   ├── sdlc.md · intent.md · spec.md · glossary.md · setup.md
@@ -755,7 +757,7 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | [ADR-004](adr/ADR-004-embedding-model.md) | Embedding model: multilingual-e5-small, Oracle pre-built ONNX (Q2) | Accepted (schema of the model open since ADR-008; decided before M3) | M3 |
 | [ADR-005](adr/ADR-005-deployment-and-database-setup.md) | Hybrid deployment (admin scripts + SQLcl project) and `EMK_` database setup (Q1, Q5) | Accepted (developer-account privileges amended by ADR-007; single schema `EMK_APP` superseded by ADR-008) | M1 |
 | [ADR-007](adr/ADR-007-integration-schema-and-account-hardening.md) | Integration schema `EMK_INT`, generic landing with versioned source views, account hardening | Accepted (`EMK_APP` references and private synonyms superseded by ADR-008; `EMK_INT_DATA` replaced by `EMK_INT_TS`) | M1 |
-| [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted | M1 |
+| [ADR-008](adr/ADR-008-schema-separation.md) | Schema separation `EMK_DATA`, `EMK_API`, `EMK_UI`, `EMK_INT`; deployment account `EMK_DEPLOY` | Accepted (implemented in DEV in phases M.2–M.4; DEV proxy to `EMK_UI` for the APEX export) | M1 |
 | [ADR-009](adr/ADR-009-environments.md) | Environments (DTAP), one PDB per environment | Accepted (amended: acceptance environment; MVP in DEV only, TEST at M5 if time allows) | M1 |
 | [ADR-010](adr/ADR-010-operations-and-release-strategy.md) | Operational baseline: backup and recovery with business-based targets, release rollback, database auditing, HTTPS, performance targets, edition constraints | Accepted (logical export cannot be encrypted in Free: open point) | M1 |
 | [ADR-011](adr/ADR-011-tablespace-encryption.md) | Encryption at rest, key management and encrypted backups: TDE tablespace encryption, local auto-login keystore, encrypted RMAN backups; keys never kept with the data | Accepted (Data Pump export encryption not enabled in Free, `ORA-00439`) | M1 |
@@ -787,3 +789,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.16 | 2026-10-15 | §13 aligned with the ADR index (`docs/adr/README.md`): ADR-011 added; statuses with the amendments of ADR-004, 005, 007, 009, 010 and 011. |
 | v1.17 | 2026-10-16 | Focus on the MVP components of the intent: M5 takes the deferred M1 phase M.5 (TEST environment, deployment by `EMK_DEPLOY`, flashback, restore drill) if time allows; ADR-009 status (MVP in DEV only). Accepted by the owner. |
 | v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |
+| v1.19 | 2026-10-16 | Phase M.4 done: §7.5 developer proxy to `EMK_UI` for the APEX export, first schema of the workspace, script rule (`EXIT` only in scripts run from the command line), reference data in `data/reference/`; transition note removed (`EMK_APP` retired); §10 `data/reference/`; §13 ADR-008 status. |

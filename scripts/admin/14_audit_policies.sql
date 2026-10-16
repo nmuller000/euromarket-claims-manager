@@ -10,7 +10,7 @@
 --                      change it makes is recorded (to verify: how MERGE is recorded)
 -- The first three are enabled BY &emk_audited_users. Proxy sessions are attributed to the person
 -- (DBPROXY_USERNAME in UNIFIED_AUDIT_TRAIL). Idempotent: a policy is created
--- and enabled only if missing.
+-- only if missing, and enabled only for the accounts that do not have it yet.
 -- Called by install_admin.sql (requires 00_config.sql).
 --
 -- Author: Natalia Müller
@@ -32,15 +32,21 @@ DECLARE
         END IF;
     END create_policy;
 
+    -- Checked per user, so that an account added to the list later is enabled too
     PROCEDURE enable_policy (p_name IN VARCHAR2, p_users IN VARCHAR2) IS
+        l_user VARCHAR2(128);
     BEGIN
-        SELECT COUNT(*) INTO l_count FROM audit_unified_enabled_policies WHERE policy_name = UPPER(p_name);
-        IF l_count = 0 THEN
-            EXECUTE IMMEDIATE 'AUDIT POLICY ' || p_name || ' BY ' || p_users;
-            DBMS_OUTPUT.PUT_LINE('Audit policy ' || p_name || ' enabled for ' || p_users || '.');
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Audit policy ' || p_name || ' already enabled.');
-        END IF;
+        FOR i IN 1 .. REGEXP_COUNT(p_users, '[^, ]+') LOOP
+            l_user := UPPER(REGEXP_SUBSTR(p_users, '[^, ]+', 1, i));
+            SELECT COUNT(*) INTO l_count FROM audit_unified_enabled_policies
+            WHERE  policy_name = UPPER(p_name) AND entity_name = l_user;
+            IF l_count = 0 THEN
+                EXECUTE IMMEDIATE 'AUDIT POLICY ' || p_name || ' BY ' || l_user;
+                DBMS_OUTPUT.PUT_LINE('Audit policy ' || p_name || ' enabled for ' || l_user || '.');
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('Audit policy ' || p_name || ' already enabled for ' || l_user || '.');
+            END IF;
+        END LOOP;
     END enable_policy;
 BEGIN
     create_policy('&emk_aud_ddl',

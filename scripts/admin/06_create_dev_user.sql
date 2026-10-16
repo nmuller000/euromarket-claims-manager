@@ -6,10 +6,14 @@
 --   - CREATE SESSION only, granted directly; no roles (Oracle guideline for
 --     proxy accounts: in a proxy session the privileges of the target schema apply);
 --   - password profile &emk_dev_profile (CIS baseline);
---   - proxy access to &emk_data_schema, &emk_api_schema, &emk_int_schema
---     (and &emk_app_schema until migration phase M.4);
+--   - proxy access to &emk_data_schema, &emk_api_schema, &emk_int_schema;
 --   - &emk_dev_role (development privileges in the proxy session, e.g. debugging)
---     granted to the target schemas.
+--     granted to the target schemas;
+--   - proxy access to &emk_ui_schema, the APEX parsing schema, with CREATE SESSION
+--     only (a proxy session needs it in the target schema): to export and import
+--     the APEX application as its parsing schema with SQLcl, as the export file
+--     asks, and to check what the application can see and call. It owns no objects,
+--     so it gets neither the owner nor the developer role.
 -- Order matters: CREATE SESSION is granted directly BEFORE the roles are
 -- revoked, so the account never loses the right to log in.
 -- The personal account DEV_USER is outside the project and is not touched.
@@ -63,16 +67,18 @@ BEGIN
     grant_proxy('&emk_data_schema');
     grant_proxy('&emk_api_schema');
     grant_proxy('&emk_int_schema');
-    grant_proxy('&emk_app_schema');
+    grant_proxy('&emk_ui_schema');
 END;
 /
+
+-- Log-in right of the parsing schema for its proxy session (DEV only, see header)
+GRANT CREATE SESSION TO &emk_ui_schema;
 
 -- 4. Development privileges for the proxy sessions go to the target schemas:
 --    developer role (debugging) and owner role (creating objects in the session)
 GRANT &emk_dev_role, &emk_owner_role TO &emk_data_schema;
 GRANT &emk_dev_role, &emk_owner_role TO &emk_api_schema;
 GRANT &emk_dev_role, &emk_owner_role TO &emk_int_schema;
-GRANT &emk_dev_role TO &emk_app_schema;
 
 -- 5. The developer account holds no roles (removes DB_DEVELOPER_ROLE and
 --    &emk_dev_role granted by earlier versions of this script)

@@ -108,6 +108,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Embedding** | Numeric vector representing the meaning of a text. |
 | **Encrypted tablespace** | Tablespace whose data files are stored encrypted by TDE: decrypted when read into memory, so users and applications see normal data, while copied files or backups are unreadable without the keystore (ADR-011). |
 | **Fast recovery area** | Disk location managed by Oracle for archived logs, backups and flashback logs (`DB_RECOVERY_FILE_DEST`). |
+| **First schema (APEX workspace)** | The database schema a workspace is created with. APEX cannot remove or change it later; to use another one, the workspace is created again. |
 | **Flashback (Database / PDB / Table)** | Oracle features that return a whole database, one PDB or one table to an earlier time without restoring a backup. |
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
 | **Identity column** | Column whose value Oracle generates (`GENERATED ALWAYS AS IDENTITY`); used for surrogate primary keys. |
@@ -127,6 +128,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **ONNX** | Open Neural Network Exchange: open format for trained AI models. An **ONNX model** is a file that Oracle can load and run inside the database (here, the embedding model of ADR-004). |
 | **ORDS** | Oracle REST Data Services: web listener that serves APEX and REST APIs. |
 | **p50 / p95 (percentile)** | p50 (median): half of the requests are faster. p95: 95 of every 100 requests are faster; the rest form the "slow tail" that an average hides. |
+| **Parsing schema (APEX)** | Database schema whose privileges an APEX application uses to run its SQL and PL/SQL (here `EMK_UI`, which owns nothing). |
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
 | **Party role** | Function a company plays in a shipment or claim (shipper, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |

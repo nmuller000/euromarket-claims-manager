@@ -46,19 +46,11 @@ PROMPT === 1/8 Roles ===
 @@admin/04_create_roles.sql
 
 PROMPT
-PROMPT === 2/8 Tablespaces (encrypted; M1a single-schema tablespaces in DEV until M.4) ===
-SET TERMOUT OFF
-SELECT CASE '&emk_dev_access' WHEN 'Y' THEN 'admin/03_create_tablespace.sql' ELSE 'admin/00_noop.sql' END AS next_step FROM dual;
-SET TERMOUT ON
-@@&next_step
+PROMPT === 2/8 Tablespaces (encrypted) ===
 @@admin/10_create_encrypted_ts.sql
 
 PROMPT
-PROMPT === 3/8 Schemas (separated; M1a single schema in DEV until M.4) ===
-SET TERMOUT OFF
-SELECT CASE '&emk_dev_access' WHEN 'Y' THEN 'admin/05_create_schema.sql' ELSE 'admin/00_noop.sql' END AS next_step FROM dual;
-SET TERMOUT ON
-@@&next_step
+PROMPT === 3/8 Schemas (separated) ===
 @@admin/11_create_separated_schemas.sql
 
 PROMPT
@@ -87,6 +79,8 @@ PROMPT === 8/8 Database auditing ===
 
 PROMPT
 PROMPT === Verification ===
-@@admin/verify_admin.sql
+@@admin/verify_admin_checks.sql
 
 SPOOL OFF
+
+EXIT

@@ -49,3 +49,5 @@ WHERE  name = 'vector_memory_size';
 @@&next_script
 
 SPOOL OFF
+
+EXIT

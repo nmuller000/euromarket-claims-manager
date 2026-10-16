@@ -12,7 +12,7 @@
 --   - it creates the owner with a default password published in the utPLSQL
 --     documentation (or one typed on the command line, kept in shell history);
 --   - it grants the framework to PUBLIC (every database account);
---   - it ends with EXIT.
+--   - it ends with EXIT, which would stop this script before its checks.
 -- Here the owner is created schema-only (NO AUTHENTICATION): nobody can log in
 -- as &emk_ut3_schema, and no password exists. The official install.sql,
 -- create_user_grants.sql and create_user_synonyms.sql do the rest.
@@ -179,3 +179,5 @@ END;
 /
 
 SPOOL OFF
+
+EXIT

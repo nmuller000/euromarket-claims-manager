@@ -1,6 +1,8 @@
 -- =============================================================================
 -- 07_create_workspace.sql
--- APEX workspace &emk_workspace with primary schema &emk_app_schema.
+-- APEX workspace &emk_workspace with primary (first) schema &emk_ui_schema, the
+-- parsing schema of the application (ADR-008). APEX cannot change the first
+-- schema of an existing workspace (ORA-20987 when it is removed).
 -- Administrator name, email and password are asked only when the workspace
 -- is created, and never stored.
 -- Called by install_admin.sql (requires 00_config.sql).

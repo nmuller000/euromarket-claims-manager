@@ -61,10 +61,15 @@ object_name not like 'I_SNAP$%',
 export_type not in ('USER','USER_SYS_PRIVS','USER_ROLE_PRIVS'),
 
 -- EMK project filters ---------------------------------------------------------
--- Grants received from schemas outside the project (e.g. UT3 for utPLSQL, SYS)
--- belong to the admin layer (scripts/admin), not to the release. Grants made by
--- the project schemas (e.g. EMK_APP to EMK_INT, ADR-007) are kept.
-not (export_type = 'ALL_TAB_PRIVS' and grantor not in ('EMK_APP', 'EMK_INT')),
+-- Each schema exports only the grants it makes (e.g. EMK_DATA to EMK_API, ADR-008),
+-- so a grant is written once, by its grantor. The export runs in a proxy session
+-- of that schema, so the current schema is the grantor. Grants received (from the
+-- project schemas, or from UT3 and SYS, which belong to the admin layer) are skipped.
+not (export_type = 'ALL_TAB_PRIVS' and grantor <> sys_context('USERENV', 'CURRENT_SCHEMA')),
+
+-- utPLSQL test packages (TEST_EMK_<NAME>) are installed by tests/install_tests.sql
+-- and never reach the release (M1 plan, open point 1)
+object_name not like 'TEST\_EMK\_%' escape '\',
 
 -- No ORDS REST services in the project schemas (checked by verify_admin.sql);
 -- without this, the export reports ORA-20012 "Schema not REST enabled".

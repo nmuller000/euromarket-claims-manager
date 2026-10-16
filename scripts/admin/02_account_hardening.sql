@@ -61,3 +61,5 @@ PROMPT (same new password), then start ORDS. Store the password in the password 
 
 SET SQLFORMAT
 SET FEEDBACK ON
+
+EXIT
