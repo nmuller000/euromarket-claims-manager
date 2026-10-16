@@ -91,7 +91,8 @@ The project follows an AI-native development life cycle ([docs/sdlc.md](docs/sdl
 | Folder | Content |
 |--------|---------|
 | `docs/` | Intent, specification, plans, ADRs, design, operations runbooks, glossary, setup guide |
-| `scripts/` | Admin scripts run as `SYS` (tablespaces, roles, schemas, accounts, workspace, network ACL, utPLSQL, verification) |
+| `scripts/` | Admin scripts run as `SYS` (tablespaces, roles, schemas, accounts, workspace, network ACL, utPLSQL, verification) and operations scripts (`ARCHIVELOG`, keystore, RMAN) |
+| `tests/` | utPLSQL unit test suites, one folder per schema that owns them (`emk_data/`, `emk_api/`), with install and run scripts; never installed in PROD |
 | `.dbtools/`, `src/`, `dist/` | SQLcl project: database objects and APEX app 200 |
 | `static/` | APEX static files (JavaScript, CSS) |
 

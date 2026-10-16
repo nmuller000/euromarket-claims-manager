@@ -1,9 +1,12 @@
 -- =============================================================================
 -- 09_install_utplsql.sql
 -- Installs the utPLSQL test framework into schema &emk_ut3_schema and gives
--- access to &emk_app_schema only. Idempotent: the framework is installed once;
--- owner settings, grants and synonyms are re-applied on every run (needed again
--- after uninstall_admin.sql drops &emk_app_schema).
+-- access to the schemas that own unit tests: &emk_data_schema (tables,
+-- constraints, triggers, journals) and &emk_api_schema (packages), because a
+-- test lives in the schema of the objects it tests (M1 plan, open point 1).
+-- Refuses the PROD environment: tests change data and never run there.
+-- Idempotent: the framework is installed once; owner settings, grants and
+-- synonyms are re-applied on every run.
 --
 -- Why not the official install_headless.sql:
 --   - it creates the owner with a default password published in the utPLSQL
@@ -36,6 +39,14 @@ WHENEVER SQLERROR EXIT FAILURE
 
 @@00_config.sql
 @@00_check_context.sql
+
+-- No test framework in production (utPLSQL: "You don't want tests to run on a production database")
+BEGIN
+    IF '&emk_env' = 'PROD' THEN
+        RAISE_APPLICATION_ERROR(-20000, 'utPLSQL is not installed in PROD. Nothing was changed.');
+    END IF;
+END;
+/
 
 -- One log per run (logs/install_utplsql_YYYYMMDD_HH24MISS.log)
 -- plus the official installer log (logs/install_utplsql_YYYYMMDD_HH24MISS_official.log)
@@ -98,10 +109,11 @@ END;
 /
 
 PROMPT
-PROMPT === 3/4 Access for &emk_app_schema (grants) and public synonyms (names only) ===
+PROMPT === 3/4 Access for &emk_data_schema and &emk_api_schema (grants) and public synonyms (names only) ===
 -- The official scripts spool their own temporary file: pause this log meanwhile
 SPOOL OFF
-@&emk_utplsql_src/create_user_grants.sql &emk_ut3_schema &emk_app_schema
+@&emk_utplsql_src/create_user_grants.sql &emk_ut3_schema &emk_data_schema
+@&emk_utplsql_src/create_user_grants.sql &emk_ut3_schema &emk_api_schema
 @&emk_utplsql_src/create_user_synonyms.sql &emk_ut3_schema PUBLIC
 @@09b_reset_session.sql
 SPOOL &emk_log_file APPEND
@@ -134,8 +146,8 @@ BEGIN
 
     SELECT COUNT(*) INTO l_count FROM dba_tab_privs
     WHERE  owner = UPPER('&emk_ut3_schema') AND table_name = 'UT'
-    AND    grantee = UPPER('&emk_app_schema') AND privilege = 'EXECUTE';
-    check_result(l_count = 1, '&emk_app_schema may execute &emk_ut3_schema..UT');
+    AND    grantee IN (UPPER('&emk_data_schema'), UPPER('&emk_api_schema')) AND privilege = 'EXECUTE';
+    check_result(l_count = 2, '&emk_data_schema and &emk_api_schema may execute &emk_ut3_schema..UT');
 
     SELECT COUNT(*) INTO l_count FROM dba_tab_privs
     WHERE  owner = UPPER('&emk_ut3_schema') AND table_name = 'UT' AND grantee = 'PUBLIC';

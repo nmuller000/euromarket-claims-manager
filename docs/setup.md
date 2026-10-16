@@ -254,7 +254,7 @@ Third-party files are kept locally and not committed: source documents (e.g., th
 
 ### 5.3 utPLSQL
 
-utPLSQL is installed into schema `UT3`, created **schema-only** (no password): the official quick installer (`install_headless.sql`) would create it with a published default password and grant the framework to `PUBLIC`. `09_install_utplsql.sql` uses the official `install.sql`, grant and synonym scripts instead and grants access to `EMK_APP` only.
+utPLSQL is installed into schema `UT3`, created **schema-only** (no password): the official quick installer (`install_headless.sql`) would create it with a published default password and grant the framework to `PUBLIC`. `09_install_utplsql.sql` uses the official `install.sql`, grant and synonym scripts instead, grants access only to the schemas that own unit tests, `EMK_DATA` and `EMK_API` (a test lives in the schema of the objects it tests, M1 plan open point 1), and refuses PROD.
 
 1. Download `utPLSQL.zip` from the [v3.2.3 release](https://github.com/utPLSQL/utPLSQL/releases/tag/v.3.2.3) and check its SHA-256 checksum against the value published on the release page:
 
@@ -273,13 +273,24 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
    sql -thin sys@localhost:1521/FREEPDB1 as sysdba @scripts/admin/09_install_utplsql.sql
    ```
 
-   Expected: `RESULT: all checks passed`. Logs: `logs/install_utplsql_<timestamp>.log` and, on first installation, `logs/install_utplsql_<timestamp>_official.log`. Delete the temporary file `params.sql.tmp` left in the repository root by the official scripts.
+   It asks for the environment (`emk_env`, e.g. `DEV`). Expected: `RESULT: all checks passed`. Logs: `logs/install_utplsql_<timestamp>.log` and, on first installation, `logs/install_utplsql_<timestamp>_official.log`. Delete the temporary file `params.sql.tmp` left in the repository root by the official scripts.
 
-3. **Check** as the application schema:
+3. **Check** as a test schema:
 
    ```sql
-   SELECT ut.version() FROM dual;   -- connected as EMK_DEV[EMK_APP]
+   SELECT ut.version() FROM dual;   -- connected as EMK_DEV[EMK_API]
    ```
+
+4. **Install and run the unit tests**, once per schema (asks for the environment; refuses PROD; logs in `logs/tests/`):
+
+   ```powershell
+   sql -thin "EMK_DEV[EMK_DATA]@localhost:1521/FREEPDB1" @tests/install_tests.sql
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1"  @tests/install_tests.sql
+   sql -thin "EMK_DEV[EMK_DATA]@localhost:1521/FREEPDB1" @tests/run_tests.sql
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1"  @tests/run_tests.sql
+   ```
+
+   Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-16: 33 in `EMK_DATA`, 9 in `EMK_API`).
 
 ### 5.4 SQLcl Project (ADR-005)
 
@@ -321,7 +332,8 @@ Prerequisites are installed by the admin layer: `DEBUG CONNECT SESSION` and `EXE
 | Vector pool | `SHOW PARAMETER vector_memory_size` (in `CDB$ROOT`) | `128M` |
 | APEX version | `SELECT version_no FROM apex_release;` | 24.2.x |
 | Project objects | `@scripts/admin/verify_admin.sql` (as `SYS`) | `RESULT: all checks passed` |
-| utPLSQL | `SELECT ut.version() FROM dual;` (as `EMK_DEV[EMK_APP]`) | `v.3.2.3.x` |
+| utPLSQL | `SELECT ut.version() FROM dual;` (as `EMK_DEV[EMK_API]`) | `v.3.2.3.x` |
+| Unit tests | `@tests/run_tests.sql` as `EMK_DEV[EMK_DATA]` and as `EMK_DEV[EMK_API]` | `0 failed, 0 errored` |
 | ORDS / APEX | Open `http://localhost:8080/ords/` | APEX landing page |
 | Tooling | `npm run lint` | Runs without configuration errors |
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.17 (2026-10-16) |
+| **Status** | Accepted v1.18 (2026-10-16) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -67,9 +67,9 @@ Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in det
 | **Check constraints** | Patterns in `REGEXP_LIKE` constraints use explicit character lists and the match parameter `'c'`, never ranges: Oracle evaluates ranges such as `[A-Z]` with the session sort (`NLS_SORT`), so a linguistic sort accepts lower-case letters and the rule would depend on the client. A check is satisfied when its condition is TRUE or unknown, so every optional column compared in a check needs an explicit `IS NOT NULL` ([design README](design/README.md#common-rules-spec-13)). |
 | **Normalised values** | Values that a key or a calculation depends on are guaranteed by check constraints, not only by the APIs: business dates have no time part (`col = TRUNC(col)`); the CMR note number is stored trimmed and upper case (`cmr_note_no = UPPER(TRIM(cmr_note_no))`, BR-03). |
 | **Currencies** | Amounts stored in their original currency (ISO 4217 code). KPIs are converted to **EUR** with daily rates in `EMK_EXCHANGE_RATES` (source: ECB reference rates, loaded as reference data). |
-| **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS`. An APEX error-handling function shows clear messages to users. |
+| **Error handling** | Business errors raised with codes `-20001` to `-20999`, defined as constants in `EMK_ERRORS_PKG`. An APEX error-handling function shows clear messages to users. |
 | **Logging** | `EMK_LOG_PKG` writes to `EMK_LOG` in an autonomous transaction (level, module, message, context, timestamp). |
-| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`. |
+| **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`; local variables `l_`, package variables `g_`, constants `c_`, named exceptions `e_`, explicit parameter mode. The [Trivadis PL/SQL & SQL Coding Guidelines](https://trivadis.github.io/plsql-and-sql-coding-guidelines/v4.2/) present prefixes as one possible set and require consistency; there `c_` often means a cursor, here cursors are declared in `for` loops without a prefix. |
 | **Code documentation** | Every package, type, trigger and view starts with a `/** … */` header **inside** the object (after `AS`/`IS`), because text before `CREATE` is not stored in the database and is lost on export: purpose, `@author`, the copyright line `Copyright (c) 2026 Natalia Müller. All rights reserved.`, `@since`. Every public subprogram is documented in the package specification: description, `@param`, `@return`, `@throws`; `@usage` only for entry points (APEX page, job). History is kept in Git, not in headers. Tables and columns are documented with `COMMENT ON`. Scripts in `scripts/` (files, not stored objects) keep a `--` header: purpose, how to run, `Author`, the copyright line, `Since`. The repository is "all rights reserved" ([LICENSE](../LICENSE)). |
 | **Keys** | Operational, log and history tables: surrogate key `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; natural but mutable values (CMR note number, VAT number, email) are unique keys or attributes, never the primary key. Reference tables based on standards use the **ISO code** as primary key (`country_code` ISO 3166-1 alpha-2, `currency_code` ISO 4217). |
 | **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems are separate columns (e.g., `eu_vat_prefix`: `EL` for Greece; empty outside the EU — the `XI` prefix of Northern Ireland traders belongs to their VAT number, not to a country). Reference rows are not soft-deleted. |
@@ -551,14 +551,14 @@ Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII 
 | Object | Name | Rule |
 |--------|------|------|
 | Tablespaces | `EMK_DATA_TS`, `EMK_INT_TS` | Encrypted (ADR-011); one data folder per environment apart from Oracle's files (`emk_datafile_root` in `00_config.sql`); maximum sizes in `00_config.sql`; `EMK_INT_TS` isolates inbound growth |
-| Data schema | `EMK_DATA` | Schema-only; tables, journals and their triggers; reached through proxy (DEV) |
-| API schema | `EMK_API` | Schema-only; business packages, views, `EMK_LOG`, unit tests (not in PROD); object grants from `EMK_DATA` |
+| Data schema | `EMK_DATA` | Schema-only; tables, journals and their triggers, unit tests of these objects (not in PROD); reached through proxy (DEV) |
+| API schema | `EMK_API` | Schema-only; business packages, views, `EMK_LOG`, unit tests of the packages (not in PROD); object grants from `EMK_DATA` |
 | UI schema | `EMK_UI` | Schema-only; APEX parsing schema; owns nothing; `EXECUTE` on the APIs and `SELECT` on the views |
 | Integration schema | `EMK_INT` | Schema-only; inbound data, source views, batch jobs, REST [X3]; only `EXECUTE` on `EMK_API` APIs (ADR-007) |
 | Deployment account | `EMK_DEPLOY` | Service account of the pipeline; schema privileges limited to the project schemas; its own schema holds the Liquibase tables (ADR-008) |
 | Roles | `EMK_OWNER_ROLE`, `EMK_DEVELOPER_ROLE`, `EMK_READONLY_ROLE` | No `CONNECT`, `RESOURCE` or `DBA`; privileges used inside PL/SQL and quotas are granted directly |
 | Developer account | `EMK_DEV` | `CREATE SESSION` only, profile `ORA_CIS_PROFILE`; DEV only; works in `EMK_DATA`, `EMK_API` and `EMK_INT` through proxy, one proxy per schema (ADR-007, ADR-008). `DEV_USER` is not used by this project |
-| Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_API` only (the test schema); never installed in PROD |
+| Test framework | `UT3` | Schema-only; utPLSQL 3.2.3; access for `EMK_DATA` and `EMK_API` only (the schemas that own unit tests, M1 plan open point 1); never installed in PROD |
 | APEX workspace / application | `EMK_CLAIMS` / ID 200, alias `EMK_CLAIMS` | Parsing schema `EMK_UI` (ADR-008) |
 
 - **Admin layer:** `scripts/install_admin.sql` asks for the environment and runs idempotent scripts as `SYS` in its PDB (DEV `FREEPDB1`, TEST `EMKTEST`; ADR-009).
@@ -786,3 +786,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.15 | 2026-10-13 | Aligned with ADR-008/009/011: §1.3 *Schemas and references* (separated schemas, schema-qualified names, no synonyms); §7.5 schemas, tablespaces, deployment account, utPLSQL access, APEX parsing schema, admin layer per environment, transition note; §1.3 ELT target `EMK_API`; §7.2 `EMK_DEPLOY` as service account; §10 repository structure. |
 | v1.16 | 2026-10-15 | §13 aligned with the ADR index (`docs/adr/README.md`): ADR-011 added; statuses with the amendments of ADR-004, 005, 007, 009, 010 and 011. |
 | v1.17 | 2026-10-16 | Focus on the MVP components of the intent: M5 takes the deferred M1 phase M.5 (TEST environment, deployment by `EMK_DEPLOY`, flashback, restore drill) if time allows; ADR-009 status (MVP in DEV only). Accepted by the owner. |
+| v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |

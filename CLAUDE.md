@@ -7,7 +7,7 @@ Context: docs/sdlc.md (current stage) · docs/intent.md · docs/spec.md · docs/
 ## Commands
 - Connect: `sql -thin <user>@localhost:1521/FREEPDB1` (SQLcl, thin JDBC driver)
 - Lint: `npm run lint`
-- Admin setup (SYS): `scripts/install_admin.sql` · Application: SQLcl `project` (ADR-005) · Tests: utPLSQL (M0)
+- Admin setup (SYS): `scripts/install_admin.sql` · Application: SQLcl `project` (ADR-005) · Tests (utPLSQL, never in PROD): `tests/install_tests.sql` and `tests/run_tests.sql`, once per schema that owns tests (`EMK_DEV[EMK_DATA]`, `EMK_DEV[EMK_API]`)
 
 ## Conventions
 - Database objects use the `EMK_` prefix. Admin scripts are idempotent (existence checks, `MERGE` for data); application changes go through SQLcl `project`.

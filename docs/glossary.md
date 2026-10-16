@@ -159,6 +159,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Unified Auditing** | The only database auditing in 23ai/26ai: audit policies (`CREATE AUDIT POLICY`) write to `UNIFIED_AUDIT_TRAIL`, managed with `DBMS_AUDIT_MGMT`. |
 | **UTC** | Coordinated Universal Time; used to store technical timestamps. |
 | **utPLSQL** | Unit-testing framework for PL/SQL. |
+| **Unit test suite (utPLSQL)** | Package `TEST_EMK_<NAME>` whose procedures are tests, marked with annotations (`--%suite`, `--%test`, `--%throws`); it lives in the schema of the objects it tests, is never installed in PROD, and every change of a test is rolled back by utPLSQL. |
 | **Validate (RMAN)** | RMAN check that reads backups and confirms they are complete and undamaged, without restoring anything (`RESTORE DATABASE VALIDATE`). |
 | **`VECTOR`** | Oracle data type that stores embeddings. |
 | **WALLET_ROOT** | Initialization parameter (26ai) that sets the folder of the keystore; the TDE keystore is in its subfolder `tde`. |

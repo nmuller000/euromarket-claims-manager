@@ -44,9 +44,11 @@ FROM   dual;
 -- Listener address of the database server (host:port), used by test scripts that connect
 DEFINE emk_db_address = localhost:1521
 
--- Container database (CDB) of this PDB and its Windows service (derived; used for restarts)
+-- Container database (CDB) of this PDB and its Windows service (derived; used for restarts).
+-- SYS_CONTEXT needs no privilege, so this file also works in a proxy session of a
+-- project schema (unit tests); V$DATABASE needs SELECT_CATALOG_ROLE (ORA-00942 there).
 COLUMN cfg_cdb NEW_VALUE emk_cdb_name NOPRINT
-SELECT name AS cfg_cdb FROM v$database;
+SELECT SYS_CONTEXT('USERENV', 'CDB_NAME') AS cfg_cdb FROM dual;
 DEFINE emk_win_service = OracleService&emk_cdb_name
 
 -- Developer access (personal accounts, proxies, developer role, debugger ACL): DEV only
