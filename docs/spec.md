@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.19 (2026-10-16) |
+| **Status** | Accepted v1.20 (2026-10-17) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -33,7 +33,7 @@ flowchart LR
     ords --> apex
     subgraph db["Oracle AI Database 26ai Free · FREEPDB1"]
         apex["APEX 24.2 application"]
-        api["PL/SQL APIs<br/>EMK_CLAIM_API · EMK_DEADLINE_API · EMK_ALERT_API · EMK_SEARCH_API"]
+        api["PL/SQL APIs in EMK_API<br/>EMK_PARTY_API (M1)<br/>EMK_SHIPMENT_API (M1)<br/>EMK_CLAIM_API (M1)<br/>EMK_DEADLINE_API (M2)<br/>EMK_ALERT_API (M2)<br/>EMK_SEARCH_API (M3)"]
         data[("Claims data<br/>parties · shipments · claims · documents")]
         corpus[("Legal corpus<br/>EMK_REG_CHUNKS + HNSW index")]
         onnx["ONNX embedding model"]
@@ -54,7 +54,7 @@ flowchart LR
     gw -.-> llm["LLM provider<br/>EU/EEA [EXT]"]
 ```
 
-Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in detail: [docs/design/api-design.md](design/api-design.md).
+Solid lines = MVP. Dashed lines = extensions. The APIs are PL/SQL packages in the schema `EMK_API`, built in the milestone shown; APEX page processes, the import jobs of `EMK_INT` and the daily job call them through `EXECUTE` grants. Packages, callers and flows in detail: [docs/design/api-design.md](design/api-design.md).
 
 ### 1.3 Cross-Cutting Conventions
 
@@ -415,8 +415,24 @@ Verified against the [official CMR text](https://unece.org/DAM/trans/conventn/cm
 **Calculation rules**
 
 - The start day is **not included** in any period (Art. 30(4), Art. 32(1)).
+- Only **Sundays and public holidays** are excepted (Art. 30(1), 30(2)); Saturdays count. The 21 days of `RES_DELAY` and the limitation periods count every day.
 - A **written claim suspends** the limitation period until the carrier rejects it in writing and returns the documents (Art. 32(2)). The suspended days are added to the limitation deadline.
 - Total loss: goods not delivered within 30 days after the agreed time-limit (or 60 days after taking over) are conclusive evidence of loss (Art. 20(1)).
+
+**Key dates and where they are stored**
+
+| Date | CMR | Stored in | Used by |
+|------|-----|-----------|---------|
+| Date of the consignment note | Art. 6(1)(a) | Not stored (open for M2) | `LIM_OTHER`: 3 months after the making of the contract of carriage |
+| Taking over of the goods | Art. 6(1)(d) | `EMK_SHIPMENTS.pickup_date` | `LIM_TOTAL` without an agreed time-limit; value of the goods (Art. 23(1)) |
+| Agreed time-limit | Art. 19 | `EMK_SHIPMENTS.agreed_delivery_date` | Delay; `LIM_TOTAL` |
+| Delivery | Art. 30(1) | `EMK_SHIPMENTS.delivery_date` | `RES_APPARENT`, `RES_NON_APPARENT`, `LIM_PARTIAL` |
+| Goods placed at the consignee's disposal | Art. 30(3) | Not stored (open for M2) | `RES_DELAY` |
+| Joint check | Art. 30(2) | `EMK_CLAIMS.joint_check_date` | `RES_AFTER_CHECK` |
+| Reservation sent | Art. 30 | `EMK_CLAIMS.reservation_date` | Reservation in time or late |
+| Written claim; carrier's written rejection | Art. 32(2) | `EMK_CLAIMS.written_claim_date`, `carrier_rejection_date` | Suspension of the limitation period |
+
+**Open for M2** (`EMK_DEADLINE_API`): the date of the consignment note and the date the goods were placed at the consignee's disposal are not stored. Before the deadline rules are built, decide whether to add them (to `EMK_SHIPMENTS`) or to derive them (for example, the disposal date from the delivery date), with the source of the decision.
 
 ### 5.1 Q4 Decision: Public Holidays of the Country of Delivery
 
@@ -790,3 +806,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.17 | 2026-10-16 | Focus on the MVP components of the intent: M5 takes the deferred M1 phase M.5 (TEST environment, deployment by `EMK_DEPLOY`, flashback, restore drill) if time allows; ADR-009 status (MVP in DEV only). Accepted by the owner. |
 | v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |
 | v1.19 | 2026-10-16 | Phase M.4 done: §7.5 developer proxy to `EMK_UI` for the APEX export, first schema of the workspace, script rule (`EXIT` only in scripts run from the command line), reference data in `data/reference/`; transition note removed (`EMK_APP` retired); §10 `data/reference/`; §13 ADR-008 status. |
+| v1.20 | 2026-10-17 | §1.2 component diagram: every API of Release 1 on its own line with its milestone (`EMK_PARTY_API`, `EMK_SHIPMENT_API` added), callers explained; §5 Saturdays count (only Sundays and public holidays are excepted), key dates of a CMR claim with the column that stores each, open point for M2 (consignment note date, date placed at the consignee's disposal). Accepted by the owner. |
