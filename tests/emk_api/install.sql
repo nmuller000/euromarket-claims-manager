@@ -11,3 +11,4 @@
 @@test_emk_log_pkg.sql
 @@test_emk_security_pkg.sql
 @@test_emk_errors_pkg.sql
+@@test_emk_party_api.sql
