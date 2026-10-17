@@ -1,0 +1,199 @@
+create or replace package test_emk_views as
+    /**
+     * Unit tests of the read layer of the application (M1a step 7.4, D-66):
+     * the views EMK_V_* hide soft-deleted rows (BR-13), show the roles of a
+     * company as one value, deliver row_version so that the APIs accept it
+     * back, list deleted records for the restore page, and carry their own
+     * documentation header (spec §1.3).
+     *
+     * @author Natalia Müller
+     * @since  2026-10-17
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
+
+    --%suite(Views for the application (EMK_API))
+    --%suitepath(emk_api)
+
+    --%test(Every view EMK_V_* has its header with the copyright line)
+    procedure documents_every_view;
+
+    --%test(BR-13: the views hide deleted companies, their contacts and deleted shipments)
+    procedure hides_deleted_rows;
+
+    --%test(The roles of a company are one value in alphabetical order, e.g. CARRIER:SHIPPER)
+    procedure shows_roles_as_one_value;
+
+    --%test(row_version read from a view is accepted by the API: no false "changed by another user")
+    procedure round_trips_row_version;
+
+    --%test(Deleted records list companies, contacts and shipments; a contact of a deleted company is not restorable)
+    procedure lists_deleted_records;
+
+    --%test(The shipment view shows the names of the companies and countries)
+    procedure shows_shipment_names;
+end test_emk_views;
+/
+
+create or replace package body test_emk_views as
+
+    c_version_mask constant varchar2(40 char) := 'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM';
+
+    function new_party (
+        in_name    in varchar2,
+        in_country in varchar2,
+        in_roles   in varchar2
+    ) return emk_data.emk_parties.party_id%type is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        emk_party_api.create_party(in_name          => in_name,
+                                   in_vat_number    => null,
+                                   in_country_code  => in_country,
+                                   in_street        => null,
+                                   in_postal_code   => null,
+                                   in_city          => null,
+                                   in_language_code => null,
+                                   out_party_id     => l_id);
+        emk_party_api.set_roles(l_id, in_roles);
+        return l_id;
+    end new_party;
+
+    function new_shipment (
+        in_note      in varchar2,
+        in_shipper   in emk_data.emk_shipments.shipper_id%type,
+        in_carrier   in emk_data.emk_shipments.carrier_id%type,
+        in_consignee in emk_data.emk_shipments.consignee_id%type
+    ) return emk_data.emk_shipments.shipment_id%type is
+        l_id emk_data.emk_shipments.shipment_id%type;
+    begin
+        emk_shipment_api.create_shipment(in_cmr_note_no          => in_note,
+                                         in_shipper_id           => in_shipper,
+                                         in_carrier_id           => in_carrier,
+                                         in_consignee_id         => in_consignee,
+                                         in_pickup_place         => 'Berlin',
+                                         in_origin_country       => 'DE',
+                                         in_delivery_place       => 'Paris',
+                                         in_destination_country  => 'FR',
+                                         in_pickup_date          => date '2026-09-01',
+                                         in_agreed_delivery_date => null,
+                                         in_delivery_date        => null,
+                                         in_goods_description    => 'Test goods',
+                                         in_packages             => 1,
+                                         in_gross_weight_kg      => 100,
+                                         in_carriage_charges     => null,
+                                         in_currency_code        => null,
+                                         out_shipment_id         => l_id);
+        return l_id;
+    end new_shipment;
+
+    function party_version (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return emk_data.emk_parties.updated_at%type is
+        l_version varchar2(40 char);
+    begin
+        select row_version into l_version from emk_v_parties where party_id = in_party_id;
+        return to_timestamp_tz(l_version, c_version_mask);
+    end party_version;
+
+    function shipment_version (
+        in_shipment_id in emk_data.emk_shipments.shipment_id%type
+    ) return emk_data.emk_shipments.updated_at%type is
+        l_version varchar2(40 char);
+    begin
+        select row_version into l_version from emk_v_shipments where shipment_id = in_shipment_id;
+        return to_timestamp_tz(l_version, c_version_mask);
+    end shipment_version;
+
+    procedure documents_every_view is
+        l_views        pls_integer;
+        l_undocumented pls_integer;
+    begin
+        select count(*),
+               count(case when text_vc not like '%Copyright (c) 2026 Natalia Müller. All rights reserved.%' then 1 end)
+        into   l_views, l_undocumented
+        from   user_views
+        where  view_name like 'EMK\_V\_%' escape '\';
+        ut.expect(l_views).to_equal(8);
+        ut.expect(l_undocumented).to_equal(0);
+    end documents_every_view;
+
+    procedure hides_deleted_rows is
+        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
+        l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
+        l_contact   emk_data.emk_contacts.contact_id%type;
+        l_shipment  emk_data.emk_shipments.shipment_id%type;
+        l_parties   pls_integer;
+        l_contacts  pls_integer;
+        l_shipments pls_integer;
+        l_roles     pls_integer;
+    begin
+        l_shipment := new_shipment('CMR-TEST-VIEW-1', l_shipper, l_carrier, l_consignee);
+        emk_shipment_api.delete_shipment(l_shipment, shipment_version(l_shipment));
+        emk_party_api.create_contact(l_consignee, 'Test Person', null, null, l_contact);
+        emk_party_api.delete_party(l_consignee, party_version(l_consignee));
+
+        select count(*) into l_parties from emk_v_parties where party_id = l_consignee;
+        select count(*) into l_contacts from emk_v_contacts where contact_id = l_contact;
+        select count(*) into l_shipments from emk_v_shipments where shipment_id = l_shipment;
+        select count(*) into l_roles from emk_v_party_roles where party_id = l_consignee;
+        ut.expect(l_parties).to_equal(0);
+        ut.expect(l_contacts).to_equal(0);
+        ut.expect(l_shipments).to_equal(0);
+        ut.expect(l_roles).to_equal(0);
+    end hides_deleted_rows;
+
+    procedure shows_roles_as_one_value is
+        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'SHIPPER:CARRIER');
+        l_roles emk_v_parties.roles%type;
+    begin
+        select roles into l_roles from emk_v_parties where party_id = l_id;
+        ut.expect(l_roles).to_equal('CARRIER:SHIPPER');
+    end shows_roles_as_one_value;
+
+    procedure round_trips_row_version is
+        l_id   emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_name emk_data.emk_parties.name%type;
+    begin
+        -- Twice: after the update the version comes from updated_at, before from created_at
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 2', null, 'DE', null, null, null, 'en');
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 3', null, 'DE', null, null, null, 'en');
+        select name into l_name from emk_v_parties where party_id = l_id;
+        ut.expect(l_name).to_equal('Test Company 3');
+    end round_trips_row_version;
+
+    procedure lists_deleted_records is
+        l_party       emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_contact     emk_data.emk_contacts.contact_id%type;
+        l_entity      emk_v_deleted_records.entity%type;
+        l_restorable  emk_v_deleted_records.restorable_yn%type;
+    begin
+        emk_party_api.create_contact(l_party, 'Test Person', null, null, l_contact);
+        emk_party_api.delete_party(l_party, party_version(l_party));
+
+        select entity into l_entity from emk_v_deleted_records where entity = 'PARTY' and record_id = l_party;
+        ut.expect(l_entity).to_equal('PARTY');
+        select restorable_yn into l_restorable from emk_v_deleted_records where entity = 'CONTACT' and record_id = l_contact;
+        ut.expect(l_restorable).to_equal('N');
+
+        emk_party_api.restore_party(l_party);
+        select restorable_yn into l_restorable from emk_v_deleted_records where entity = 'CONTACT' and record_id = l_contact;
+        ut.expect(l_restorable).to_equal('Y');
+    end lists_deleted_records;
+
+    procedure shows_shipment_names is
+        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
+        l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
+        l_shipment  emk_data.emk_shipments.shipment_id%type;
+        l_row       emk_v_shipments%rowtype;
+    begin
+        l_shipment := new_shipment('CMR-TEST-VIEW-2', l_shipper, l_carrier, l_consignee);
+        select * into l_row from emk_v_shipments where shipment_id = l_shipment;
+        ut.expect(l_row.carrier_name).to_equal('Test Carrier');
+        ut.expect(l_row.origin_country_name).to_equal('Germany');
+        ut.expect(l_row.destination_country_name).to_equal('France');
+    end shows_shipment_names;
+
+end test_emk_views;
+/

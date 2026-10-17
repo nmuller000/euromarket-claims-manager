@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
+| **Status** | Accepted v1.3 (2026-10-17): step 7 as built (decisions D-64 to D-66), views and grants for the application (§8). v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
 | **Schema** | `EMK_API` (APIs, services, views, log) · `EMK_DATA` (tables, journals, triggers) · `EMK_UI` (APEX parsing schema, no objects) · `EMK_INT` (integration, M1b) — [ADR-008](../adr/ADR-008-schema-separation.md) |
 | **Milestone** | M1a (plan steps 1, 7, 8) |
 | **Input** | [spec.md](../spec.md) §1, §2.7, §4, §7.1 · [Data model](README.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [ADR-008](../adr/ADR-008-schema-separation.md) |
@@ -112,11 +112,12 @@ flowchart LR
 | `EMK_PARTY_API` | `create_party (in_name, in_vat_number, in_country_code, in_street, in_postal_code, in_city, in_language_code, out_party_id)` | VAT normalised (upper case, no spaces); prefix = country's `eu_vat_prefix` (`XI` allowed for `GB`) → `c_vat_country_mismatch`; duplicate VAT → `c_duplicate_vat` (message says "restore" if the party is deleted, D-39) |
 | | `update_party (in_party_id, in_expected_updated_at, …same fields…)` | Optimistic locking → `c_record_changed`; same checks as create; no update if nothing changed |
 | | `delete_party (in_party_id, in_expected_updated_at)` | Rejected while active shipments use the party → `c_party_in_use`; active contacts are soft-deleted in the same transaction |
-| | `restore_party (in_party_id)` | `deleted_yn` Y→N, `deleted_by`/`deleted_at` → NULL (D-39); contacts are restored one by one |
-| | `add_role (in_party_id, in_role_code)` / `remove_role (in_party_id, in_role_code)` | BR-16: a role used by any shipment (also soft-deleted) cannot be removed → `c_party_role_in_use` |
+| | `restore_party (in_party_id)` | `deleted_yn` Y→N, `deleted_by`/`deleted_at` → NULL (D-39); contacts are restored one by one (`restore_contact`); does nothing if the party is not deleted |
+| | `add_role (in_party_id, in_role_code)` / `remove_role (in_party_id, in_role_code)` | BR-16: a role used by any shipment (also soft-deleted) cannot be removed → `c_party_role_in_use`; adding an existing role does nothing |
+| | `set_roles (in_party_id, in_role_codes)` | The complete list of roles, colon-separated (an APEX checkbox item): adds the missing roles and removes the others with the rules above, so that the page computes no difference itself |
 | | `has_role (in_party_id, in_role_code) RETURN BOOLEAN` | Active party with the role; used by `EMK_SHIPMENT_API` |
-| | `create_contact` / `update_contact` / `delete_contact` | Personal data (spec §3.3); optimistic locking on update and delete |
-| `EMK_SHIPMENT_API` | `create_shipment (in_cmr_note_no, in_shipper_id, in_carrier_id, in_consignee_id, in_pickup_place, in_origin_country, in_delivery_place, in_destination_country, in_pickup_date, in_agreed_delivery_date, in_delivery_date, in_goods_description, in_packages, in_gross_weight_kg, in_carriage_charges, in_currency_code, out_shipment_id)` | Note number `UPPER(TRIM())`; dates `TRUNC`; **BR-16** each party active with its role → `c_party_role_missing`; **BR-17** one country is a CMR party on the pickup date → `c_cmr_not_applicable`; currency EUR or with an ECB rate, valid on the pickup date → `c_reference_not_valid`; **BR-03** duplicate → `c_duplicate_cmr_note` |
+| | `create_contact` / `update_contact` / `delete_contact` / `restore_contact` | Personal data (spec §3.3); optimistic locking on update and delete; phone stored without spaces (E.164); a contact of a deleted party cannot be restored |
+| `EMK_SHIPMENT_API` | `create_shipment (in_cmr_note_no, in_shipper_id, in_carrier_id, in_consignee_id, in_pickup_place, in_origin_country, in_delivery_place, in_destination_country, in_pickup_date, in_agreed_delivery_date, in_delivery_date, in_goods_description, in_packages, in_gross_weight_kg, in_carriage_charges, in_currency_code, out_shipment_id)` | Note number `UPPER(TRIM())`; dates `TRUNC`; the carrier is never the shipper or the consignee (CMR Art. 1(1), carriage for reward) → `c_carrier_not_third_party`; **BR-16** each party active with its role → `c_party_role_missing`; **BR-17** one country is a CMR party on the pickup date → `c_cmr_not_applicable`; both countries and the currency valid on the pickup date, currency EUR or with an ECB rate → `c_reference_not_valid`; **BR-03** duplicate → `c_duplicate_cmr_note` |
 | | `update_shipment (in_shipment_id, in_expected_updated_at, …)` | Same checks; optimistic locking |
 | | `delete_shipment (in_shipment_id, in_expected_updated_at)` / `restore_shipment (in_shipment_id)` | Rejected while active claims exist → `c_shipment_in_use`; restore re-checks BR-16 (a party may have lost its role) |
 
@@ -208,6 +209,23 @@ flowchart TD
 | 3 | No delete of a party with active shipments or of a shipment with active claims; a party's contacts are soft-deleted with it | Deleting anything: visible shipments of hidden parties |
 | 4 | `EMK_PARTY_API` and `EMK_SHIPMENT_API` do not check roles in Release 1; protected by APEX authorization, the `EMK_INT` grants (ADR-007) and the connect user `EMK_UI`, which has no privilege on any table (ADR-008); role check in the API for BR-02 only | A role check with an exception for trusted processes: more complex, and the exception becomes the weak point |
 
+Decisions taken while building step 7 (D-64 to D-66, 2026-10-16/17):
+
+| # | Decision | Reason | Alternative not taken |
+|---|----------|--------|-----------------------|
+| 5 | `set_roles` takes the complete role list of a company | The APEX page passes its checkbox value; computing which roles to add and remove would be business logic in the page | Only `add_role` / `remove_role`, with the difference computed in APEX |
+| 6 | `restore_contact`; restoring something not deleted does nothing; deleting something already deleted raises `c_not_found` | The design said contacts are restored one by one, without a subprogram; a second restore does no harm, a delete of a missing row is an error | Error on a second restore |
+| 7 | A party's country is valid **today**; a VAT number only for EU countries (prefix = the country's EU VAT prefix, `XI` also for `GB`) | The party record describes the company now; `vat_number` holds EU VAT numbers in VIES format | Accepting any VAT number for non-EU countries |
+| 8 | Values are normalised before they are stored (trimmed names, VAT upper case without spaces, phone without spaces); format rules stay in the check constraints, whose errors reach the caller unchanged and are turned into messages by the APEX error handling function | One place per rule: the table for formats within a row, the API for rules across tables | Repeating format checks in the API |
+| 9 | Countries (origin, destination) are checked for validity like the currency | "The same temporal validity (from/to) as currencies: no obsolete country codes, robust against future changes of international codes, negligible performance impact" (owner) | Checking only the currency |
+| 10 | Countries, currency and CMR membership are checked on the **pickup date**, not today | "Shipments are past events: the rules in force at the time of carriage apply, so historic data and old claims with ended currencies or rules can be registered" (owner). The pickup date is mandatory; an update rechecks everything with the new date | Today's date: rejects correct old shipments (kuna in 2021) |
+| 11 | Rejections by role and by CMR are logged as `WARN` with ids only; a read-only log page for the administrator | "Traceability for bulk loads and for actions in APEX, to diagnose role configuration problems without harming performance or privacy" (owner). Storing the raw input first is the import design (M1b); a form never stores an invalid shipment | No log: refused page entries would leave no trace |
+| 12 | The carrier is never the shipper or the consignee of the same shipment; shipper = consignee is allowed | "CMR Art. 1(1) requires a contract with a third party (for reward) and excludes carriage on own account: no claims without a legal basis" (owner). The rule is per shipment, not per role | Any combination (data without a basis for a claim); three different companies (rejects transfers between two sites of a company) |
+| 13 | APEX reads views of `EMK_API`; one restore page for all deleted records (`EMK_V_DELETED_RECORDS`) | One page and one view instead of three of each | A deleted view and a restore button per entity |
+| 14 | `row_version` is text in the fixed format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; a page converts it back with `TO_TIMESTAMP_TZ` and the same format | APEX items are text; a conversion that depends on the session format can lose fractions of a second and report "changed by another user" without a change | A `TIMESTAMP` column converted by APEX with the session format |
+| 15 | Country and currency names in English; German names when the interface is translated (M5) | The German name tables exist; no page uses them before the translation | Both languages now |
+| 16 | Views are documented by their `/** */` header only, without `COMMENT ON` | SQLcl project 25.4 exports the comments of tables only (checked on the export of step 7.4); the header is exported with the view, so database and repository stay equal | `COMMENT ON` plus a custom release script: the same text twice and a script to maintain |
+
 ## 6. Best-Practice Review
 
 Checked against the SmartDB properties (Oracle: [The SmartDB Manifesto](https://asktom.oracle.com/ords/r/tech/catalog/session-landing-page?p2_oh_id=3422); [Is your application SmartDB?](https://www.salvis.com/blog/2018/07/18/is-your-application-smartdb/)) and the project conventions.
@@ -234,3 +252,26 @@ Checked against the SmartDB properties (Oracle: [The SmartDB Manifesto](https://
 | -20105 | `c_party_in_use` | Party has active shipments |
 | -20202 | `c_shipment_in_use` | Shipment has active claims |
 | -20203 | `c_cmr_not_applicable` | BR-17: no CMR party on the pickup date |
+| -20204 | `c_carrier_not_third_party` | The carrier is also the shipper or the consignee (CMR Art. 1(1), D-64) |
+
+## 8. Views and Grants for the Application (step 7.4, D-66)
+
+APEX parses as `EMK_UI`, which has **no privilege on any table** (ADR-008): pages **read views** of `EMK_API` and **write through the APIs**. The views show only rows that are not soft-deleted (spec §1.3 *Soft delete*). Every view is documented by its own `/** */` header inside the query, which is stored and exported with the view; views get no `COMMENT ON`, because SQLcl project 25.4 exports the comments of tables only and a comment on a view would never reach a release (decision 16).
+
+| View | Page | Main columns |
+|------|------|--------------|
+| `EMK_V_PARTIES` | Company list and form | Every column of the company, country name, its **roles as one value** (`CARRIER:SHIPPER`, the format of an APEX checkbox item), audit columns, `row_version` |
+| `EMK_V_PARTY_ROLES` | Lists of values ("choose the carrier") | Company, role, name, country; the page filters by role |
+| `EMK_V_CONTACTS` | Contacts in the company form | Contact columns, company, audit columns, `row_version`; only contacts of active companies |
+| `EMK_V_SHIPMENTS` | Shipment list and form | Every column of the shipment, **names** of the shipper, carrier and consignee and of both countries, audit columns, `row_version` |
+| `EMK_V_COUNTRIES` | List of countries | Code, name, validity from/to, CMR accession date (a page filters by the pickup date) |
+| `EMK_V_CURRENCIES` | List of currencies | Code, name, validity, `charges_allowed_yn` (EUR or with an ECB rate) |
+| `EMK_V_LOG` | Read-only technical log page (administrator only) | Level, module, message, context as text, error stack, time, user |
+| `EMK_V_DELETED_RECORDS` | Restore page | Entity (company, contact, shipment), id, description, `restorable_yn`, who deleted it and when |
+
+`row_version` is `NVL(updated_at, created_at)` as text in the format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; a page keeps it in a hidden item and passes `TO_TIMESTAMP_TZ(:ITEM, <same format>)` as `in_expected_updated_at` (decision 14).
+
+| From → to | Grant | Reason |
+|-----------|-------|--------|
+| `EMK_DATA` → `EMK_API` | `SELECT WITH GRANT OPTION` on `EMK_PARTIES`, `EMK_PARTY_ROLES`, `EMK_CONTACTS`, `EMK_SHIPMENTS`, `EMK_COUNTRIES`, `EMK_CURRENCIES` | Oracle grants access to a view only if its owner may pass on access to the tables it reads; otherwise the grant to `EMK_UI` fails with `ORA-01720` ([GRANT](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/GRANT.html)) |
+| `EMK_API` → `EMK_UI` | `SELECT` on the 8 views; `EXECUTE` on `EMK_PARTY_API` and `EMK_SHIPMENT_API` | The minimum for APEX to read and write; nothing on any table |
