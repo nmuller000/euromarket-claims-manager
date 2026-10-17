@@ -67,7 +67,9 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_shipment_in_use then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_cmr_not_applicable, 'test');
         exception when emk_errors_pkg.e_cmr_not_applicable then l_matched := l_matched + 1; end;
-        ut.expect(l_matched).to_equal(17);
+        begin raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'test');
+        exception when emk_errors_pkg.e_carrier_not_third_party then l_matched := l_matched + 1; end;
+        ut.expect(l_matched).to_equal(18);
         -- Every constant of the package is checked above: a new code needs its line here
         select count(*)
         into   l_constants

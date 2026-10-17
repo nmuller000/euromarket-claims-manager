@@ -63,6 +63,9 @@ create or replace package emk_api.emk_errors_pkg as
     c_cmr_not_applicable constant pls_integer := -20203;  -- BR-17, no CMR party on the pickup date
     e_cmr_not_applicable exception;
     pragma exception_init ( e_cmr_not_applicable, -20203 );
+    c_carrier_not_third_party constant pls_integer := -20204;  -- CMR Art. 1(1): the carrier is not the shipper or the consignee
+    e_carrier_not_third_party exception;
+    pragma exception_init ( e_carrier_not_third_party, -20204 );
 
     -- Claims -----------------------------------------------------------------
     c_invalid_transition constant pls_integer := -20301;  -- BR-01, status change not allowed
@@ -83,4 +86,4 @@ end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"63ca1626f9809ac776f215b2c61e02108b7ff524","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"745db0f965e186319eee593854669a528d57b0ad","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
