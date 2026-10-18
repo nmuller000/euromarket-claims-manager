@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.3 (2026-10-17): step 7 as built (decisions D-64 to D-66), views and grants for the application (§8). v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
+| **Status** | Accepted v1.3 (2026-10-18): step 7 as built (decisions D-64 to D-67), views, change history and grants for the application (§8). v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
 | **Schema** | `EMK_API` (APIs, services, views, log) · `EMK_DATA` (tables, journals, triggers) · `EMK_UI` (APEX parsing schema, no objects) · `EMK_INT` (integration, M1b) — [ADR-008](../adr/ADR-008-schema-separation.md) |
 | **Milestone** | M1a (plan steps 1, 7, 8) |
 | **Input** | [spec.md](../spec.md) §1, §2.7, §4, §7.1 · [Data model](README.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [ADR-008](../adr/ADR-008-schema-separation.md) |
@@ -225,6 +225,7 @@ Decisions taken while building step 7 (D-64 to D-66, 2026-10-16/17):
 | 14 | `row_version` is text in the fixed format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; a page converts it back with `TO_TIMESTAMP_TZ` and the same format | APEX items are text; a conversion that depends on the session format can lose fractions of a second and report "changed by another user" without a change | A `TIMESTAMP` column converted by APEX with the session format |
 | 15 | Country and currency names in English; German names when the interface is translated (M5) | The German name tables exist; no page uses them before the translation | Both languages now |
 | 16 | Views are documented by their `/** */` header only, without `COMMENT ON` | SQLcl project 25.4 exports the comments of tables only (checked on the export of step 7.4); the header is exported with the view, so database and repository stay equal | `COMMENT ON` plus a custom release script: the same text twice and a script to maintain |
+| 17 | Change history visible in the application through three views over the journals, with the action of each change (`UPDATED`, `DELETED`, `RESTORED`) computed from the next version; contacts' history for the compliance officer only | The app-context test reads the history as `EMK_UI` and rolls back, and users see who changed what (FR-09); former personal data shown only to who needs it (GDPR Art. 5(1)(c)) | Two test scripts that commit test data and delete it physically |
 
 ## 6. Best-Practice Review
 
@@ -268,10 +269,21 @@ APEX parses as `EMK_UI`, which has **no privilege on any table** (ADR-008): page
 | `EMK_V_CURRENCIES` | List of currencies | Code, name, validity, `charges_allowed_yn` (EUR or with an ECB rate) |
 | `EMK_V_LOG` | Read-only technical log page (administrator only) | Level, module, message, context as text, error stack, time, user |
 | `EMK_V_DELETED_RECORDS` | Restore page | Entity (company, contact, shipment), id, description, `restorable_yn`, who deleted it and when |
+| `EMK_V_PARTY_HISTORY` | History region of the company form | When, who (APEX user), action (`UPDATED`, `DELETED`, `RESTORED`), the values before the change |
+| `EMK_V_CONTACT_HISTORY` | History of contacts (compliance officer only) | When, who, action, former name, email and phone |
+| `EMK_V_SHIPMENT_HISTORY` | History region of the shipment form | When, who, action, the values before the change |
 
 `row_version` is `NVL(updated_at, created_at)` as text in the format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; a page keeps it in a hidden item and passes `TO_TIMESTAMP_TZ(:ITEM, <same format>)` as `in_expected_updated_at` (decision 14).
 
 | From → to | Grant | Reason |
 |-----------|-------|--------|
-| `EMK_DATA` → `EMK_API` | `SELECT WITH GRANT OPTION` on `EMK_PARTIES`, `EMK_PARTY_ROLES`, `EMK_CONTACTS`, `EMK_SHIPMENTS`, `EMK_COUNTRIES`, `EMK_CURRENCIES` | Oracle grants access to a view only if its owner may pass on access to the tables it reads; otherwise the grant to `EMK_UI` fails with `ORA-01720` ([GRANT](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/GRANT.html)) |
-| `EMK_API` → `EMK_UI` | `SELECT` on the 8 views; `EXECUTE` on `EMK_PARTY_API` and `EMK_SHIPMENT_API` | The minimum for APEX to read and write; nothing on any table |
+| `EMK_DATA` → `EMK_API` | `SELECT WITH GRANT OPTION` on `EMK_PARTIES`, `EMK_PARTY_ROLES`, `EMK_CONTACTS`, `EMK_SHIPMENTS`, `EMK_COUNTRIES`, `EMK_CURRENCIES` and the journals `EMK_PARTIES_JN`, `EMK_CONTACTS_JN`, `EMK_SHIPMENTS_JN` | Oracle grants access to a view only if its owner may pass on access to the tables it reads; otherwise the grant to `EMK_UI` fails with `ORA-01720` ([GRANT](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/GRANT.html)) |
+| `EMK_API` → `EMK_UI` | `SELECT` on the 11 views; `EXECUTE` on `EMK_PARTY_API` and `EMK_SHIPMENT_API` | The minimum for APEX to read and write; nothing on any table |
+
+The database grants the views to `EMK_UI`, the schema of the whole application; it does not know APEX roles. Who sees a page or region is decided by APEX authorization schemes per role (spec §7.1):
+
+| History of | Claims handler | Compliance officer | Analyst | Administrator |
+|------------|:-:|:-:|:-:|:-:|
+| Companies | ✔ | ✔ | – | ✔ |
+| Shipments | ✔ | ✔ | – | ✔ |
+| Contacts (former personal data) | – | ✔ | – | – |

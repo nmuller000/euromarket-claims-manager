@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.20 (2026-10-17) |
+| **Status** | Accepted v1.21 (2026-10-18) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -525,6 +525,8 @@ See [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md): question + allow-listed 
 | Capability | CLAIMS_HANDLER | COMPLIANCE_OFFICER | ANALYST | ADMINISTRATOR |
 |------------|:-:|:-:|:-:|:-:|
 | Parties, shipments, claims (create/edit) | ✔ | read | – | read |
+| Change history of parties and shipments (FR-09) | ✔ | ✔ | – | ✔ |
+| Change history of contacts (former personal data; GDPR Art. 5(1)(c), data minimisation) | – | ✔ | – | – |
 | Shipment import (CSV/Excel) | ✔ | – | – | ✔ |
 | Claim status transitions | ✔ | – | – | – |
 | Claim letters | ✔ | – | – | – |
@@ -807,3 +809,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |
 | v1.19 | 2026-10-16 | Phase M.4 done: §7.5 developer proxy to `EMK_UI` for the APEX export, first schema of the workspace, script rule (`EXIT` only in scripts run from the command line), reference data in `data/reference/`; transition note removed (`EMK_APP` retired); §10 `data/reference/`; §13 ADR-008 status. |
 | v1.20 | 2026-10-17 | §1.2 component diagram: every API of Release 1 on its own line with its milestone (`EMK_PARTY_API`, `EMK_SHIPMENT_API` added), callers explained; §5 Saturdays count (only Sundays and public holidays are excepted), key dates of a CMR claim with the column that stores each, open point for M2 (consignment note date, date placed at the consignee's disposal). Accepted by the owner. |
+| v1.21 | 2026-10-18 | §7.1: who sees the change history in the application: parties and shipments for the claims handler, the compliance officer and the administrator; contacts (former personal data) for the compliance officer only (D-67). Accepted by the owner. |

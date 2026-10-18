@@ -3,7 +3,8 @@ create or replace package test_emk_views as
      * Unit tests of the read layer of the application (M1a step 7.4, D-66):
      * the views EMK_V_* hide soft-deleted rows (BR-13), show the roles of a
      * company as one value, deliver row_version so that the APIs accept it
-     * back, list deleted records for the restore page, and carry their own
+     * back, list deleted records for the restore page, show the change
+     * history with the action of each change (D-67), and carry their own
      * documentation header (spec §1.3).
      *
      * @author Natalia Müller
@@ -32,6 +33,12 @@ create or replace package test_emk_views as
 
     --%test(The shipment view shows the names of the companies and countries)
     procedure shows_shipment_names;
+
+    --%test(FR-09: the company history shows each change with its action (UPDATED, DELETED, RESTORED), user and previous values)
+    procedure shows_party_history;
+
+    --%test(FR-09: the shipment and contact histories show a change with the previous value)
+    procedure shows_shipment_and_contact_history;
 end test_emk_views;
 /
 
@@ -113,7 +120,7 @@ create or replace package body test_emk_views as
         into   l_views, l_undocumented
         from   user_views
         where  view_name like 'EMK\_V\_%' escape '\';
-        ut.expect(l_views).to_equal(8);
+        ut.expect(l_views).to_equal(11);
         ut.expect(l_undocumented).to_equal(0);
     end documents_every_view;
 
@@ -194,6 +201,57 @@ create or replace package body test_emk_views as
         ut.expect(l_row.origin_country_name).to_equal('Germany');
         ut.expect(l_row.destination_country_name).to_equal('France');
     end shows_shipment_names;
+
+    procedure shows_party_history is
+        l_id      emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_actions varchar2(200 char);
+        l_first   emk_v_party_history.previous_name%type;
+        l_by      emk_v_party_history.changed_by%type;
+    begin
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company Renamed', null, 'DE', null, null, null, 'en');
+        emk_party_api.delete_party(l_id, party_version(l_id));
+        emk_party_api.restore_party(l_id);
+
+        select listagg(action, ':') within group (order by changed_at, history_id)
+        into   l_actions
+        from   emk_v_party_history
+        where  party_id = l_id;
+        ut.expect(l_actions).to_equal('UPDATED:DELETED:RESTORED');
+
+        select previous_name, changed_by
+        into   l_first, l_by
+        from   emk_v_party_history
+        where  party_id = l_id
+        and    action = 'UPDATED';
+        ut.expect(l_first).to_equal('Test Company');
+        ut.expect(l_by).to_be_not_null();
+    end shows_party_history;
+
+    procedure shows_shipment_and_contact_history is
+        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
+        l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
+        l_shipment  emk_data.emk_shipments.shipment_id%type;
+        l_contact   emk_data.emk_contacts.contact_id%type;
+        l_goods     emk_v_shipment_history.previous_goods_description%type;
+        l_email     emk_v_contact_history.previous_email%type;
+        l_action    emk_v_contact_history.action%type;
+        l_version   varchar2(40 char);
+    begin
+        l_shipment := new_shipment('CMR-TEST-VIEW-3', l_shipper, l_carrier, l_consignee);
+        emk_shipment_api.update_shipment(l_shipment, shipment_version(l_shipment), 'CMR-TEST-VIEW-3',
+                                         l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
+                                         date '2026-09-01', null, null, 'Changed goods', 1, 100, null, null);
+        select previous_goods_description into l_goods from emk_v_shipment_history where shipment_id = l_shipment;
+        ut.expect(l_goods).to_equal('Test goods');
+
+        emk_party_api.create_contact(l_consignee, 'Test Person', 'old@example.com', null, l_contact);
+        select row_version into l_version from emk_v_contacts where contact_id = l_contact;
+        emk_party_api.update_contact(l_contact, to_timestamp_tz(l_version, c_version_mask), 'Test Person', 'new@example.com', null);
+        select previous_email, action into l_email, l_action from emk_v_contact_history where contact_id = l_contact;
+        ut.expect(l_email).to_equal('old@example.com');
+        ut.expect(l_action).to_equal('UPDATED');
+    end shows_shipment_and_contact_history;
 
 end test_emk_views;
 /
