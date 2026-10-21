@@ -47,9 +47,9 @@ create or replace package emk_api.emk_party_api as
      * @param  in_postal_code   postal code
      * @param  in_city          city
      * @param  in_language_code language of letters, from EMK_LANGUAGES, valid today (required)
-     * @param  in_role_codes    roles separated by colons, e.g. SHIPPER:CARRIER (the value of an
+     * @param  in_role_codes    roles separated by colons, e.g. SENDER:CARRIER (the value of an
      *                          APEX checkbox item); at least one, each valid today
-     * @param  out_party_id     id of the new company
+     * @param  out_party_id id of the new company
      * @throws emk_errors_pkg.e_invalid_argument     no language given
      * @throws emk_errors_pkg.e_party_role_required  no role given
      * @throws emk_errors_pkg.e_reference_not_valid  unknown country, language or role, or not valid today
@@ -77,7 +77,7 @@ create or replace package emk_api.emk_party_api as
      *
      * @param  in_party_id            company
      * @param  in_expected_updated_at version read by the caller (row_version)
-     * @param  in_name … in_language_code as in create_party; roles are changed with set_roles
+     * @param  in_name                … in_language_code as in create_party; roles are changed with set_roles
      * @throws emk_errors_pkg.e_not_found      company does not exist or is deleted
      * @throws emk_errors_pkg.e_record_changed changed by another user since it was read
      * @throws emk_errors_pkg.e_record_locked  locked by another transaction
@@ -165,7 +165,7 @@ create or replace package emk_api.emk_party_api as
      * difference itself (business logic stays in the API).
      *
      * @param  in_party_id   company
-     * @param  in_role_codes roles separated by colons, e.g. SHIPPER:CARRIER
+     * @param  in_role_codes roles separated by colons, e.g. SENDER:CARRIER
      *                       (the value of an APEX checkbox item); at least one
      * @throws emk_errors_pkg.e_party_role_required the list is empty (D-71)
      * @throws the errors of add_role and remove_role
@@ -209,10 +209,10 @@ create or replace package emk_api.emk_party_api as
     /**
      * Creates a contact person of an active company.
      *
-     * @param  in_party_id   company
-     * @param  in_full_name  name (trimmed, required)
-     * @param  in_email      email address
-     * @param  in_phone      phone number, E.164 (+ and up to 15 digits; spaces are removed)
+     * @param  in_party_id    company
+     * @param  in_full_name   name (trimmed, required)
+     * @param  in_email       email address
+     * @param  in_phone       phone number, E.164 (+ and up to 15 digits; spaces are removed)
      * @param  out_contact_id id of the new contact
      * @throws emk_errors_pkg.e_not_found company does not exist or is deleted
      */
@@ -229,7 +229,7 @@ create or replace package emk_api.emk_party_api as
      *
      * @param  in_contact_id          contact
      * @param  in_expected_updated_at version read by the caller (row_version)
-     * @param  in_full_name, in_email, in_phone as in create_contact
+     * @param  in_full_name,          in_email, in_phone as in create_contact
      * @throws emk_errors_pkg.e_not_found      contact does not exist or is deleted
      * @throws emk_errors_pkg.e_record_changed changed by another user since it was read
      * @throws emk_errors_pkg.e_record_locked  locked by another transaction
@@ -272,4 +272,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"82312614635ceeeb8fdab842dceded71d6690d92","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"e5d4540c3d7bf4461edae789877d5e62ff6ee1f2","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

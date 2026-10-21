@@ -2,8 +2,8 @@ create or replace package test_emk_shipment_api as
     /**
      * Unit tests of EMK_SHIPMENT_API (M1a step 7.3, api-design.md §3, D-64):
      * the rules across tables (companies with their roles, third-party
-     * carrier, CMR applicability on the pickup date, reference validity on
-     * the pickup date, CMR note number not reused by a carrier), optimistic
+     * carrier, CMR applicability on the date of taking over, reference validity on
+     * the date of taking over, CMR note number not reused by a carrier), optimistic
      * locking, soft delete and restore. Companies are created through
      * EMK_PARTY_API. Rejections by role and by CMR are logged in an
      * autonomous transaction, so the suite deletes its own log entries.
@@ -30,12 +30,12 @@ create or replace package test_emk_shipment_api as
     --%throws(emk_errors_pkg.c_party_role_missing)
     procedure rejects_carrier_without_role;
 
-    --%test(The carrier cannot also be the shipper: no carriage on own account)
+    --%test(The carrier cannot also be the sender: no carriage on own account)
     --%throws(emk_errors_pkg.c_carrier_not_third_party)
-    procedure rejects_carrier_as_shipper;
+    procedure rejects_carrier_as_sender;
 
-    --%test(The shipper may also be the consignee: transfer between two sites of a company)
-    procedure accepts_shipper_as_consignee;
+    --%test(The sender may also be the consignee: transfer between two sites of a company)
+    procedure accepts_sender_as_consignee;
 
     --%test(A carriage between two countries that are not CMR parties is rejected: Iceland to Liechtenstein)
     --%throws(emk_errors_pkg.c_cmr_not_applicable)
@@ -45,12 +45,12 @@ create or replace package test_emk_shipment_api as
     procedure accepts_one_cmr_party;
 
     --%test(The CMR applies from the accession date: Oman joined on 2020-12-22)
-    procedure checks_cmr_on_pickup_date;
+    procedure checks_cmr_on_taking_over_date;
 
-    --%test(A currency that ended is valid for an earlier pickup date: kuna in 2021)
+    --%test(A currency that ended is valid for an earlier date of taking over: kuna in 2021)
     procedure accepts_historic_currency;
 
-    --%test(A currency that ended is rejected for a later pickup date: kuna in 2024)
+    --%test(A currency that ended is rejected for a later date of taking over: kuna in 2024)
     --%throws(emk_errors_pkg.c_reference_not_valid)
     procedure rejects_ended_currency;
 
@@ -68,9 +68,9 @@ create or replace package test_emk_shipment_api as
     --%test(An update without changes writes nothing: no updated_at, no journal row)
     procedure writes_nothing_when_unchanged;
 
-    --%test(An update to a pickup date on which the currency is no longer valid is rejected)
+    --%test(An update to a date of taking over on which the currency is no longer valid is rejected)
     --%throws(emk_errors_pkg.c_reference_not_valid)
-    procedure rechecks_currency_on_new_pickup_date;
+    procedure rechecks_currency_on_new_taking_over_date;
 
     --%test(A shipment with an active claim cannot be deleted)
     --%throws(emk_errors_pkg.c_shipment_in_use)
@@ -89,8 +89,8 @@ create or replace package test_emk_shipment_api as
     --%throws(emk_errors_pkg.c_invalid_argument)
     procedure rejects_missing_note_date;
 
-    --%test(D-81, spec §5.3 L14: a consignment note dated after the pickup is accepted)
-    procedure accepts_note_date_after_pickup;
+    --%test(D-81, spec §5.3 L14: a consignment note dated after the taking over is accepted)
+    procedure accepts_note_date_after_taking_over;
 
     --%test(D-78: a declared value is stored with its currency in upper case and shown by the view)
     procedure stores_declared_value;
@@ -152,31 +152,31 @@ create or replace package body test_emk_shipment_api as
 
     function new_shipment (
         in_note        in varchar2,
-        in_shipper     in emk_data.emk_shipments.shipper_id%type,
+        in_sender      in emk_data.emk_shipments.sender_id%type,
         in_carrier     in emk_data.emk_shipments.carrier_id%type,
         in_consignee   in emk_data.emk_shipments.consignee_id%type,
         in_origin      in varchar2 default 'DE',
         in_destination in varchar2 default 'FR',
-        in_pickup_date in date default date '2026-09-01',
+        in_taking_over_date in date default date '2026-09-01',
         in_charges     in number default null,
         in_currency    in varchar2 default null,
-        in_note_date   in date default null,       -- NULL = the pickup date
+        in_note_date   in date default null,       -- NULL = the date of taking over
         in_value       in number default null,
         in_value_cur   in varchar2 default null
     ) return emk_data.emk_shipments.shipment_id%type is
         l_id emk_data.emk_shipments.shipment_id%type;
     begin
         emk_shipment_api.create_shipment(in_cmr_note_no          => in_note,
-                                         in_cmr_note_date        => nvl(in_note_date, in_pickup_date),
-                                         in_shipper_id           => in_shipper,
+                                         in_cmr_note_date        => nvl(in_note_date, in_taking_over_date),
+                                         in_sender_id            => in_sender,
                                          in_carrier_id           => in_carrier,
                                          in_consignee_id         => in_consignee,
-                                         in_pickup_place         => 'Pickup place',
+                                         in_taking_over_place    => 'Place of taking over',
                                          in_origin_country       => in_origin,
                                          in_delivery_place       => 'Delivery place',
                                          in_destination_country  => in_destination,
-                                         in_pickup_date          => in_pickup_date,
-                                         in_agreed_delivery_date => null,
+                                         in_taking_over_date     => in_taking_over_date,
+                                         in_agreed_time_limit => null,
                                          in_delivery_date        => null,
                                          in_disposal_date        => null,
                                          in_goods_description    => 'Test goods',
@@ -211,15 +211,15 @@ create or replace package body test_emk_shipment_api as
                                          in_expected_updated_at  => in_version,
                                          in_cmr_note_no          => in_row.cmr_note_no,
                                          in_cmr_note_date        => in_row.cmr_note_date,
-                                         in_shipper_id           => in_row.shipper_id,
+                                         in_sender_id            => in_row.sender_id,
                                          in_carrier_id           => in_row.carrier_id,
                                          in_consignee_id         => in_row.consignee_id,
-                                         in_pickup_place         => in_row.pickup_place,
+                                         in_taking_over_place    => in_row.taking_over_place,
                                          in_origin_country       => in_row.origin_country,
                                          in_delivery_place       => in_row.delivery_place,
                                          in_destination_country  => in_row.destination_country,
-                                         in_pickup_date          => in_row.pickup_date,
-                                         in_agreed_delivery_date => in_row.agreed_delivery_date,
+                                         in_taking_over_date     => in_row.taking_over_date,
+                                         in_agreed_time_limit => in_row.agreed_time_limit,
                                          in_delivery_date        => in_row.delivery_date,
                                          in_disposal_date        => in_row.disposal_date,
                                          in_goods_description    => in_row.goods_description,
@@ -236,116 +236,116 @@ create or replace package body test_emk_shipment_api as
     -- Tests --------------------------------------------------------------------------
 
     procedure creates_shipment_with_normalised_values is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_row       emk_data.emk_shipments%rowtype;
     begin
-        l_id := new_shipment(' cmr-test-0001 ', l_shipper, l_carrier, l_consignee, 'de', 'fr',
+        l_id := new_shipment(' cmr-test-0001 ', l_sender, l_carrier, l_consignee, 'de', 'fr',
                              to_date('2026-09-01 15:30', 'YYYY-MM-DD HH24:MI'), 250, 'pln');
         select * into l_row from emk_data.emk_shipments where shipment_id = l_id;
         ut.expect(l_row.cmr_note_no).to_equal('CMR-TEST-0001');
         ut.expect(l_row.origin_country).to_equal('DE');
         ut.expect(l_row.currency_code).to_equal('PLN');
-        ut.expect(l_row.pickup_date).to_equal(date '2026-09-01');
+        ut.expect(l_row.taking_over_date).to_equal(date '2026-09-01');
         ut.expect(l_row.deleted_yn).to_equal('N');
     end creates_shipment_with_normalised_values;
 
     procedure rejects_carrier_without_role is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Not a Carrier', 'PL', 'FORWARDER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0002', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0002', l_sender, l_carrier, l_consignee);
     end rejects_carrier_without_role;
 
-    procedure rejects_carrier_as_shipper is
-        l_company   emk_data.emk_parties.party_id%type := new_party('Test Own Trucks', 'DE', 'SHIPPER:CARRIER');
+    procedure rejects_carrier_as_sender is
+        l_company   emk_data.emk_parties.party_id%type := new_party('Test Own Trucks', 'DE', 'SENDER:CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
         l_id := new_shipment('CMR-TEST-0003', l_company, l_company, l_consignee);
-    end rejects_carrier_as_shipper;
+    end rejects_carrier_as_sender;
 
-    procedure accepts_shipper_as_consignee is
-        l_company emk_data.emk_parties.party_id%type := new_party('Test Two Sites', 'DE', 'SHIPPER:CONSIGNEE');
+    procedure accepts_sender_as_consignee is
+        l_company emk_data.emk_parties.party_id%type := new_party('Test Two Sites', 'DE', 'SENDER:CONSIGNEE');
         l_carrier emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_id      emk_data.emk_shipments.shipment_id%type;
     begin
         l_id := new_shipment('CMR-TEST-0004', l_company, l_carrier, l_company);
         ut.expect(l_id).to_be_not_null();
-    end accepts_shipper_as_consignee;
+    end accepts_sender_as_consignee;
 
     procedure rejects_carriage_outside_cmr is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'IS', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'IS', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'LI', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0005', l_shipper, l_carrier, l_consignee, 'IS', 'LI');
+        l_id := new_shipment('CMR-TEST-0005', l_sender, l_carrier, l_consignee, 'IS', 'LI');
     end rejects_carriage_outside_cmr;
 
     procedure accepts_one_cmr_party is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'IS', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'IS', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'DE', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0006', l_shipper, l_carrier, l_consignee, 'IS', 'DE');
+        l_id := new_shipment('CMR-TEST-0006', l_sender, l_carrier, l_consignee, 'IS', 'DE');
         ut.expect(l_id).to_be_not_null();
     end accepts_one_cmr_party;
 
-    procedure checks_cmr_on_pickup_date is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'OM', 'SHIPPER');
+    procedure checks_cmr_on_taking_over_date is
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'OM', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'IS', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
         -- Oman to Iceland: only Oman can make it a CMR carriage, and only from its accession
         begin
-            l_id := new_shipment('CMR-TEST-0007', l_shipper, l_carrier, l_consignee, 'OM', 'IS', date '2020-12-21');
+            l_id := new_shipment('CMR-TEST-0007', l_sender, l_carrier, l_consignee, 'OM', 'IS', date '2020-12-21');
             ut.fail('A carriage before the accession of Oman was accepted');
         exception
             when emk_errors_pkg.e_cmr_not_applicable then
                 null;
         end;
-        l_id := new_shipment('CMR-TEST-0008', l_shipper, l_carrier, l_consignee, 'OM', 'IS', date '2020-12-22');
+        l_id := new_shipment('CMR-TEST-0008', l_sender, l_carrier, l_consignee, 'OM', 'IS', date '2020-12-22');
         ut.expect(l_id).to_be_not_null();
-    end checks_cmr_on_pickup_date;
+    end checks_cmr_on_taking_over_date;
 
     procedure accepts_historic_currency is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0009', l_shipper, l_carrier, l_consignee, 'DE', 'FR', date '2021-06-01', 1000, 'HRK');
+        l_id := new_shipment('CMR-TEST-0009', l_sender, l_carrier, l_consignee, 'DE', 'FR', date '2021-06-01', 1000, 'HRK');
         ut.expect(l_id).to_be_not_null();
     end accepts_historic_currency;
 
     procedure rejects_ended_currency is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0010', l_shipper, l_carrier, l_consignee, 'DE', 'FR', date '2024-06-01', 1000, 'HRK');
+        l_id := new_shipment('CMR-TEST-0010', l_sender, l_carrier, l_consignee, 'DE', 'FR', date '2024-06-01', 1000, 'HRK');
     end rejects_ended_currency;
 
     procedure rejects_reused_cmr_note is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0011', l_shipper, l_carrier, l_consignee);
-        l_id := new_shipment(' cmr-test-0011', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0011', l_sender, l_carrier, l_consignee);
+        l_id := new_shipment(' cmr-test-0011', l_sender, l_carrier, l_consignee);
     end rejects_reused_cmr_note;
 
     procedure logs_rejection_as_warn is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Not a Carrier', 'PL', 'FORWARDER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
@@ -353,7 +353,7 @@ create or replace package body test_emk_shipment_api as
         l_context   varchar2(4000 char);
     begin
         begin
-            l_id := new_shipment('CMR-TEST-0012', l_shipper, l_carrier, l_consignee);
+            l_id := new_shipment('CMR-TEST-0012', l_sender, l_carrier, l_consignee);
         exception
             when emk_errors_pkg.e_party_role_missing then
                 null;
@@ -369,27 +369,27 @@ create or replace package body test_emk_shipment_api as
     end logs_rejection_as_warn;
 
     procedure rejects_update_with_old_version is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_row       emk_data.emk_shipments%rowtype;
     begin
-        l_id := new_shipment('CMR-TEST-0013', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0013', l_sender, l_carrier, l_consignee);
         select * into l_row from emk_data.emk_shipments where shipment_id = l_id;
         l_row.goods_description := 'Changed goods';
         update_from_row(l_row, version_of_shipment(l_id) - interval '1' second);
     end rejects_update_with_old_version;
 
     procedure writes_nothing_when_unchanged is
-        l_shipper    emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender     emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier    emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee  emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id         emk_data.emk_shipments.shipment_id%type;
         l_row        emk_data.emk_shipments%rowtype;
         l_journal    pls_integer;
     begin
-        l_id := new_shipment('CMR-TEST-0014', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0014', l_sender, l_carrier, l_consignee);
         select * into l_row from emk_data.emk_shipments where shipment_id = l_id;
         update_from_row(l_row, version_of_shipment(l_id));
         select * into l_row from emk_data.emk_shipments where shipment_id = l_id;
@@ -398,40 +398,40 @@ create or replace package body test_emk_shipment_api as
         ut.expect(l_journal).to_equal(0);
     end writes_nothing_when_unchanged;
 
-    procedure rechecks_currency_on_new_pickup_date is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+    procedure rechecks_currency_on_new_taking_over_date is
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_row       emk_data.emk_shipments%rowtype;
     begin
-        l_id := new_shipment('CMR-TEST-0015', l_shipper, l_carrier, l_consignee, 'DE', 'FR', date '2021-06-01', 1000, 'HRK');
+        l_id := new_shipment('CMR-TEST-0015', l_sender, l_carrier, l_consignee, 'DE', 'FR', date '2021-06-01', 1000, 'HRK');
         select * into l_row from emk_data.emk_shipments where shipment_id = l_id;
-        l_row.pickup_date := date '2024-06-01';
+        l_row.taking_over_date := date '2024-06-01';
         update_from_row(l_row, version_of_shipment(l_id));
-    end rechecks_currency_on_new_pickup_date;
+    end rechecks_currency_on_new_taking_over_date;
 
     procedure rejects_delete_with_active_claim is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-0016', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0016', l_sender, l_carrier, l_consignee);
         insert into emk_data.emk_claims (claim_no, shipment_id, claim_type, damage_apparent_yn, handler, registration_date)
         values ('CLM-2026-999101', l_id, 'DAMAGE', 'Y', 'TEST_HANDLER', date '2026-09-05');
         emk_shipment_api.delete_shipment(l_id, version_of_shipment(l_id));
     end rejects_delete_with_active_claim;
 
     procedure deletes_and_restores_shipment is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_deleted   emk_data.emk_shipments.deleted_yn%type;
         l_by        emk_data.emk_shipments.deleted_by%type;
     begin
-        l_id := new_shipment('CMR-TEST-0017', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0017', l_sender, l_carrier, l_consignee);
         emk_shipment_api.delete_shipment(l_id, version_of_shipment(l_id));
         select deleted_yn, deleted_by into l_deleted, l_by from emk_data.emk_shipments where shipment_id = l_id;
         ut.expect(l_deleted).to_equal('Y');
@@ -443,13 +443,13 @@ create or replace package body test_emk_shipment_api as
     end deletes_and_restores_shipment;
 
     procedure rechecks_roles_on_restore is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_version   emk_data.emk_parties.updated_at%type;
     begin
-        l_id := new_shipment('CMR-TEST-0018', l_shipper, l_carrier, l_consignee);
+        l_id := new_shipment('CMR-TEST-0018', l_sender, l_carrier, l_consignee);
         emk_shipment_api.delete_shipment(l_id, version_of_shipment(l_id));
         -- With the shipment deleted, the carrier is no longer in use and can be deleted
         select nvl(updated_at, created_at) into l_version from emk_data.emk_parties where party_id = l_carrier;
@@ -460,35 +460,35 @@ create or replace package body test_emk_shipment_api as
     -- Consignment note particulars (D-78, D-79) ---------------------------------------------
 
     procedure rejects_missing_note_date is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
         emk_shipment_api.create_shipment(in_cmr_note_no => 'CMR-TEST-NOTE-DATE', in_cmr_note_date => null,
-            in_shipper_id => l_shipper, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
-            in_pickup_place => 'Berlin', in_origin_country => 'DE', in_delivery_place => 'Paris',
-            in_destination_country => 'FR', in_pickup_date => date '2026-09-01', in_agreed_delivery_date => null,
+            in_sender_id => l_sender, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
+            in_taking_over_place => 'Berlin', in_origin_country => 'DE', in_delivery_place => 'Paris',
+            in_destination_country => 'FR', in_taking_over_date => date '2026-09-01', in_agreed_time_limit => null,
             in_delivery_date => null, in_disposal_date => null, in_goods_description => 'Test goods',
             in_packages => 1, in_gross_weight_kg => 100, in_carriage_charges => null, in_currency_code => null,
             in_declared_value => null, in_declared_value_currency => null, in_special_interest => null,
             in_special_interest_currency => null, out_shipment_id => l_id);
     end rejects_missing_note_date;
 
-    procedure accepts_note_date_after_pickup is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+    procedure accepts_note_date_after_taking_over is
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
         l_note_date emk_data.emk_shipments.cmr_note_date%type;
     begin
-        l_id := new_shipment('CMR-TEST-LATE-NOTE', l_shipper, l_carrier, l_consignee, in_note_date => date '2026-09-02');
+        l_id := new_shipment('CMR-TEST-LATE-NOTE', l_sender, l_carrier, l_consignee, in_note_date => date '2026-09-02');
         select cmr_note_date into l_note_date from emk_data.emk_shipments where shipment_id = l_id;
         ut.expect(l_note_date).to_equal(date '2026-09-02');
-    end accepts_note_date_after_pickup;
+    end accepts_note_date_after_taking_over;
 
     procedure stores_declared_value is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
@@ -496,7 +496,7 @@ create or replace package body test_emk_shipment_api as
         l_currency  emk_v_shipments.declared_value_currency%type;
         l_note_date emk_v_shipments.cmr_note_date%type;
     begin
-        l_id := new_shipment('CMR-TEST-VALUE', l_shipper, l_carrier, l_consignee,
+        l_id := new_shipment('CMR-TEST-VALUE', l_sender, l_carrier, l_consignee,
                              in_note_date => date '2026-08-30', in_value => 50000, in_value_cur => ' chf ');
         select declared_value, declared_value_currency, cmr_note_date
         into   l_value, l_currency, l_note_date
@@ -508,21 +508,21 @@ create or replace package body test_emk_shipment_api as
     end stores_declared_value;
 
     procedure rejects_declared_value_currency_without_rate is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-VALUE-RUB', l_shipper, l_carrier, l_consignee, in_value => 1000, in_value_cur => 'RUB');
+        l_id := new_shipment('CMR-TEST-VALUE-RUB', l_sender, l_carrier, l_consignee, in_value => 1000, in_value_cur => 'RUB');
     end rejects_declared_value_currency_without_rate;
 
     procedure rejects_declared_value_without_currency is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_id        emk_data.emk_shipments.shipment_id%type;
     begin
-        l_id := new_shipment('CMR-TEST-VALUE-NO-CUR', l_shipper, l_carrier, l_consignee, in_value => 1000);
+        l_id := new_shipment('CMR-TEST-VALUE-NO-CUR', l_sender, l_carrier, l_consignee, in_value => 1000);
     end rejects_declared_value_without_currency;
 
 end test_emk_shipment_api;

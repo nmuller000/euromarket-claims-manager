@@ -1,9 +1,9 @@
 -- =============================================================================
 -- emk_party_role_types_data.sql
 -- EMK_PARTY_ROLE_TYPES: the roles a company can play (D-68, BR-16).
--- Sources: CMR Convention (UNECE) for shipper, consignee and carrier;
+-- Sources: CMR Convention (UNECE) for sender, consignee and carrier;
 -- UN/EDIFACT code list 3035 for the codes CZ, CN, CA, FW
--- (data-model-operational.md §2a). SHIPPER, CONSIGNEE and CARRIER are used by
+-- (data-model-operational.md §2a). SENDER, CONSIGNEE and CARRIER are used by
 -- the program (BR-16): they are retired only together with a code change.
 -- Insert-only MERGE (D-72): inserts the rows that are missing and never
 -- changes or deletes an existing row, so that running it again (DEV, a
@@ -20,7 +20,7 @@
 
 MERGE INTO emk_data.emk_party_role_types t
 USING (VALUES
-        ('SHIPPER',   'Shipper',   'Sender of the goods (CMR Art. 5-7)', 10, CAST(NULL AS DATE)),
+        ('SENDER',    'Sender',    'Sender of the goods (CMR Art. 6(1)(b), 7)', 10, CAST(NULL AS DATE)),
         ('CONSIGNEE', 'Consignee', 'Receiver of the goods (CMR Art. 13, 30)', 20, CAST(NULL AS DATE)),
         ('CARRIER',   'Carrier',   'Carrier liable for loss, damage and delay (CMR Art. 17)', 30, CAST(NULL AS DATE)),
         ('FORWARDER', 'Forwarder', 'Freight forwarder that arranges the carriage', 40, CAST(NULL AS DATE)),

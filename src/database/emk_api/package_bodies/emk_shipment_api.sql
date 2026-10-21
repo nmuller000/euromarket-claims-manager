@@ -25,7 +25,7 @@ create or replace package body emk_api.emk_shipment_api as
     -- CMR Art. 1(1) and BR-16: a third-party carrier; every company active with its role
     procedure check_parties (
         in_shipment_id  in emk_data.emk_shipments.shipment_id%type,
-        in_shipper_id   in emk_data.emk_shipments.shipper_id%type,
+        in_sender_id    in emk_data.emk_shipments.sender_id%type,
         in_carrier_id   in emk_data.emk_shipments.carrier_id%type,
         in_consignee_id in emk_data.emk_shipments.consignee_id%type
     ) is
@@ -33,24 +33,24 @@ create or replace package body emk_api.emk_shipment_api as
         l_context varchar2(4000 char) :=
             json_object(
                 'shipment_id' value in_shipment_id,
-                'shipper_id' value in_shipper_id,
+                'sender_id' value in_sender_id,
                 'carrier_id' value in_carrier_id,
                 'consignee_id' value in_consignee_id
             );
     begin
-        if in_carrier_id = in_shipper_id
+        if in_carrier_id = in_sender_id
         or in_carrier_id = in_consignee_id then
-            raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'The carrier must be another company than the shipper and the consignee ' || '(CMR: carriage for reward, not on own account)'
+            raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'The carrier must be another company than the sender and the consignee ' || '(CMR: carriage for reward, not on own account)'
             );
         end if;
 
         -- D-73: hold the three role rows until the end of the transaction, so that nobody removes a
         -- role or deletes a company between this check and the commit (always in this order)
-        emk_party_api.lock_role(in_shipper_id, emk_codes_pkg.c_role_shipper);
+        emk_party_api.lock_role(in_sender_id, emk_codes_pkg.c_role_sender);
         emk_party_api.lock_role(in_carrier_id, emk_codes_pkg.c_role_carrier);
         emk_party_api.lock_role(in_consignee_id, emk_codes_pkg.c_role_consignee);
-        if not emk_party_api.has_role(in_shipper_id, emk_codes_pkg.c_role_shipper) then
-            reject(emk_errors_pkg.c_party_role_missing, 'The shipper is not an active company with the role SHIPPER', l_context);
+        if not emk_party_api.has_role(in_sender_id, emk_codes_pkg.c_role_sender) then
+            reject(emk_errors_pkg.c_party_role_missing, 'The sender is not an active company with the role SENDER', l_context);
         end if;
 
         if not emk_party_api.has_role(in_carrier_id, emk_codes_pkg.c_role_carrier) then
@@ -138,12 +138,12 @@ create or replace package body emk_api.emk_shipment_api as
                                     || to_char(in_on_date, 'YYYY-MM-DD'));
     end check_currency;
 
-    -- BR-17: the origin or the destination is a CMR party on the pickup date
+    -- BR-17: the origin or the destination is a CMR party on the date of taking over
     procedure check_cmr (
         in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
         in_origin_country      in emk_data.emk_shipments.origin_country%type,
         in_destination_country in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date         in emk_data.emk_shipments.pickup_date%type
+        in_taking_over_date    in emk_data.emk_shipments.taking_over_date%type
     ) is
         l_count pls_integer;
     begin
@@ -154,7 +154,7 @@ create or replace package body emk_api.emk_shipment_api as
             emk_data.emk_countries
         where
             country_code in ( in_origin_country, in_destination_country )
-            and cmr_party_since <= in_pickup_date;
+            and cmr_party_since <= in_taking_over_date;
 
         if l_count = 0 then
             reject(emk_errors_pkg.c_cmr_not_applicable,
@@ -163,12 +163,12 @@ create or replace package body emk_api.emk_shipment_api as
                    || ' nor '
                    || in_destination_country
                    || ' is a CMR party on '
-                   || to_char(in_pickup_date, 'YYYY-MM-DD'),
+                   || to_char(in_taking_over_date, 'YYYY-MM-DD'),
                    json_object(
                     'shipment_id' value in_shipment_id,
                                'origin_country' value in_origin_country,
                                'destination_country' value in_destination_country,
-                               'pickup_date' value to_char(in_pickup_date, 'YYYY-MM-DD')
+                               'taking_over_date' value to_char(in_taking_over_date, 'YYYY-MM-DD')
                 )
             );
 
@@ -179,23 +179,23 @@ create or replace package body emk_api.emk_shipment_api as
     -- Every rule across tables, in the order of the specification
     procedure check_shipment (
         in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
-        in_shipper_id          in emk_data.emk_shipments.shipper_id%type,
+        in_sender_id           in emk_data.emk_shipments.sender_id%type,
         in_carrier_id          in emk_data.emk_shipments.carrier_id%type,
         in_consignee_id        in emk_data.emk_shipments.consignee_id%type,
         in_origin_country      in emk_data.emk_shipments.origin_country%type,
         in_destination_country in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date         in emk_data.emk_shipments.pickup_date%type,
+        in_taking_over_date    in emk_data.emk_shipments.taking_over_date%type,
         in_currency_code       in emk_data.emk_shipments.currency_code%type
     ) is
     begin
-        if in_pickup_date is null then
-            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The pickup date is required');
+        if in_taking_over_date is null then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of taking over is required');
         end if;
-        check_parties(in_shipment_id, in_shipper_id, in_carrier_id, in_consignee_id);
-        check_country(in_origin_country, in_pickup_date);
-        check_country(in_destination_country, in_pickup_date);
-        check_currency(in_currency_code, in_pickup_date);
-        check_cmr(in_shipment_id, in_origin_country, in_destination_country, in_pickup_date);
+        check_parties(in_shipment_id, in_sender_id, in_carrier_id, in_consignee_id);
+        check_country(in_origin_country, in_taking_over_date);
+        check_country(in_destination_country, in_taking_over_date);
+        check_currency(in_currency_code, in_taking_over_date);
+        check_cmr(in_shipment_id, in_origin_country, in_destination_country, in_taking_over_date);
     end check_shipment;
 
     -- Locks a shipment (NOWAIT), checks that it is active and, if asked, its version
@@ -249,15 +249,15 @@ create or replace package body emk_api.emk_shipment_api as
     procedure create_shipment (
         in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
         in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
-        in_shipper_id                in emk_data.emk_shipments.shipper_id%type,
+        in_sender_id                 in emk_data.emk_shipments.sender_id%type,
         in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
         in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
-        in_pickup_place              in emk_data.emk_shipments.pickup_place%type,
+        in_taking_over_place         in emk_data.emk_shipments.taking_over_place%type,
         in_origin_country            in emk_data.emk_shipments.origin_country%type,
         in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
         in_destination_country       in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date               in emk_data.emk_shipments.pickup_date%type,
-        in_agreed_delivery_date      in emk_data.emk_shipments.agreed_delivery_date%type,
+        in_taking_over_date          in emk_data.emk_shipments.taking_over_date%type,
+        in_agreed_time_limit         in emk_data.emk_shipments.agreed_time_limit%type,
         in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
         in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
         in_goods_description         in emk_data.emk_shipments.goods_description%type,
@@ -272,35 +272,35 @@ create or replace package body emk_api.emk_shipment_api as
         out_shipment_id              out emk_data.emk_shipments.shipment_id%type
     ) is
 
-        l_origin       emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
-        l_destination  emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
-        l_currency     emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
-        l_pickup_date  emk_data.emk_shipments.pickup_date%type := trunc(in_pickup_date);
-        l_note_date    emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
-        l_value_cur    emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
-        l_interest_cur emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
+        l_origin           emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
+        l_destination      emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
+        l_currency         emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
+        l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
+        l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
+        l_value_cur        emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
+        l_interest_cur     emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
     begin
-        check_shipment(null, in_shipper_id, in_carrier_id, in_consignee_id, l_origin,
-                       l_destination, l_pickup_date, l_currency);
+        check_shipment(null, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
+                       l_destination, l_taking_over_date, l_currency);
 
         if l_note_date is null then
             raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of the consignment note is required (CMR Art. 6(1)(a))'
             );
         end if;
-        check_currency(l_value_cur, l_pickup_date);      -- D-78: as the carriage charges
-        check_currency(l_interest_cur, l_pickup_date);
+        check_currency(l_value_cur, l_taking_over_date);      -- D-78: as the carriage charges
+        check_currency(l_interest_cur, l_taking_over_date);
         insert into emk_data.emk_shipments (
             cmr_note_no,
             cmr_note_date,
-            shipper_id,
+            sender_id,
             carrier_id,
             consignee_id,
-            pickup_place,
+            taking_over_place,
             origin_country,
             delivery_place,
             destination_country,
-            pickup_date,
-            agreed_delivery_date,
+            taking_over_date,
+            agreed_time_limit,
             delivery_date,
             disposal_date,
             goods_description,
@@ -314,15 +314,15 @@ create or replace package body emk_api.emk_shipment_api as
             special_interest_currency
         ) values ( upper(trim(in_cmr_note_no)),
                    l_note_date,
-                   in_shipper_id,
+                   in_sender_id,
                    in_carrier_id,
                    in_consignee_id,
-                   trim(in_pickup_place),
+                   trim(in_taking_over_place),
                    l_origin,
                    trim(in_delivery_place),
                    l_destination,
-                   l_pickup_date,
-                   trunc(in_agreed_delivery_date),
+                   l_taking_over_date,
+                   trunc(in_agreed_time_limit),
                    trunc(in_delivery_date),
                    trunc(in_disposal_date),
                    trim(in_goods_description),
@@ -346,15 +346,15 @@ create or replace package body emk_api.emk_shipment_api as
         in_expected_updated_at       in emk_data.emk_shipments.updated_at%type,
         in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
         in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
-        in_shipper_id                in emk_data.emk_shipments.shipper_id%type,
+        in_sender_id                 in emk_data.emk_shipments.sender_id%type,
         in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
         in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
-        in_pickup_place              in emk_data.emk_shipments.pickup_place%type,
+        in_taking_over_place         in emk_data.emk_shipments.taking_over_place%type,
         in_origin_country            in emk_data.emk_shipments.origin_country%type,
         in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
         in_destination_country       in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date               in emk_data.emk_shipments.pickup_date%type,
-        in_agreed_delivery_date      in emk_data.emk_shipments.agreed_delivery_date%type,
+        in_taking_over_date          in emk_data.emk_shipments.taking_over_date%type,
+        in_agreed_time_limit         in emk_data.emk_shipments.agreed_time_limit%type,
         in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
         in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
         in_goods_description         in emk_data.emk_shipments.goods_description%type,
@@ -368,42 +368,42 @@ create or replace package body emk_api.emk_shipment_api as
         in_special_interest_currency in emk_data.emk_shipments.special_interest_currency%type
     ) is
 
-        l_old          emk_data.emk_shipments%rowtype;
-        l_note         emk_data.emk_shipments.cmr_note_no%type := upper(trim(in_cmr_note_no));
-        l_origin       emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
-        l_destination  emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
-        l_currency     emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
-        l_pickup_date  emk_data.emk_shipments.pickup_date%type := trunc(in_pickup_date);
-        l_note_date    emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
-        l_value_cur    emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
-        l_interest_cur emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
+        l_old              emk_data.emk_shipments%rowtype;
+        l_note             emk_data.emk_shipments.cmr_note_no%type := upper(trim(in_cmr_note_no));
+        l_origin           emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
+        l_destination      emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
+        l_currency         emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
+        l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
+        l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
+        l_value_cur        emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
+        l_interest_cur     emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
     begin
         lock_shipment(in_shipment_id, in_expected_updated_at, true, l_old);
-        check_shipment(in_shipment_id, in_shipper_id, in_carrier_id, in_consignee_id, l_origin,
-                       l_destination, l_pickup_date, l_currency);
+        check_shipment(in_shipment_id, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
+                       l_destination, l_taking_over_date, l_currency);
 
         if l_note_date is null then
             raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of the consignment note is required (CMR Art. 6(1)(a))'
             );
         end if;
-        check_currency(l_value_cur, l_pickup_date);      -- D-78: as the carriage charges
-        check_currency(l_interest_cur, l_pickup_date);
+        check_currency(l_value_cur, l_taking_over_date);      -- D-78: as the carriage charges
+        check_currency(l_interest_cur, l_taking_over_date);
         if not ( emk_utilities_pkg.is_changed(l_old.cmr_note_no, l_note)
         or emk_utilities_pkg.is_changed(l_old.cmr_note_date, l_note_date)
         or emk_utilities_pkg.is_changed(l_old.disposal_date,
                                         trunc(in_disposal_date))
-        or emk_utilities_pkg.is_changed(l_old.shipper_id, in_shipper_id)
+        or emk_utilities_pkg.is_changed(l_old.sender_id, in_sender_id)
         or emk_utilities_pkg.is_changed(l_old.carrier_id, in_carrier_id)
         or emk_utilities_pkg.is_changed(l_old.consignee_id, in_consignee_id)
-        or emk_utilities_pkg.is_changed(l_old.pickup_place,
-                                        trim(in_pickup_place))
+        or emk_utilities_pkg.is_changed(l_old.taking_over_place,
+                                        trim(in_taking_over_place))
         or emk_utilities_pkg.is_changed(l_old.origin_country, l_origin)
         or emk_utilities_pkg.is_changed(l_old.delivery_place,
                                         trim(in_delivery_place))
         or emk_utilities_pkg.is_changed(l_old.destination_country, l_destination)
-        or emk_utilities_pkg.is_changed(l_old.pickup_date, l_pickup_date)
-        or emk_utilities_pkg.is_changed(l_old.agreed_delivery_date,
-                                        trunc(in_agreed_delivery_date))
+        or emk_utilities_pkg.is_changed(l_old.taking_over_date, l_taking_over_date)
+        or emk_utilities_pkg.is_changed(l_old.agreed_time_limit,
+                                        trunc(in_agreed_time_limit))
         or emk_utilities_pkg.is_changed(l_old.delivery_date,
                                         trunc(in_delivery_date))
         or emk_utilities_pkg.is_changed(l_old.goods_description,
@@ -423,15 +423,15 @@ create or replace package body emk_api.emk_shipment_api as
         set
             cmr_note_no = l_note,
             cmr_note_date = l_note_date,
-            shipper_id = in_shipper_id,
+            sender_id = in_sender_id,
             carrier_id = in_carrier_id,
             consignee_id = in_consignee_id,
-            pickup_place = trim(in_pickup_place),
+            taking_over_place = trim(in_taking_over_place),
             origin_country = l_origin,
             delivery_place = trim(in_delivery_place),
             destination_country = l_destination,
-            pickup_date = l_pickup_date,
-            agreed_delivery_date = trunc(in_agreed_delivery_date),
+            taking_over_date = l_taking_over_date,
+            agreed_time_limit = trunc(in_agreed_time_limit),
             delivery_date = trunc(in_delivery_date),
             disposal_date = trunc(in_disposal_date),
             goods_description = trim(in_goods_description),
@@ -497,7 +497,7 @@ create or replace package body emk_api.emk_shipment_api as
         end if;
 
         -- A company may have been deleted or lost its role while the shipment was deleted
-        check_parties(in_shipment_id, l_old.shipper_id, l_old.carrier_id, l_old.consignee_id);
+        check_parties(in_shipment_id, l_old.sender_id, l_old.carrier_id, l_old.consignee_id);
         update emk_data.emk_shipments
         set
             deleted_yn = 'N',
@@ -512,4 +512,4 @@ end emk_shipment_api;
 /
 
 
--- sqlcl_snapshot {"hash":"48e6f8375706cd81ee8b00a33cdb714cadf3b8eb","type":"PACKAGE_BODY","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"52c7077e7e49b5b81842fd5ed839efdc0fe59c26","type":"PACKAGE_BODY","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}

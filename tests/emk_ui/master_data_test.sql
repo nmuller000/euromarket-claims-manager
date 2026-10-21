@@ -160,7 +160,7 @@ BEGIN
     -- 3. Retiring: a retired value stays where it is used and is no longer offered
     &emk_api_schema..emk_party_api.create_party(in_name => 'Master Data Test Company', in_vat_number => NULL,
         in_country_code => 'DE', in_street => NULL, in_postal_code => NULL, in_city => NULL,
-        in_language_code => 'en', in_role_codes => 'SHIPPER:' || c_test_role, out_party_id => l_company);
+        in_language_code => 'en', in_role_codes => 'SENDER:' || c_test_role, out_party_id => l_company);
     &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => c_test_role,
         in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', c_test_role),
         in_name => 'Master data test role', in_description => NULL, in_sort_order => 99,
@@ -168,7 +168,7 @@ BEGIN
     SELECT MAX(valid_yn) INTO l_text FROM &emk_api_schema..emk_v_party_role_types WHERE role_code = c_test_role;
     check_result(l_text = 'N', 'A retired role is no longer offered (valid_yn = ' || l_text || ')');
     SELECT MAX(roles) INTO l_text FROM &emk_api_schema..emk_v_parties WHERE party_id = l_company;
-    check_result(l_text = c_test_role || ':SHIPPER', 'The company keeps the retired role (' || l_text || ')');
+    check_result(l_text = c_test_role || ':SENDER', 'The company keeps the retired role (' || l_text || ')');
     &emk_api_schema..emk_master_data_api.update_document_type(in_doc_type => c_test_doc_type,
         in_expected_updated_at => version_of('emk_v_document_types', 'doc_type', c_test_doc_type),
         in_name => 'Master data test document', in_description => NULL, in_sort_order => 99,
@@ -181,9 +181,9 @@ BEGIN
 
     -- 4. Protected codes; claim statuses and types: name and order only
     BEGIN
-        &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => 'SHIPPER',
-            in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', 'SHIPPER'),
-            in_name => 'Shipper', in_description => 'Sender of the goods (CMR Art. 5-7)', in_sort_order => 10,
+        &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => 'SENDER',
+            in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', 'SENDER'),
+            in_name => 'Sender', in_description => 'Sender of the goods (CMR Art. 6(1)(b), 7)', in_sort_order => 10,
             in_valid_from => DATE '1900-01-01', in_valid_to => TRUNC(SYSDATE) + 30);
         check_result(FALSE, 'A protected role was retired');
     EXCEPTION
@@ -191,14 +191,14 @@ BEGIN
             check_result(SQLCODE = c_code_protected, 'A protected role cannot be retired, not even later (' || SQLCODE || ')');
     END;
     SELECT COUNT(*) INTO l_count FROM &emk_api_schema..emk_v_log
-    WHERE  created_by = c_admin_user AND log_level = 'WARN' AND message LIKE 'Master data change rejected: Role SHIPPER%';
+    WHERE  created_by = c_admin_user AND log_level = 'WARN' AND message LIKE 'Master data change rejected: Role SENDER%';
     check_result(l_count >= 1, 'The attempt to retire a protected role is in the technical log (ASVS V16.3.3)');
-    &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => 'SHIPPER',
-        in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', 'SHIPPER'),
-        in_name => 'Shipper (sender)', in_description => 'Sender of the goods (CMR Art. 5-7)', in_sort_order => 10,
+    &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => 'SENDER',
+        in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', 'SENDER'),
+        in_name => 'Sender (test)', in_description => 'Sender of the goods (CMR Art. 6(1)(b), 7)', in_sort_order => 10,
         in_valid_from => DATE '1900-01-01', in_valid_to => NULL);
-    SELECT MAX(name || '/' || protected_yn) INTO l_text FROM &emk_api_schema..emk_v_party_role_types WHERE role_code = 'SHIPPER';
-    check_result(l_text = 'Shipper (sender)/Y', 'The name of a protected role can change (' || l_text || ')');
+    SELECT MAX(name || '/' || protected_yn) INTO l_text FROM &emk_api_schema..emk_v_party_role_types WHERE role_code = 'SENDER';
+    check_result(l_text = 'Sender (test)/Y', 'The name of a protected role can change (' || l_text || ')');
     &emk_api_schema..emk_master_data_api.update_claim_status(in_status_code => 'RESOLVED',
         in_expected_updated_at => version_of('emk_v_claim_statuses', 'status_code', 'RESOLVED'),
         in_name => 'Resolved (test)', in_description => NULL, in_sort_order => 50);

@@ -89,19 +89,19 @@ create or replace package body test_emk_claims as
     g_document_id emk_claim_documents.document_id%type;
 
     procedure create_test_claim is
-        l_shipper   emk_parties.party_id%type;
+        l_sender    emk_parties.party_id%type;
         l_carrier   emk_parties.party_id%type;
         l_consignee emk_parties.party_id%type;
         l_shipment  emk_shipments.shipment_id%type;
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Shipper', 'DE', 'en') returning party_id into l_shipper;
+        insert into emk_parties (name, country_code, language_code) values ('Test Sender', 'DE', 'en') returning party_id into l_sender;
         insert into emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into l_carrier;
         insert into emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into l_consignee;
 
-        insert into emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place, origin_country,
-                                   delivery_place, destination_country, pickup_date, delivery_date,
+        insert into emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place, origin_country,
+                                   delivery_place, destination_country, taking_over_date, delivery_date,
                                    goods_description, gross_weight_kg, cmr_note_date)
-        values ('CMR-TEST-CLAIMS', l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
+        values ('CMR-TEST-CLAIMS', l_sender, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
                 date '2026-09-01', date '2026-09-03', 'Goods', 1000, date '2026-09-01')
         returning shipment_id into l_shipment;
 

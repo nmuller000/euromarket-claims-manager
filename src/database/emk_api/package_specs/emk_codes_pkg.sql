@@ -23,7 +23,7 @@ create or replace package emk_api.emk_codes_pkg as
      */
 
     -- Party roles named by BR-16 (EMK_PARTY_ROLE_TYPES) --------------------------
-    c_role_shipper constant emk_data.emk_party_roles.role_code%type := 'SHIPPER';
+    c_role_sender constant emk_data.emk_party_roles.role_code%type := 'SENDER';
     c_role_carrier constant emk_data.emk_party_roles.role_code%type := 'CARRIER';
     c_role_consignee constant emk_data.emk_party_roles.role_code%type := 'CONSIGNEE';
 
@@ -50,4 +50,4 @@ end emk_codes_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"90be12c12a1c86390ea733ea3185f0b2d5cb68a3","type":"PACKAGE_SPEC","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"b1578deea93c3d48f03a1667eda815d88b3fe894","type":"PACKAGE_SPEC","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}

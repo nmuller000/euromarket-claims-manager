@@ -14,7 +14,7 @@ create or replace package test_emk_codes_pkg as
     --%suite(Codes named by the rules EMK_CODES_PKG (EMK_API))
     --%suitepath(emk_api)
 
-    --%test(BR-16: the roles SHIPPER, CARRIER and CONSIGNEE exist and are valid today)
+    --%test(BR-16: the roles SENDER, CARRIER and CONSIGNEE exist and are valid today)
     procedure keeps_rule_roles_valid;
 
     --%test(BR-12: EUR exists, is valid today and has no ECB rate (it is the base))
@@ -47,7 +47,7 @@ create or replace package body test_emk_codes_pkg as
 
     procedure keeps_rule_roles_valid is
     begin
-        ut.expect(count_valid_role(emk_codes_pkg.c_role_shipper), 'SHIPPER').to_equal(1);
+        ut.expect(count_valid_role(emk_codes_pkg.c_role_sender), 'SENDER').to_equal(1);
         ut.expect(count_valid_role(emk_codes_pkg.c_role_carrier), 'CARRIER').to_equal(1);
         ut.expect(count_valid_role(emk_codes_pkg.c_role_consignee), 'CONSIGNEE').to_equal(1);
     end keeps_rule_roles_valid;
@@ -78,7 +78,7 @@ create or replace package body test_emk_codes_pkg as
 
     procedure protects_rule_roles is
     begin
-        ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_shipper), 'SHIPPER').to_be_true();
+        ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_sender), 'SENDER').to_be_true();
         ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_carrier), 'CARRIER').to_be_true();
         ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_consignee), 'CONSIGNEE').to_be_true();
         ut.expect(emk_codes_pkg.is_protected_role('SURVEYOR'), 'a role no rule names').to_be_false();

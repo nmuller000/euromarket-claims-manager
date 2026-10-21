@@ -83,8 +83,8 @@ BEGIN
     SELECT COUNT(*) INTO l_count FROM emk_data.emk_parties WHERE name = 'Master Data Test Company';
     check_result(l_count = 0, 'No test company');
     SELECT name || '/' || NVL(TO_CHAR(valid_to, 'YYYY-MM-DD'), 'no end') INTO l_text
-    FROM   emk_data.emk_party_role_types WHERE role_code = 'SHIPPER';
-    check_result(l_text = 'Shipper/no end', 'SHIPPER as before (' || l_text || ')');
+    FROM   emk_data.emk_party_role_types WHERE role_code = 'SENDER';
+    check_result(l_text = 'Sender/no end', 'SENDER as before (' || l_text || ')');
     SELECT name INTO l_text FROM emk_data.emk_claim_statuses WHERE status_code = 'RESOLVED';
     check_result(l_text NOT LIKE '%(test)%', 'Claim status RESOLVED as before (' || l_text || ')');
     SELECT TO_CHAR(valid_from, 'YYYY-MM-DD') || '/' || NVL(TO_CHAR(valid_to, 'YYYY-MM-DD'), 'no end') INTO l_text

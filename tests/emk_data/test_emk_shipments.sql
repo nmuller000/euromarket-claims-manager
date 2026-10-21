@@ -36,8 +36,8 @@ create or replace package test_emk_shipments as
     --%throws(-2290)
     procedure rejects_same_origin_and_destination;
 
-    --%test(D-81, spec §5.3 L14: a consignment note dated after the pickup is accepted (the CMR fixes no order))
-    procedure accepts_note_date_after_pickup;
+    --%test(D-81, spec §5.3 L14: a consignment note dated after the taking over is accepted (the CMR fixes no order))
+    procedure accepts_note_date_after_taking_over;
 
     --%test(D-78: a special interest in delivery needs its currency)
     --%throws(-2290)
@@ -49,7 +49,7 @@ create or replace package body test_emk_shipments as
 
     c_note_number constant emk_shipments.cmr_note_no%type := 'CMR-TEST-0001';
 
-    g_shipper   emk_parties.party_id%type;
+    g_sender    emk_parties.party_id%type;
     g_carrier   emk_parties.party_id%type;
     g_carrier2  emk_parties.party_id%type;
     g_consignee emk_parties.party_id%type;
@@ -62,16 +62,16 @@ create or replace package body test_emk_shipments as
         in_destination in varchar2 default 'FR'
     ) is
     begin
-        insert into emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place, origin_country,
-                                   delivery_place, destination_country, pickup_date, goods_description, gross_weight_kg, cmr_note_date)
-        values (in_note_number, g_shipper, in_carrier, g_consignee, 'Berlin', in_origin,
+        insert into emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place, origin_country,
+                                   delivery_place, destination_country, taking_over_date, goods_description, gross_weight_kg, cmr_note_date)
+        values (in_note_number, g_sender, in_carrier, g_consignee, 'Berlin', in_origin,
                 'Paris', in_destination, date '2026-09-10', 'Goods', 10, date '2026-09-10')
         returning shipment_id into g_shipment;
     end insert_shipment;
 
     procedure create_test_shipment is
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Shipper', 'DE', 'en') returning party_id into g_shipper;
+        insert into emk_parties (name, country_code, language_code) values ('Test Sender', 'DE', 'en') returning party_id into g_sender;
         insert into emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into g_carrier;
         insert into emk_parties (name, country_code, language_code) values ('Test Carrier 2', 'CZ', 'en') returning party_id into g_carrier2;
         insert into emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into g_consignee;
@@ -109,13 +109,13 @@ create or replace package body test_emk_shipments as
         insert_shipment('CMR-TEST-0003', g_carrier, in_origin => 'DE', in_destination => 'DE');
     end rejects_same_origin_and_destination;
 
-    procedure accepts_note_date_after_pickup is
+    procedure accepts_note_date_after_taking_over is
         l_count pls_integer;
     begin
-        update emk_shipments set cmr_note_date = pickup_date + 1 where shipment_id = g_shipment;
-        select count(*) into l_count from emk_shipments where shipment_id = g_shipment and cmr_note_date > pickup_date;
+        update emk_shipments set cmr_note_date = taking_over_date + 1 where shipment_id = g_shipment;
+        select count(*) into l_count from emk_shipments where shipment_id = g_shipment and cmr_note_date > taking_over_date;
         ut.expect(l_count).to_equal(1);
-    end accepts_note_date_after_pickup;
+    end accepts_note_date_after_taking_over;
 
     procedure rejects_special_interest_without_currency is
     begin

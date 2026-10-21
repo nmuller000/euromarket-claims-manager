@@ -165,16 +165,16 @@ create or replace package body test_emk_party_api as
     end version_of_party;
 
     function new_shipment (
-        in_shipper   in emk_data.emk_shipments.shipper_id%type,
+        in_sender    in emk_data.emk_shipments.sender_id%type,
         in_carrier   in emk_data.emk_shipments.carrier_id%type,
         in_consignee in emk_data.emk_shipments.consignee_id%type
     ) return emk_data.emk_shipments.shipment_id%type is
         l_id emk_data.emk_shipments.shipment_id%type;
     begin
-        insert into emk_data.emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place,
-                                            origin_country, delivery_place, destination_country, pickup_date,
+        insert into emk_data.emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place,
+                                            origin_country, delivery_place, destination_country, taking_over_date,
                                             goods_description, gross_weight_kg, cmr_note_date)
-        values ('CMR-TEST-PARTY-' || in_carrier, in_shipper, in_carrier, in_consignee, 'Berlin', 'DE', 'Paris', 'FR',
+        values ('CMR-TEST-PARTY-' || in_carrier, in_sender, in_carrier, in_consignee, 'Berlin', 'DE', 'Paris', 'FR',
                 date '2026-09-01', 'Goods', 10, date '2026-09-01')
         returning shipment_id into l_id;
         return l_id;
@@ -193,7 +193,7 @@ create or replace package body test_emk_party_api as
                                    in_postal_code   => '10115',
                                    in_city          => ' Berlin ',
                                    in_language_code => 'en',
-                                   in_role_codes    => 'SHIPPER',
+                                   in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
         select * into l_party from emk_data.emk_parties where party_id = l_id;
         ut.expect(l_party.name).to_equal('Test Spedition GmbH');
@@ -241,7 +241,7 @@ create or replace package body test_emk_party_api as
                                    in_postal_code   => null,
                                    in_city          => null,
                                    in_language_code => 'fr',
-                                   in_role_codes    => 'SHIPPER',
+                                   in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
     end rejects_unknown_language;
 
@@ -256,7 +256,7 @@ create or replace package body test_emk_party_api as
                                    in_postal_code   => null,
                                    in_city          => null,
                                    in_language_code => ' DE ',
-                                   in_role_codes    => 'SHIPPER',
+                                   in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
         select language_code into l_language from emk_data.emk_parties where party_id = l_id;
         ut.expect(l_language).to_equal('de');
@@ -272,19 +272,19 @@ create or replace package body test_emk_party_api as
                                    in_postal_code   => null,
                                    in_city          => null,
                                    in_language_code => '  ',
-                                   in_role_codes    => 'SHIPPER',
+                                   in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
     end rejects_missing_language;
 
     procedure creates_party_with_roles is
-        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null, 'consignee:SHIPPER');
+        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null, 'consignee:SENDER');
         l_roles varchar2(200 char);
     begin
         select listagg(role_code, ':') within group (order by role_code)
         into   l_roles
         from   emk_data.emk_party_roles
         where  party_id = l_id;
-        ut.expect(l_roles).to_equal('CONSIGNEE:SHIPPER');
+        ut.expect(l_roles).to_equal('CONSIGNEE:SENDER');
     end creates_party_with_roles;
 
     procedure rejects_party_without_roles is
@@ -390,12 +390,12 @@ create or replace package body test_emk_party_api as
     end rejects_update_of_deleted_party;
 
     procedure rejects_delete_of_party_in_use is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR');
         l_shipment  emk_data.emk_shipments.shipment_id%type;
     begin
-        l_shipment := new_shipment(l_shipper, l_carrier, l_consignee);
+        l_shipment := new_shipment(l_sender, l_carrier, l_consignee);
         emk_party_api.delete_party(l_carrier, version_of_party(l_carrier));
     end rejects_delete_of_party_in_use;
 
@@ -446,7 +446,7 @@ create or replace package body test_emk_party_api as
         select count(*) into l_count from emk_data.emk_party_roles where party_id = l_id and role_code = 'CARRIER';
         ut.expect(l_count).to_equal(1);
         ut.expect(emk_party_api.has_role(l_id, 'CARRIER')).to_be_true();
-        ut.expect(emk_party_api.has_role(l_id, 'SHIPPER')).to_be_false();
+        ut.expect(emk_party_api.has_role(l_id, 'SENDER')).to_be_false();
         emk_party_api.delete_party(l_id, version_of_party(l_id));
         ut.expect(emk_party_api.has_role(l_id, 'CARRIER')).to_be_false();
     end adds_role_once;
@@ -464,13 +464,13 @@ create or replace package body test_emk_party_api as
     end rejects_missing_role;
 
     procedure rejects_removal_of_role_in_use is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR');
         l_shipment  emk_data.emk_shipments.shipment_id%type;
     begin
         emk_party_api.add_role(l_carrier, 'CARRIER');
-        l_shipment := new_shipment(l_shipper, l_carrier, l_consignee);
+        l_shipment := new_shipment(l_sender, l_carrier, l_consignee);
         update emk_data.emk_shipments
         set    deleted_yn = 'Y', deleted_by = 'TEST', deleted_at = systimestamp
         where  shipment_id = l_shipment;
@@ -481,7 +481,7 @@ create or replace package body test_emk_party_api as
         l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE');
         l_roles varchar2(200 char);
     begin
-        emk_party_api.add_role(l_id, 'SHIPPER');
+        emk_party_api.add_role(l_id, 'SENDER');
         emk_party_api.set_roles(l_id, 'CARRIER:consignee:');
         select listagg(role_code, ':') within group (order by role_code)
         into   l_roles

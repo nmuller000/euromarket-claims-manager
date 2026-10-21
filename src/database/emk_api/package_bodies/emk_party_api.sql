@@ -471,7 +471,7 @@ create or replace package body emk_api.emk_party_api as
             emk_data.emk_shipments
         where
                 deleted_yn = 'N'
-            and in_party_id in ( shipper_id, carrier_id, consignee_id );
+            and in_party_id in ( sender_id, carrier_id, consignee_id );
 
         if l_count > 0 then
             raise_application_error(emk_errors_pkg.c_party_in_use, 'The company is used by '
@@ -573,8 +573,8 @@ create or replace package body emk_api.emk_party_api as
         from
             emk_data.emk_shipments
         where
-            ( l_role = emk_codes_pkg.c_role_shipper
-              and shipper_id = in_party_id )
+            ( l_role = emk_codes_pkg.c_role_sender
+              and sender_id = in_party_id )
             or ( l_role = emk_codes_pkg.c_role_carrier
                  and carrier_id = in_party_id )
             or ( l_role = emk_codes_pkg.c_role_consignee
@@ -795,4 +795,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"a0086749598bc76dd99704f891bc0de1105c5b57","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"ae7bc9f7e67ddbf68468e2ddbce130a7d21257f3","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

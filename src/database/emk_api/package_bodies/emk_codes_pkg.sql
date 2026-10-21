@@ -15,11 +15,11 @@ create or replace package body emk_api.emk_codes_pkg as
     begin
         return
             in_role_code is not null   -- FALSE, not NULL, for an empty code
-            and in_role_code in ( c_role_shipper, c_role_carrier, c_role_consignee );
+            and in_role_code in ( c_role_sender, c_role_carrier, c_role_consignee );
     end is_protected_role;
 
 end emk_codes_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"36d6cd0b692b8285b1bc026a95f7c1cb719e9844","type":"PACKAGE_BODY","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"a08fa28b8de49b9e42fd3b360c212d37d614d576","type":"PACKAGE_BODY","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}

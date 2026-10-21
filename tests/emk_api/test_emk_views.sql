@@ -22,7 +22,7 @@ create or replace package test_emk_views as
     --%test(BR-13: the views hide deleted companies, their contacts and deleted shipments)
     procedure hides_deleted_rows;
 
-    --%test(The roles of a company are one value in alphabetical order, e.g. CARRIER:SHIPPER)
+    --%test(The roles of a company are one value in alphabetical order, e.g. CARRIER:SENDER)
     procedure shows_roles_as_one_value;
 
     --%test(row_version read from a view is accepted by the API: no false "changed by another user")
@@ -68,7 +68,7 @@ create or replace package body test_emk_views as
 
     function new_shipment (
         in_note      in varchar2,
-        in_shipper   in emk_data.emk_shipments.shipper_id%type,
+        in_sender    in emk_data.emk_shipments.sender_id%type,
         in_carrier   in emk_data.emk_shipments.carrier_id%type,
         in_consignee in emk_data.emk_shipments.consignee_id%type
     ) return emk_data.emk_shipments.shipment_id%type is
@@ -76,15 +76,15 @@ create or replace package body test_emk_views as
     begin
         emk_shipment_api.create_shipment(in_cmr_note_no          => in_note,
                                          in_cmr_note_date        => date '2026-09-01',
-                                         in_shipper_id           => in_shipper,
+                                         in_sender_id            => in_sender,
                                          in_carrier_id           => in_carrier,
                                          in_consignee_id         => in_consignee,
-                                         in_pickup_place         => 'Berlin',
+                                         in_taking_over_place    => 'Berlin',
                                          in_origin_country       => 'DE',
                                          in_delivery_place       => 'Paris',
                                          in_destination_country  => 'FR',
-                                         in_pickup_date          => date '2026-09-01',
-                                         in_agreed_delivery_date => null,
+                                         in_taking_over_date     => date '2026-09-01',
+                                         in_agreed_time_limit => null,
                                          in_delivery_date        => null,
                                          in_disposal_date        => null,
                                          in_goods_description    => 'Test goods',
@@ -132,7 +132,7 @@ create or replace package body test_emk_views as
     end documents_every_view;
 
     procedure hides_deleted_rows is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_contact   emk_data.emk_contacts.contact_id%type;
@@ -142,7 +142,7 @@ create or replace package body test_emk_views as
         l_shipments pls_integer;
         l_roles     pls_integer;
     begin
-        l_shipment := new_shipment('CMR-TEST-VIEW-1', l_shipper, l_carrier, l_consignee);
+        l_shipment := new_shipment('CMR-TEST-VIEW-1', l_sender, l_carrier, l_consignee);
         emk_shipment_api.delete_shipment(l_shipment, shipment_version(l_shipment));
         emk_party_api.create_contact(l_consignee, 'Test Person', null, null, l_contact);
         emk_party_api.delete_party(l_consignee, party_version(l_consignee));
@@ -158,11 +158,11 @@ create or replace package body test_emk_views as
     end hides_deleted_rows;
 
     procedure shows_roles_as_one_value is
-        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'SHIPPER:CARRIER');
+        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'SENDER:CARRIER');
         l_roles emk_v_parties.roles%type;
     begin
         select roles into l_roles from emk_v_parties where party_id = l_id;
-        ut.expect(l_roles).to_equal('CARRIER:SHIPPER');
+        ut.expect(l_roles).to_equal('CARRIER:SENDER');
     end shows_roles_as_one_value;
 
     procedure round_trips_row_version is
@@ -196,13 +196,13 @@ create or replace package body test_emk_views as
     end lists_deleted_records;
 
     procedure shows_shipment_names is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_shipment  emk_data.emk_shipments.shipment_id%type;
         l_row       emk_v_shipments%rowtype;
     begin
-        l_shipment := new_shipment('CMR-TEST-VIEW-2', l_shipper, l_carrier, l_consignee);
+        l_shipment := new_shipment('CMR-TEST-VIEW-2', l_sender, l_carrier, l_consignee);
         select * into l_row from emk_v_shipments where shipment_id = l_shipment;
         ut.expect(l_row.carrier_name).to_equal('Test Carrier');
         ut.expect(l_row.origin_country_name).to_equal('Germany');
@@ -235,7 +235,7 @@ create or replace package body test_emk_views as
     end shows_party_history;
 
     procedure shows_shipment_and_contact_history is
-        l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE', 'SHIPPER');
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', 'SENDER');
         l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', 'CARRIER');
         l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', 'CONSIGNEE');
         l_shipment  emk_data.emk_shipments.shipment_id%type;
@@ -245,20 +245,20 @@ create or replace package body test_emk_views as
         l_action    emk_v_contact_history.action%type;
         l_version   varchar2(40 char);
     begin
-        l_shipment := new_shipment('CMR-TEST-VIEW-3', l_shipper, l_carrier, l_consignee);
+        l_shipment := new_shipment('CMR-TEST-VIEW-3', l_sender, l_carrier, l_consignee);
         emk_shipment_api.update_shipment(in_shipment_id          => l_shipment,
                                          in_expected_updated_at  => shipment_version(l_shipment),
                                          in_cmr_note_no          => 'CMR-TEST-VIEW-3',
                                          in_cmr_note_date        => date '2026-09-01',
-                                         in_shipper_id           => l_shipper,
+                                         in_sender_id            => l_sender,
                                          in_carrier_id           => l_carrier,
                                          in_consignee_id         => l_consignee,
-                                         in_pickup_place         => 'Berlin',
+                                         in_taking_over_place    => 'Berlin',
                                          in_origin_country       => 'DE',
                                          in_delivery_place       => 'Paris',
                                          in_destination_country  => 'FR',
-                                         in_pickup_date          => date '2026-09-01',
-                                         in_agreed_delivery_date => null,
+                                         in_taking_over_date     => date '2026-09-01',
+                                         in_agreed_time_limit => null,
                                          in_delivery_date        => null,
                                          in_disposal_date        => null,
                                          in_goods_description    => 'Changed goods',

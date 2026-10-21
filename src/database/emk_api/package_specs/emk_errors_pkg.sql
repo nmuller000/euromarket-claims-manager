@@ -63,10 +63,10 @@ create or replace package emk_api.emk_errors_pkg as
     c_shipment_in_use constant pls_integer := -20202;  -- shipment has active claims
     e_shipment_in_use exception;
     pragma exception_init ( e_shipment_in_use, -20202 );
-    c_cmr_not_applicable constant pls_integer := -20203;  -- BR-17, no CMR party on the pickup date
+    c_cmr_not_applicable constant pls_integer := -20203;  -- BR-17, no CMR party on the date of taking over
     e_cmr_not_applicable exception;
     pragma exception_init ( e_cmr_not_applicable, -20203 );
-    c_carrier_not_third_party constant pls_integer := -20204;  -- CMR Art. 1(1): the carrier is not the shipper or the consignee
+    c_carrier_not_third_party constant pls_integer := -20204;  -- CMR Art. 1(1): the carrier is not the sender or the consignee
     e_carrier_not_third_party exception;
     pragma exception_init ( e_carrier_not_third_party, -20204 );
 
@@ -95,4 +95,4 @@ end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"bf636de69e73cf2c9010f5f19c0177a5a73e981e","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"87d6a6c40a76d7e03a3e23f914516c30281fb981","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}

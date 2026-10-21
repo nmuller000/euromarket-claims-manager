@@ -1,5 +1,5 @@
 comment on table emk_data.emk_parties is
-    'Companies (shipper, consignee, carrier, …); soft delete; previous versions in EMK_PARTIES_JN';
+    'Companies (sender, consignee, carrier, …); soft delete; previous versions in EMK_PARTIES_JN';
 
 comment on column emk_data.emk_parties.city is
     'City';
@@ -26,4 +26,4 @@ comment on column emk_data.emk_parties.vat_number is
     'EU VAT number (VIES format, upper case, no spaces); unique including soft-deleted parties (restore instead of re-create, D-39)';
 
 
--- sqlcl_snapshot {"hash":"c8959b93d267417411246c5d2c9ff701dafb3628","type":"COMMENT","name":"emk_parties","schemaName":"emk_data","sxml":""}
+-- sqlcl_snapshot {"hash":"3cf2be18411cc97bb89c40bcef02839c7635d4fb","type":"COMMENT","name":"emk_parties","schemaName":"emk_data","sxml":""}

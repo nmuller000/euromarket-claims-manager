@@ -63,7 +63,7 @@ DECLARE
     l_count        PLS_INTEGER;
     l_text         VARCHAR2(4000 CHAR);
     l_version      VARCHAR2(40 CHAR);
-    l_shipper      NUMBER;
+    l_sender       NUMBER;
     l_carrier      NUMBER;
     l_consignee    NUMBER;
     l_contact      NUMBER;
@@ -123,7 +123,7 @@ BEGIN
                  'APEX session of application &emk_apex_app_id for ' || c_app_user);
 
     -- 3. Companies, contact and shipment through the APIs: the APEX user is recorded
-    l_shipper   := new_party('App Context Test Shipper', 'DE', 'SHIPPER');
+    l_sender    := new_party('App Context Test Sender', 'DE', 'SENDER');
     l_carrier   := new_party('App Context Test Carrier', 'PL', 'CARRIER');
     l_consignee := new_party('App Context Test Consignee', 'FR', 'CONSIGNEE');
     SELECT created_by INTO l_text FROM &emk_api_schema..emk_v_parties WHERE party_id = l_carrier;
@@ -143,9 +143,9 @@ BEGIN
     check_result(l_text = c_app_user, 'Contact history (journal) records the APEX user');
 
     &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-1', in_cmr_note_date => DATE '2026-09-01',
-        in_shipper_id => l_shipper, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
-        in_pickup_place => 'Berlin', in_origin_country => 'DE', in_delivery_place => 'Paris',
-        in_destination_country => 'FR', in_pickup_date => DATE '2026-09-01', in_agreed_delivery_date => NULL,
+        in_sender_id => l_sender, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
+        in_taking_over_place => 'Berlin', in_origin_country => 'DE', in_delivery_place => 'Paris',
+        in_destination_country => 'FR', in_taking_over_date => DATE '2026-09-01', in_agreed_time_limit => NULL,
         in_delivery_date => NULL, in_disposal_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
         in_gross_weight_kg => 100, in_carriage_charges => NULL, in_currency_code => NULL,
         in_declared_value => NULL, in_declared_value_currency => NULL, in_special_interest => NULL,
@@ -166,15 +166,15 @@ BEGIN
     -- 4. Business errors reach the caller with their code
     BEGIN
         &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-2', in_cmr_note_date => DATE '2026-09-01',
-            in_shipper_id => l_carrier, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
-            in_pickup_place => 'Warsaw', in_origin_country => 'PL', in_delivery_place => 'Paris',
-            in_destination_country => 'FR', in_pickup_date => DATE '2026-09-01', in_agreed_delivery_date => NULL,
+            in_sender_id => l_carrier, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
+            in_taking_over_place => 'Warsaw', in_origin_country => 'PL', in_delivery_place => 'Paris',
+            in_destination_country => 'FR', in_taking_over_date => DATE '2026-09-01', in_agreed_time_limit => NULL,
             in_delivery_date => NULL, in_disposal_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
             in_gross_weight_kg => 100, in_carriage_charges => NULL, in_currency_code => NULL,
         in_declared_value => NULL, in_declared_value_currency => NULL, in_special_interest => NULL,
         in_special_interest_currency => NULL,
             out_shipment_id => l_shipment);
-        check_result(FALSE, 'A carrier that is also the shipper was accepted');
+        check_result(FALSE, 'A carrier that is also the sender was accepted');
     EXCEPTION
         WHEN OTHERS THEN
             check_result(SQLCODE = c_carrier_not_third_party,
@@ -182,8 +182,8 @@ BEGIN
     END;
 
     BEGIN
-        &emk_api_schema..emk_party_api.update_party(l_shipper, SYSTIMESTAMP - INTERVAL '1' DAY,
-            'App Context Test Shipper 2', NULL, 'DE', NULL, NULL, NULL, 'en');
+        &emk_api_schema..emk_party_api.update_party(l_sender, SYSTIMESTAMP - INTERVAL '1' DAY,
+            'App Context Test Sender 2', NULL, 'DE', NULL, NULL, NULL, 'en');
         check_result(FALSE, 'An update with an old version was accepted');
     EXCEPTION
         WHEN OTHERS THEN
