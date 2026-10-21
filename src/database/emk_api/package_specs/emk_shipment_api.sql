@@ -19,6 +19,9 @@ create or replace package emk_api.emk_shipment_api as
      *     the currency is EUR or has an ECB rate (BR-12).
      *   - BR-03: a carrier never reuses a CMR note number, also of a deleted
      *     shipment (unique key of the table, translated here).
+     *   - The date of the consignment note is required (CMR Art. 6(1)(a),
+     *     D-79); the currencies of the declared value and of the special
+     *     interest in delivery follow the rule of the carriage charges (D-78).
      * Rejections by BR-16 and BR-17 are logged as WARN (ids only, no personal
      * data), so that refused entries of pages and imports can be analysed in
      * the technical log page (D-64).
@@ -36,6 +39,7 @@ create or replace package emk_api.emk_shipment_api as
      * Creates a shipment.
      *
      * @param  in_cmr_note_no          number of the CMR consignment note
+     * @param  in_cmr_note_date        date of the consignment note (CMR Art. 6(1)(a)), required; any order with the pickup date (spec §5.3 L14)
      * @param  in_shipper_id           company with the role SHIPPER
      * @param  in_carrier_id           company with the role CARRIER
      * @param  in_consignee_id         company with the role CONSIGNEE
@@ -46,37 +50,49 @@ create or replace package emk_api.emk_shipment_api as
      * @param  in_pickup_date          date of taking over the goods
      * @param  in_agreed_delivery_date agreed delivery date, if any (delay claims)
      * @param  in_delivery_date        actual delivery date, if known
+     * @param  in_disposal_date        date the goods were placed at the consignee's disposal (Art. 30(3)), if known
      * @param  in_goods_description    description of the goods
      * @param  in_packages             number of packages
      * @param  in_gross_weight_kg      gross weight in kg
      * @param  in_carriage_charges     carriage charges, with in_currency_code
      * @param  in_currency_code        ISO 4217 currency of the charges
+     * @param  in_declared_value       value declared in the consignment note (Art. 24), if any, with its currency
+     * @param  in_declared_value_currency currency of the declared value
+     * @param  in_special_interest     special interest in delivery (Art. 26), if any, with its currency
+     * @param  in_special_interest_currency currency of the special interest
      * @param  out_shipment_id         id of the new shipment
+     * @throws emk_errors_pkg.e_invalid_argument  no pickup date or no date of the consignment note
      * @throws emk_errors_pkg.e_carrier_not_third_party the carrier is also the shipper or the consignee
      * @throws emk_errors_pkg.e_party_role_missing  BR-16: a company is missing, deleted or lacks its role
      * @throws emk_errors_pkg.e_cmr_not_applicable  BR-17: no CMR party on the pickup date
-     * @throws emk_errors_pkg.e_reference_not_valid a country or the currency is not valid
-     *                                              on the pickup date, or the currency has no ECB rate
+     * @throws emk_errors_pkg.e_reference_not_valid a country or a currency is not valid
+     *                                              on the pickup date, or a currency has no ECB rate
      * @throws emk_errors_pkg.e_duplicate_cmr_note  BR-03: the carrier already used the note number
      */
     procedure create_shipment (
-        in_cmr_note_no          in emk_data.emk_shipments.cmr_note_no%type,
-        in_shipper_id           in emk_data.emk_shipments.shipper_id%type,
-        in_carrier_id           in emk_data.emk_shipments.carrier_id%type,
-        in_consignee_id         in emk_data.emk_shipments.consignee_id%type,
-        in_pickup_place         in emk_data.emk_shipments.pickup_place%type,
-        in_origin_country       in emk_data.emk_shipments.origin_country%type,
-        in_delivery_place       in emk_data.emk_shipments.delivery_place%type,
-        in_destination_country  in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date          in emk_data.emk_shipments.pickup_date%type,
-        in_agreed_delivery_date in emk_data.emk_shipments.agreed_delivery_date%type,
-        in_delivery_date        in emk_data.emk_shipments.delivery_date%type,
-        in_goods_description    in emk_data.emk_shipments.goods_description%type,
-        in_packages             in emk_data.emk_shipments.packages%type,
-        in_gross_weight_kg      in emk_data.emk_shipments.gross_weight_kg%type,
-        in_carriage_charges     in emk_data.emk_shipments.carriage_charges%type,
-        in_currency_code        in emk_data.emk_shipments.currency_code%type,
-        out_shipment_id         out emk_data.emk_shipments.shipment_id%type
+        in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
+        in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
+        in_shipper_id                in emk_data.emk_shipments.shipper_id%type,
+        in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
+        in_pickup_place              in emk_data.emk_shipments.pickup_place%type,
+        in_origin_country            in emk_data.emk_shipments.origin_country%type,
+        in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
+        in_destination_country       in emk_data.emk_shipments.destination_country%type,
+        in_pickup_date               in emk_data.emk_shipments.pickup_date%type,
+        in_agreed_delivery_date      in emk_data.emk_shipments.agreed_delivery_date%type,
+        in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
+        in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
+        in_goods_description         in emk_data.emk_shipments.goods_description%type,
+        in_packages                  in emk_data.emk_shipments.packages%type,
+        in_gross_weight_kg           in emk_data.emk_shipments.gross_weight_kg%type,
+        in_carriage_charges          in emk_data.emk_shipments.carriage_charges%type,
+        in_currency_code             in emk_data.emk_shipments.currency_code%type,
+        in_declared_value            in emk_data.emk_shipments.declared_value%type,
+        in_declared_value_currency   in emk_data.emk_shipments.declared_value_currency%type,
+        in_special_interest          in emk_data.emk_shipments.special_interest%type,
+        in_special_interest_currency in emk_data.emk_shipments.special_interest_currency%type,
+        out_shipment_id              out emk_data.emk_shipments.shipment_id%type
     );
 
     /**
@@ -92,24 +108,30 @@ create or replace package emk_api.emk_shipment_api as
      * @throws the errors of create_shipment
      */
     procedure update_shipment (
-        in_shipment_id          in emk_data.emk_shipments.shipment_id%type,
-        in_expected_updated_at  in emk_data.emk_shipments.updated_at%type,
-        in_cmr_note_no          in emk_data.emk_shipments.cmr_note_no%type,
-        in_shipper_id           in emk_data.emk_shipments.shipper_id%type,
-        in_carrier_id           in emk_data.emk_shipments.carrier_id%type,
-        in_consignee_id         in emk_data.emk_shipments.consignee_id%type,
-        in_pickup_place         in emk_data.emk_shipments.pickup_place%type,
-        in_origin_country       in emk_data.emk_shipments.origin_country%type,
-        in_delivery_place       in emk_data.emk_shipments.delivery_place%type,
-        in_destination_country  in emk_data.emk_shipments.destination_country%type,
-        in_pickup_date          in emk_data.emk_shipments.pickup_date%type,
-        in_agreed_delivery_date in emk_data.emk_shipments.agreed_delivery_date%type,
-        in_delivery_date        in emk_data.emk_shipments.delivery_date%type,
-        in_goods_description    in emk_data.emk_shipments.goods_description%type,
-        in_packages             in emk_data.emk_shipments.packages%type,
-        in_gross_weight_kg      in emk_data.emk_shipments.gross_weight_kg%type,
-        in_carriage_charges     in emk_data.emk_shipments.carriage_charges%type,
-        in_currency_code        in emk_data.emk_shipments.currency_code%type
+        in_shipment_id               in emk_data.emk_shipments.shipment_id%type,
+        in_expected_updated_at       in emk_data.emk_shipments.updated_at%type,
+        in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
+        in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
+        in_shipper_id                in emk_data.emk_shipments.shipper_id%type,
+        in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
+        in_pickup_place              in emk_data.emk_shipments.pickup_place%type,
+        in_origin_country            in emk_data.emk_shipments.origin_country%type,
+        in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
+        in_destination_country       in emk_data.emk_shipments.destination_country%type,
+        in_pickup_date               in emk_data.emk_shipments.pickup_date%type,
+        in_agreed_delivery_date      in emk_data.emk_shipments.agreed_delivery_date%type,
+        in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
+        in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
+        in_goods_description         in emk_data.emk_shipments.goods_description%type,
+        in_packages                  in emk_data.emk_shipments.packages%type,
+        in_gross_weight_kg           in emk_data.emk_shipments.gross_weight_kg%type,
+        in_carriage_charges          in emk_data.emk_shipments.carriage_charges%type,
+        in_currency_code             in emk_data.emk_shipments.currency_code%type,
+        in_declared_value            in emk_data.emk_shipments.declared_value%type,
+        in_declared_value_currency   in emk_data.emk_shipments.declared_value_currency%type,
+        in_special_interest          in emk_data.emk_shipments.special_interest%type,
+        in_special_interest_currency in emk_data.emk_shipments.special_interest_currency%type
     );
 
     /**
@@ -145,4 +167,4 @@ end emk_shipment_api;
 /
 
 
--- sqlcl_snapshot {"hash":"89757ed21232d043bd8019493444235cffea3171","type":"PACKAGE_SPEC","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"25c090af46ef5d282a2b2f91e33442de190e11a6","type":"PACKAGE_SPEC","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}

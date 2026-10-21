@@ -8,13 +8,13 @@ comment on column emk_data.emk_claim_status_history.created_by is
     'Who changed the status';
 
 comment on column emk_data.emk_claim_status_history.from_status is
-    'Previous status; NULL when the claim is created';
+    'Previous status (EMK_CLAIM_STATUSES); NULL when the claim is created';
 
 comment on column emk_data.emk_claim_status_history.reason is
     'Optional comment, e.g. reason for a rejection';
 
 comment on column emk_data.emk_claim_status_history.to_status is
-    'New status';
+    'New status (EMK_CLAIM_STATUSES)';
 
 
--- sqlcl_snapshot {"hash":"973a80d751df9960ddb0eccf25680f359d3dd0ec","type":"COMMENT","name":"emk_claim_status_history","schemaName":"emk_data","sxml":""}
+-- sqlcl_snapshot {"hash":"e468ad5c9c9b738f7b90037351b0d3912036a3e6","type":"COMMENT","name":"emk_claim_status_history","schemaName":"emk_data","sxml":""}

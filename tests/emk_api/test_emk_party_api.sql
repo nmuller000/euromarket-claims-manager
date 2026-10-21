@@ -3,7 +3,9 @@ create or replace package test_emk_party_api as
      * Unit tests of EMK_PARTY_API (M1a step 7.2, api-design.md §3): companies,
      * their roles (BR-16, T-M1-29) and contact persons; normalised values,
      * VAT rules, optimistic locking (D-43), soft delete and restore (BR-13,
-     * D-39, T-M1-08). Shipments that use a company are inserted directly with
+     * D-39, T-M1-08), code lists (D-68: a new language or role must be valid
+     * today), language and at least one role required (D-71). Shipments that
+     * use a company are inserted directly with
      * the grants of EMK_API; utPLSQL rolls everything back.
      *
      * @author Natalia Müller
@@ -34,6 +36,24 @@ create or replace package test_emk_party_api as
     --%test(An unknown country is rejected)
     --%throws(emk_errors_pkg.c_reference_not_valid)
     procedure rejects_unknown_country;
+
+    --%test(D-68: a language outside the language list is rejected)
+    --%throws(emk_errors_pkg.c_reference_not_valid)
+    procedure rejects_unknown_language;
+
+    --%test(D-68: a language given in upper case is stored in lower case)
+    procedure normalises_language_code;
+
+    --%test(D-71: a company without a language is rejected)
+    --%throws(emk_errors_pkg.c_invalid_argument)
+    procedure rejects_missing_language;
+
+    --%test(D-71: a company is created with its roles in one call)
+    procedure creates_party_with_roles;
+
+    --%test(D-71: a company without any role is rejected)
+    --%throws(emk_errors_pkg.c_party_role_required)
+    procedure rejects_party_without_roles;
 
     --%test(A VAT number used by another company is rejected)
     --%throws(emk_errors_pkg.c_duplicate_vat)
@@ -73,16 +93,28 @@ create or replace package test_emk_party_api as
     --%test(Adding a role twice keeps one row; has_role sees it only while the company is active)
     procedure adds_role_once;
 
-    --%test(An unknown role is rejected)
-    --%throws(emk_errors_pkg.c_invalid_argument)
+    --%test(D-68: a role outside the role list is rejected)
+    --%throws(emk_errors_pkg.c_reference_not_valid)
     procedure rejects_unknown_role;
+
+    --%test(A role is required)
+    --%throws(emk_errors_pkg.c_invalid_argument)
+    procedure rejects_missing_role;
 
     --%test(T-M1-29: a role used by a shipment, also a deleted one, cannot be removed)
     --%throws(emk_errors_pkg.c_party_role_in_use)
     procedure rejects_removal_of_role_in_use;
 
-    --%test(set_roles adds the missing roles and removes the others; an empty list removes all)
+    --%test(set_roles adds the missing roles and removes the others)
     procedure sets_complete_role_list;
+
+    --%test(D-71: set_roles with an empty list is rejected)
+    --%throws(emk_errors_pkg.c_party_role_required)
+    procedure rejects_empty_role_list;
+
+    --%test(D-71: the last role of a company cannot be removed)
+    --%throws(emk_errors_pkg.c_party_role_required)
+    procedure rejects_removal_of_last_role;
 
     --%endcontext
 
@@ -106,7 +138,8 @@ create or replace package body test_emk_party_api as
     function new_party (
         in_name    in varchar2,
         in_country in varchar2,
-        in_vat     in varchar2 default null
+        in_vat     in varchar2 default null,
+        in_roles   in varchar2 default 'FORWARDER'   -- a role that no rule of BR-16 uses
     ) return emk_data.emk_parties.party_id%type is
         l_id emk_data.emk_parties.party_id%type;
     begin
@@ -116,7 +149,8 @@ create or replace package body test_emk_party_api as
                                    in_street        => null,
                                    in_postal_code   => null,
                                    in_city          => null,
-                                   in_language_code => null,
+                                   in_language_code => 'en',
+                                   in_role_codes    => in_roles,
                                    out_party_id     => l_id);
         return l_id;
     end new_party;
@@ -139,9 +173,9 @@ create or replace package body test_emk_party_api as
     begin
         insert into emk_data.emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place,
                                             origin_country, delivery_place, destination_country, pickup_date,
-                                            goods_description, gross_weight_kg)
+                                            goods_description, gross_weight_kg, cmr_note_date)
         values ('CMR-TEST-PARTY-' || in_carrier, in_shipper, in_carrier, in_consignee, 'Berlin', 'DE', 'Paris', 'FR',
-                date '2026-09-01', 'Goods', 10)
+                date '2026-09-01', 'Goods', 10, date '2026-09-01')
         returning shipment_id into l_id;
         return l_id;
     end new_shipment;
@@ -158,7 +192,8 @@ create or replace package body test_emk_party_api as
                                    in_street        => ' Hauptstrasse 1 ',
                                    in_postal_code   => '10115',
                                    in_city          => ' Berlin ',
-                                   in_language_code => null,
+                                   in_language_code => 'en',
+                                   in_role_codes    => 'SHIPPER',
                                    out_party_id     => l_id);
         select * into l_party from emk_data.emk_parties where party_id = l_id;
         ut.expect(l_party.name).to_equal('Test Spedition GmbH');
@@ -195,6 +230,68 @@ create or replace package body test_emk_party_api as
     begin
         l_id := new_party('Test Company', 'ZZ');
     end rejects_unknown_country;
+
+    procedure rejects_unknown_language is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        emk_party_api.create_party(in_name          => 'Test SARL',
+                                   in_vat_number    => null,
+                                   in_country_code  => 'FR',
+                                   in_street        => null,
+                                   in_postal_code   => null,
+                                   in_city          => null,
+                                   in_language_code => 'fr',
+                                   in_role_codes    => 'SHIPPER',
+                                   out_party_id     => l_id);
+    end rejects_unknown_language;
+
+    procedure normalises_language_code is
+        l_id       emk_data.emk_parties.party_id%type;
+        l_language emk_data.emk_parties.language_code%type;
+    begin
+        emk_party_api.create_party(in_name          => 'Test GmbH',
+                                   in_vat_number    => null,
+                                   in_country_code  => 'AT',
+                                   in_street        => null,
+                                   in_postal_code   => null,
+                                   in_city          => null,
+                                   in_language_code => ' DE ',
+                                   in_role_codes    => 'SHIPPER',
+                                   out_party_id     => l_id);
+        select language_code into l_language from emk_data.emk_parties where party_id = l_id;
+        ut.expect(l_language).to_equal('de');
+    end normalises_language_code;
+
+    procedure rejects_missing_language is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        emk_party_api.create_party(in_name          => 'Test GmbH',
+                                   in_vat_number    => null,
+                                   in_country_code  => 'DE',
+                                   in_street        => null,
+                                   in_postal_code   => null,
+                                   in_city          => null,
+                                   in_language_code => '  ',
+                                   in_role_codes    => 'SHIPPER',
+                                   out_party_id     => l_id);
+    end rejects_missing_language;
+
+    procedure creates_party_with_roles is
+        l_id    emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null, 'consignee:SHIPPER');
+        l_roles varchar2(200 char);
+    begin
+        select listagg(role_code, ':') within group (order by role_code)
+        into   l_roles
+        from   emk_data.emk_party_roles
+        where  party_id = l_id;
+        ut.expect(l_roles).to_equal('CONSIGNEE:SHIPPER');
+    end creates_party_with_roles;
+
+    procedure rejects_party_without_roles is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party('Test Company', 'DE', null, null);
+    end rejects_party_without_roles;
 
     procedure rejects_duplicate_vat is
         l_id emk_data.emk_parties.party_id%type;
@@ -244,7 +341,7 @@ create or replace package body test_emk_party_api as
                                    in_street              => null,
                                    in_postal_code         => null,
                                    in_city                => null,
-                                   in_language_code       => null);
+                                   in_language_code       => ' EN ');
         select updated_at into l_updated_at from emk_data.emk_parties where party_id = l_id;
         select count(*) into l_journal from emk_data.emk_parties_jn where party_id = l_id;
         ut.expect(l_updated_at).to_be_null();
@@ -346,7 +443,7 @@ create or replace package body test_emk_party_api as
     begin
         emk_party_api.add_role(l_id, 'CARRIER');
         emk_party_api.add_role(l_id, ' carrier ');
-        select count(*) into l_count from emk_data.emk_party_roles where party_id = l_id;
+        select count(*) into l_count from emk_data.emk_party_roles where party_id = l_id and role_code = 'CARRIER';
         ut.expect(l_count).to_equal(1);
         ut.expect(emk_party_api.has_role(l_id, 'CARRIER')).to_be_true();
         ut.expect(emk_party_api.has_role(l_id, 'SHIPPER')).to_be_false();
@@ -359,6 +456,12 @@ create or replace package body test_emk_party_api as
     begin
         emk_party_api.add_role(l_id, 'DRIVER');
     end rejects_unknown_role;
+
+    procedure rejects_missing_role is
+        l_id emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE');
+    begin
+        emk_party_api.add_role(l_id, '  ');
+    end rejects_missing_role;
 
     procedure rejects_removal_of_role_in_use is
         l_shipper   emk_data.emk_parties.party_id%type := new_party('Test Shipper', 'DE');
@@ -385,13 +488,19 @@ create or replace package body test_emk_party_api as
         from   emk_data.emk_party_roles
         where  party_id = l_id;
         ut.expect(l_roles).to_equal('CARRIER:CONSIGNEE');
-        emk_party_api.set_roles(l_id, null);
-        select listagg(role_code, ':') within group (order by role_code)
-        into   l_roles
-        from   emk_data.emk_party_roles
-        where  party_id = l_id;
-        ut.expect(l_roles).to_be_null();
     end sets_complete_role_list;
+
+    procedure rejects_empty_role_list is
+        l_id emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE');
+    begin
+        emk_party_api.set_roles(l_id, ' : ');
+    end rejects_empty_role_list;
+
+    procedure rejects_removal_of_last_role is
+        l_id emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE');   -- only FORWARDER
+    begin
+        emk_party_api.remove_role(l_id, 'FORWARDER');
+    end rejects_removal_of_last_role;
 
     -- Contacts -------------------------------------------------------------------
 

@@ -63,13 +63,15 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_duplicate_vat then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_party_in_use, 'test');
         exception when emk_errors_pkg.e_party_in_use then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_role_required, 'test');
+        exception when emk_errors_pkg.e_party_role_required then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_shipment_in_use, 'test');
         exception when emk_errors_pkg.e_shipment_in_use then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_cmr_not_applicable, 'test');
         exception when emk_errors_pkg.e_cmr_not_applicable then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'test');
         exception when emk_errors_pkg.e_carrier_not_third_party then l_matched := l_matched + 1; end;
-        ut.expect(l_matched).to_equal(18);
+        ut.expect(l_matched).to_equal(19);
         -- Every constant of the package is checked above: a new code needs its line here
         select count(*)
         into   l_constants
@@ -87,15 +89,15 @@ create or replace package body test_emk_errors_pkg as
         l_claim     emk_data.emk_claims.claim_id%type;
         l_document  emk_data.emk_claim_documents.document_id%type;
     begin
-        insert into emk_data.emk_parties (name, country_code) values ('Test Shipper', 'DE') returning party_id into l_shipper;
-        insert into emk_data.emk_parties (name, country_code) values ('Test Carrier', 'PL') returning party_id into l_carrier;
-        insert into emk_data.emk_parties (name, country_code) values ('Test Consignee', 'FR') returning party_id into l_consignee;
+        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Shipper', 'DE', 'en') returning party_id into l_shipper;
+        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into l_carrier;
+        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into l_consignee;
 
         insert into emk_data.emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place,
                                             origin_country, delivery_place, destination_country, pickup_date,
-                                            goods_description, gross_weight_kg)
+                                            goods_description, gross_weight_kg, cmr_note_date)
         values ('CMR-TEST-ERRORS', l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
-                date '2026-09-01', 'Goods', 10)
+                date '2026-09-01', 'Goods', 10, date '2026-09-01')
         returning shipment_id into l_shipment;
 
         insert into emk_data.emk_claims (claim_no, shipment_id, claim_type, damage_apparent_yn, handler,

@@ -52,6 +52,9 @@ create or replace package emk_api.emk_errors_pkg as
     c_party_in_use constant pls_integer := -20105;  -- party has active shipments
     e_party_in_use exception;
     pragma exception_init ( e_party_in_use, -20105 );
+    c_party_role_required constant pls_integer := -20106;  -- a company needs at least one role (D-71)
+    e_party_role_required exception;
+    pragma exception_init ( e_party_role_required, -20106 );
 
     -- Shipments --------------------------------------------------------------
     c_duplicate_cmr_note constant pls_integer := -20201;  -- BR-03, CMR note number reused by a carrier
@@ -86,4 +89,4 @@ end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"745db0f965e186319eee593854669a528d57b0ad","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"7a76898977c9d52d40c14bee7b7cdfa73c506056","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}

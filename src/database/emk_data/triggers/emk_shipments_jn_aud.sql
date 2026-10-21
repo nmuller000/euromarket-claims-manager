@@ -40,6 +40,12 @@ begin
         gross_weight_kg,
         carriage_charges,
         currency_code,
+        cmr_note_date,
+        disposal_date,
+        declared_value,
+        declared_value_currency,
+        special_interest,
+        special_interest_currency,
         created_at,
         created_by,
         updated_at,
@@ -65,6 +71,12 @@ begin
                :old.gross_weight_kg,
                :old.carriage_charges,
                :old.currency_code,
+               :old.cmr_note_date,
+               :old.disposal_date,
+               :old.declared_value,
+               :old.declared_value_currency,
+               :old.special_interest,
+               :old.special_interest_currency,
                :old.created_at,
                :old.created_by,
                :old.updated_at,
@@ -79,4 +91,4 @@ end;
 alter trigger emk_data.emk_shipments_jn_aud enable;
 
 
--- sqlcl_snapshot {"hash":"a3b0354a71dbab77b83842179d37a942729ad553","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"8ef49b7e6fbb03c178d2d0a00396e9d21e6e19bb","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}

@@ -1,6 +1,7 @@
 create or replace force editionable view emk_api.emk_v_shipments (
     shipment_id,
     cmr_note_no,
+    cmr_note_date,
     shipper_id,
     shipper_name,
     carrier_id,
@@ -16,11 +17,16 @@ create or replace force editionable view emk_api.emk_v_shipments (
     pickup_date,
     agreed_delivery_date,
     delivery_date,
+    disposal_date,
     goods_description,
     packages,
     gross_weight_kg,
     carriage_charges,
     currency_code,
+    declared_value,
+    declared_value_currency,
+    special_interest,
+    special_interest_currency,
     created_at,
     created_by,
     updated_at,
@@ -40,34 +46,37 @@ create or replace force editionable view emk_api.emk_v_shipments (
      */
         s.shipment_id,
         s.cmr_note_no,
+        s.cmr_note_date,
         s.shipper_id,
-        sh.name as shipper_name,
+        sh.name                                                                         as shipper_name,
         s.carrier_id,
-        ca.name as carrier_name,
+        ca.name                                                                         as carrier_name,
         s.consignee_id,
-        co.name as consignee_name,
+        co.name                                                                         as consignee_name,
         s.pickup_place,
         s.origin_country,
-        o.name  as origin_country_name,
+        o.name                                                                          as origin_country_name,
         s.delivery_place,
         s.destination_country,
-        d.name  as destination_country_name,
+        d.name                                                                          as destination_country_name,
         s.pickup_date,
         s.agreed_delivery_date,
         s.delivery_date,
+        s.disposal_date,
         s.goods_description,
         s.packages,
         s.gross_weight_kg,
         s.carriage_charges,
         s.currency_code,
+        s.declared_value,
+        s.declared_value_currency,
+        s.special_interest,
+        s.special_interest_currency,
         s.created_at,
         s.created_by,
         s.updated_at,
         s.updated_by,
-        to_char(
-            nvl(s.updated_at, s.created_at),
-            'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM'
-        )       as row_version
+        emk_api.emk_row_version_pkg.format_row_version(nvl(s.updated_at, s.created_at)) as row_version
     from
              emk_data.emk_shipments s
         join emk_data.emk_parties   sh on sh.party_id = s.shipper_id
@@ -79,4 +88,4 @@ create or replace force editionable view emk_api.emk_v_shipments (
         s.deleted_yn = 'N';
 
 
--- sqlcl_snapshot {"hash":"a57700144941b3a624e36549d84ff5a5b01be099","type":"VIEW","name":"EMK_V_SHIPMENTS","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"e004e411dd96c741e28535ee2f79bb5a42d96fd6","type":"VIEW","name":"EMK_V_SHIPMENTS","schemaName":"EMK_API","sxml":""}

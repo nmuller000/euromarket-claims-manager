@@ -9,7 +9,9 @@
 --   2. the APIs work with the grants of EMK_UI only (EXECUTE, SELECT on views);
 --   3. audit columns and change history record the APEX user, not EMK_UI;
 --   4. business errors reach the caller with their code;
---   5. row_version read from a view is accepted back by the API.
+--   5. row_version read from a view is accepted back by the API;
+--   6. the lists of values read the code lists through their views (D-68)
+--      and a code list table is refused.
 -- EMK_UI owns no objects, so this is a script, not a utPLSQL package. Every
 -- change is rolled back at the end; no rule rejection that writes to the log
 -- is triggered (EMK_UI cannot delete log entries). Refuses PROD.
@@ -54,7 +56,6 @@ END;
 PROMPT === Application context: APEX session of application &emk_apex_app_id as &emk_ui_schema
 DECLARE
     c_app_user     CONSTANT VARCHAR2(30 CHAR) := 'APP_CONTEXT_TEST';
-    c_version_mask CONSTANT VARCHAR2(40 CHAR) := 'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM';
     -- Codes of EMK_ERRORS_PKG as literals: EMK_UI has no EXECUTE on that package
     c_carrier_not_third_party CONSTANT PLS_INTEGER := -20204;
     c_record_changed          CONSTANT PLS_INTEGER := -20004;
@@ -92,7 +93,7 @@ DECLARE
     BEGIN
         EXECUTE IMMEDIATE 'SELECT row_version FROM &emk_api_schema..' || in_view || ' WHERE ' || in_key || ' = :id'
             INTO l_row_version USING in_id;
-        RETURN TO_TIMESTAMP_TZ(l_row_version, c_version_mask);
+        RETURN &emk_api_schema..emk_row_version_pkg.parse_row_version(l_row_version);   -- as an APEX page does
     END version_of;
 
     FUNCTION new_party (in_name IN VARCHAR2, in_country IN VARCHAR2, in_roles IN VARCHAR2) RETURN NUMBER IS
@@ -100,8 +101,7 @@ DECLARE
     BEGIN
         &emk_api_schema..emk_party_api.create_party(in_name => in_name, in_vat_number => NULL,
             in_country_code => in_country, in_street => NULL, in_postal_code => NULL, in_city => NULL,
-            in_language_code => NULL, out_party_id => l_id);
-        &emk_api_schema..emk_party_api.set_roles(l_id, in_roles);
+            in_language_code => 'en', in_role_codes => in_roles, out_party_id => l_id);
         RETURN l_id;
     END new_party;
 BEGIN
@@ -112,6 +112,10 @@ BEGIN
                  'A direct INSERT into a table of &emk_data_schema is refused');
     check_result(is_refused('SELECT COUNT(*) FROM &emk_data_schema..emk_parties_jn'),
                  'A direct SELECT on a journal is refused (history only through the views)');
+    check_result(is_refused('SELECT COUNT(*) FROM &emk_data_schema..emk_party_role_types'),
+                 'A direct SELECT on a code list table is refused (lists only through the views)');
+    SELECT COUNT(*) INTO l_count FROM &emk_api_schema..emk_v_party_role_types WHERE valid_yn = 'Y';
+    check_result(l_count = 6, 'The list of values of roles offers the 6 roles valid today (' || l_count || ')');
 
     -- 2. APEX session, as after a login
     APEX_SESSION.CREATE_SESSION(p_app_id => &emk_apex_app_id, p_page_id => 1, p_username => c_app_user);
@@ -138,12 +142,14 @@ BEGIN
     SELECT MAX(changed_by) INTO l_text FROM &emk_api_schema..emk_v_contact_history WHERE contact_id = l_contact;
     check_result(l_text = c_app_user, 'Contact history (journal) records the APEX user');
 
-    &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-1',
+    &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-1', in_cmr_note_date => DATE '2026-09-01',
         in_shipper_id => l_shipper, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
         in_pickup_place => 'Berlin', in_origin_country => 'DE', in_delivery_place => 'Paris',
         in_destination_country => 'FR', in_pickup_date => DATE '2026-09-01', in_agreed_delivery_date => NULL,
-        in_delivery_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
+        in_delivery_date => NULL, in_disposal_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
         in_gross_weight_kg => 100, in_carriage_charges => NULL, in_currency_code => NULL,
+        in_declared_value => NULL, in_declared_value_currency => NULL, in_special_interest => NULL,
+        in_special_interest_currency => NULL,
         out_shipment_id => l_shipment);
     &emk_api_schema..emk_shipment_api.delete_shipment(l_shipment, version_of('emk_v_shipments', 'shipment_id', l_shipment));
     SELECT COUNT(*) INTO l_count FROM &emk_api_schema..emk_v_deleted_records
@@ -159,12 +165,14 @@ BEGIN
 
     -- 4. Business errors reach the caller with their code
     BEGIN
-        &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-2',
+        &emk_api_schema..emk_shipment_api.create_shipment(in_cmr_note_no => 'APP-CONTEXT-TEST-2', in_cmr_note_date => DATE '2026-09-01',
             in_shipper_id => l_carrier, in_carrier_id => l_carrier, in_consignee_id => l_consignee,
             in_pickup_place => 'Warsaw', in_origin_country => 'PL', in_delivery_place => 'Paris',
             in_destination_country => 'FR', in_pickup_date => DATE '2026-09-01', in_agreed_delivery_date => NULL,
-            in_delivery_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
+            in_delivery_date => NULL, in_disposal_date => NULL, in_goods_description => 'Test goods', in_packages => 1,
             in_gross_weight_kg => 100, in_carriage_charges => NULL, in_currency_code => NULL,
+        in_declared_value => NULL, in_declared_value_currency => NULL, in_special_interest => NULL,
+        in_special_interest_currency => NULL,
             out_shipment_id => l_shipment);
         check_result(FALSE, 'A carrier that is also the shipper was accepted');
     EXCEPTION

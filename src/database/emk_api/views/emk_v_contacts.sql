@@ -23,7 +23,7 @@ create or replace force editionable view emk_api.emk_v_contacts (
      */
         c.contact_id,
         c.party_id,
-        p.name as party_name,
+        p.name                                                                          as party_name,
         c.full_name,
         c.email,
         c.phone,
@@ -31,10 +31,7 @@ create or replace force editionable view emk_api.emk_v_contacts (
         c.created_by,
         c.updated_at,
         c.updated_by,
-        to_char(
-            nvl(c.updated_at, c.created_at),
-            'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM'
-        )      as row_version
+        emk_api.emk_row_version_pkg.format_row_version(nvl(c.updated_at, c.created_at)) as row_version
     from
              emk_data.emk_contacts c
         join emk_data.emk_parties p on p.party_id = c.party_id
@@ -43,4 +40,4 @@ create or replace force editionable view emk_api.emk_v_contacts (
         and p.deleted_yn = 'N';
 
 
--- sqlcl_snapshot {"hash":"b0a80f7d13cd576fde6234a2d4ab2f130a43f6e9","type":"VIEW","name":"EMK_V_CONTACTS","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"43e8bcd97736692dc4709090886d3c6762d46377","type":"VIEW","name":"EMK_V_CONTACTS","schemaName":"EMK_API","sxml":""}

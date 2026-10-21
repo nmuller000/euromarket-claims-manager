@@ -16,6 +16,11 @@ create or replace package emk_api.emk_party_api as
      *     raises c_record_locked instead of waiting.
      *   - Values are normalised before they are stored: names and places
      *     trimmed, VAT number upper case without spaces, phone without spaces.
+     *   - Code lists (D-68): a new language or role must exist in its
+     *     reference table and be valid today; a value the company already has
+     *     stays when it is retired later (valid_to).
+     *   - Every company has a language and at least one role (D-71): both are
+     *     given when it is created, and no call leaves it without a role.
      *   - Format rules within a row are check constraints of the tables; their
      *     errors reach the caller unchanged and the APEX error handling
      *     function turns them into messages (spec §1.3 Error handling).
@@ -32,7 +37,8 @@ create or replace package emk_api.emk_party_api as
     -- Parties ----------------------------------------------------------------
 
     /**
-     * Creates a company.
+     * Creates a company with its roles, in one call: a company never exists
+     * without a role (D-71).
      *
      * @param  in_name          company name (trimmed, required)
      * @param  in_vat_number    EU VAT number, VIES format; NULL if the company has none
@@ -40,9 +46,13 @@ create or replace package emk_api.emk_party_api as
      * @param  in_street        street and number
      * @param  in_postal_code   postal code
      * @param  in_city          city
-     * @param  in_language_code language of letters: en or de (NULL = en)
+     * @param  in_language_code language of letters, from EMK_LANGUAGES, valid today (required)
+     * @param  in_role_codes    roles separated by colons, e.g. SHIPPER:CARRIER (the value of an
+     *                          APEX checkbox item); at least one, each valid today
      * @param  out_party_id     id of the new company
-     * @throws emk_errors_pkg.e_reference_not_valid  unknown country or country not valid today
+     * @throws emk_errors_pkg.e_invalid_argument     no language given
+     * @throws emk_errors_pkg.e_party_role_required  no role given
+     * @throws emk_errors_pkg.e_reference_not_valid  unknown country, language or role, or not valid today
      * @throws emk_errors_pkg.e_vat_country_mismatch VAT prefix is not the country's EU VAT prefix
      *                                               (XI is also accepted for GB, Northern Ireland)
      * @throws emk_errors_pkg.e_duplicate_vat        VAT number already used; if by a deleted
@@ -56,15 +66,18 @@ create or replace package emk_api.emk_party_api as
         in_postal_code   in emk_data.emk_parties.postal_code%type,
         in_city          in emk_data.emk_parties.city%type,
         in_language_code in emk_data.emk_parties.language_code%type,
+        in_role_codes    in varchar2,
         out_party_id     out emk_data.emk_parties.party_id%type
     );
 
     /**
-     * Changes a company. Nothing is written if no value changed.
+     * Changes a company. Nothing is written if no value changed. Country and
+     * language are checked for validity only when they change: a company
+     * keeps a retired country or language (D-68).
      *
      * @param  in_party_id            company
      * @param  in_expected_updated_at version read by the caller (row_version)
-     * @param  in_name … in_language_code as in create_party
+     * @param  in_name … in_language_code as in create_party; roles are changed with set_roles
      * @throws emk_errors_pkg.e_not_found      company does not exist or is deleted
      * @throws emk_errors_pkg.e_record_changed changed by another user since it was read
      * @throws emk_errors_pkg.e_record_locked  locked by another transaction
@@ -89,6 +102,7 @@ create or replace package emk_api.emk_party_api as
      * @param  in_expected_updated_at version read by the caller (row_version)
      * @throws emk_errors_pkg.e_not_found      company does not exist or is already deleted
      * @throws emk_errors_pkg.e_party_in_use   an active shipment uses the company
+     * @throws emk_errors_pkg.e_record_locked  also when a shipment with the company is being saved (D-73)
      * @throws emk_errors_pkg.e_record_changed changed by another user since it was read
      * @throws emk_errors_pkg.e_record_locked  locked by another transaction
      */
@@ -113,12 +127,14 @@ create or replace package emk_api.emk_party_api as
     -- Roles (BR-16) ----------------------------------------------------------
 
     /**
-     * Gives a role to an active company. Does nothing if it already has it.
+     * Gives a role to an active company. Does nothing if it already has it,
+     * also when that role was retired since.
      *
      * @param  in_party_id  company
-     * @param  in_role_code SHIPPER, CONSIGNEE, CARRIER, FORWARDER, INSURER or SURVEYOR
-     * @throws emk_errors_pkg.e_not_found        company does not exist or is deleted
-     * @throws emk_errors_pkg.e_invalid_argument unknown role
+     * @param  in_role_code a role of EMK_PARTY_ROLE_TYPES valid today, e.g. CARRIER
+     * @throws emk_errors_pkg.e_not_found           company does not exist or is deleted
+     * @throws emk_errors_pkg.e_invalid_argument    no role given
+     * @throws emk_errors_pkg.e_reference_not_valid unknown role or role not valid today
      */
     procedure add_role (
         in_party_id  in emk_data.emk_party_roles.party_id%type,
@@ -133,6 +149,8 @@ create or replace package emk_api.emk_party_api as
      * @throws emk_errors_pkg.e_not_found         company does not exist or is deleted
      * @throws emk_errors_pkg.e_party_role_in_use a shipment (also a deleted one) uses the
      *                                            company in this role (BR-16)
+     * @throws emk_errors_pkg.e_party_role_required it is the last role of the company (D-71)
+     * @throws emk_errors_pkg.e_record_locked       a shipment that needs the role is being saved (D-73)
      */
     procedure remove_role (
         in_party_id  in emk_data.emk_party_roles.party_id%type,
@@ -141,18 +159,36 @@ create or replace package emk_api.emk_party_api as
 
     /**
      * Sets the complete list of roles of a company: adds the missing ones and
-     * removes the others, with the rules of add_role and remove_role. For a
+     * removes the others, with the rules of add_role and remove_role (a
+     * retired role the company has stays if it is in the list). For a
      * checkbox list of an APEX page, so that the page does not compute the
      * difference itself (business logic stays in the API).
      *
      * @param  in_party_id   company
      * @param  in_role_codes roles separated by colons, e.g. SHIPPER:CARRIER
-     *                       (the value of an APEX checkbox item); NULL = no role
+     *                       (the value of an APEX checkbox item); at least one
+     * @throws emk_errors_pkg.e_party_role_required the list is empty (D-71)
      * @throws the errors of add_role and remove_role
      */
     procedure set_roles (
         in_party_id   in emk_data.emk_party_roles.party_id%type,
         in_role_codes in varchar2
+    );
+
+    /**
+     * Locks the role row of a company until the end of the transaction, so
+     * that nobody removes the role or deletes the company while a shipment
+     * that needs it is being saved (BR-16, D-73). Waits up to 3 seconds for
+     * another user's change to finish. Does nothing if the company does not
+     * have the role: the caller's has_role check then rejects it.
+     *
+     * @param  in_party_id  company
+     * @param  in_role_code role
+     * @throws emk_errors_pkg.e_record_locked the role is still being changed after 3 seconds
+     */
+    procedure lock_role (
+        in_party_id  in emk_data.emk_party_roles.party_id%type,
+        in_role_code in emk_data.emk_party_roles.role_code%type
     );
 
     /**
@@ -236,4 +272,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"853f815a8781d1ebe0329e6292e75764818422db","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"82312614635ceeeb8fdab842dceded71d6690d92","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

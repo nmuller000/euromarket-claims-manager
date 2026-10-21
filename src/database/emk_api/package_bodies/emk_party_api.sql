@@ -9,45 +9,44 @@ create or replace package body emk_api.emk_party_api as
      * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 
-    e_resource_busy exception;          -- ORA-00054: row locked, NOWAIT
-    pragma exception_init ( e_resource_busy, -54 );
-    e_check_violation exception;        -- ORA-02290: check constraint violated
-    pragma exception_init ( e_check_violation, -2290 );
-    c_shipper   constant emk_data.emk_party_roles.role_code%type := 'SHIPPER';
-    c_carrier   constant emk_data.emk_party_roles.role_code%type := 'CARRIER';
-    c_consignee constant emk_data.emk_party_roles.role_code%type := 'CONSIGNEE';
-
     -- Private helpers -----------------------------------------------------------
 
-    -- The person behind the change, as in the audit defaults of the tables
-    function get_current_user return varchar2 is
+    -- Normalised language code; a company always has one (D-71)
+    function require_language (
+        in_language_code in varchar2
+    ) return varchar2 is
+        l_language varchar2(4000 char) := lower(trim(in_language_code));   -- any length: no ORA-06502
     begin
-        return coalesce(
-            sys_context('APEX$SESSION', 'APP_USER'),
-            sys_context('USERENV', 'PROXY_USER'),
-            sys_context('USERENV', 'SESSION_USER')
-        );
-    end get_current_user;
-
-    -- TRUE if two values differ; NULL and NULL count as equal. Never returns NULL:
-    -- a NULL here would turn the whole "nothing changed" condition into NULL
-    function is_changed (
-        in_old in varchar2,
-        in_new in varchar2
-    ) return boolean is
-    begin
-        if
-            in_old is null
-            and in_new is null
-        then
-            return false;
-        elsif in_old is null
-              or in_new is null then
-            return true;
-        else
-            return in_old <> in_new;
+        if l_language is null then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The language is required');
         end if;
-    end is_changed;
+        return l_language;
+    end require_language;
+
+    -- Roles of a colon-separated list (an APEX checkbox value), upper case, without empty entries;
+    -- at least one (D-71)
+    function split_roles (
+        in_role_codes in varchar2
+    ) return sys.odcivarchar2list is
+        l_roles sys.odcivarchar2list := sys.odcivarchar2list();
+    begin
+        for i in 1..nvl(
+            regexp_count(in_role_codes, '[^:]+'),
+            0
+        ) loop
+            if trim(regexp_substr(in_role_codes, '[^:]+', 1, i)) is not null then   -- a NULL would empty NOT IN
+                l_roles.extend;
+                l_roles(l_roles.count) := upper(trim(regexp_substr(in_role_codes, '[^:]+', 1, i)));
+
+            end if;
+        end loop;
+
+        if l_roles.count = 0 then
+            raise_application_error(emk_errors_pkg.c_party_role_required, 'A company needs at least one role');
+        end if;
+
+        return l_roles;
+    end split_roles;
 
     -- Upper case without spaces; NULL if nothing is left
     function normalise_vat (
@@ -57,22 +56,37 @@ create or replace package body emk_api.emk_party_api as
         return upper(replace(in_vat_number, ' '));
     end normalise_vat;
 
-    -- Country exists and is valid today; returns its EU VAT prefix (NULL outside the EU)
+    -- Country exists (and, if asked, is valid today); returns its EU VAT prefix (NULL outside the EU).
+    -- An update checks the validity only when the country changes: a company keeps a retired country (D-68)
     procedure check_country (
         in_country_code   in emk_data.emk_countries.country_code%type,
-        out_eu_vat_prefix out emk_data.emk_countries.eu_vat_prefix%type
+        out_eu_vat_prefix out emk_data.emk_countries.eu_vat_prefix%type,
+        in_require_valid  in boolean default true
     ) is
+        l_valid_from emk_data.emk_countries.valid_from%type;
+        l_valid_to   emk_data.emk_countries.valid_to%type;
     begin
         select
-            eu_vat_prefix
-        into out_eu_vat_prefix
+            eu_vat_prefix,
+            valid_from,
+            valid_to
+        into
+            out_eu_vat_prefix,
+            l_valid_from,
+            l_valid_to
         from
             emk_data.emk_countries
         where
-                country_code = in_country_code
-            and valid_from <= trunc(sysdate)
-            and ( valid_to is null
-                  or valid_to >= trunc(sysdate) );
+            country_code = in_country_code;
+
+        if
+            in_require_valid
+            and not emk_utilities_pkg.is_valid_on(l_valid_from,
+                                                  l_valid_to,
+                                                  trunc(sysdate))
+        then
+            raise no_data_found;   -- same message as an unknown country
+        end if;
 
     exception
         when no_data_found then
@@ -80,6 +94,68 @@ create or replace package body emk_api.emk_party_api as
                                                                           || in_country_code
                                                                           || ' is unknown or not valid today');
     end check_country;
+
+    -- Language exists and is valid today (code list, D-68)
+    procedure check_language (
+        in_language_code in emk_data.emk_languages.language_code%type
+    ) is
+        l_valid_from emk_data.emk_languages.valid_from%type;
+        l_valid_to   emk_data.emk_languages.valid_to%type;
+    begin
+        select
+            valid_from,
+            valid_to
+        into
+            l_valid_from,
+            l_valid_to
+        from
+            emk_data.emk_languages
+        where
+            language_code = in_language_code;
+
+        if not emk_utilities_pkg.is_valid_on(l_valid_from,
+                                             l_valid_to,
+                                             trunc(sysdate)) then
+            raise no_data_found;   -- same message as an unknown language
+        end if;
+
+    exception
+        when no_data_found then
+            raise_application_error(emk_errors_pkg.c_reference_not_valid, 'Language '
+                                                                          || in_language_code
+                                                                          || ' is unknown or not valid today');
+    end check_language;
+
+    -- Role exists and is valid today (code list, D-68)
+    procedure check_role_type (
+        in_role_code in emk_data.emk_party_role_types.role_code%type
+    ) is
+        l_valid_from emk_data.emk_party_role_types.valid_from%type;
+        l_valid_to   emk_data.emk_party_role_types.valid_to%type;
+    begin
+        select
+            valid_from,
+            valid_to
+        into
+            l_valid_from,
+            l_valid_to
+        from
+            emk_data.emk_party_role_types
+        where
+            role_code = in_role_code;
+
+        if not emk_utilities_pkg.is_valid_on(l_valid_from,
+                                             l_valid_to,
+                                             trunc(sysdate)) then
+            raise no_data_found;   -- same message as an unknown role
+        end if;
+
+    exception
+        when no_data_found then
+            raise_application_error(emk_errors_pkg.c_reference_not_valid, 'Role '
+                                                                          || in_role_code
+                                                                          || ' is unknown or not valid today');
+    end check_role_type;
 
     -- VAT prefix matches the country (XI also for GB); the number is not used by another party
     procedure check_vat (
@@ -97,15 +173,15 @@ create or replace package body emk_api.emk_party_api as
         -- NVL: outside the EU the prefix is NULL, and a comparison with NULL is never TRUE
         if not ( substr(in_vat_number, 1, 2) = nvl(in_eu_vat_prefix, '-')
         or (
-            in_country_code = 'GB'
-            and substr(in_vat_number, 1, 2) = 'XI'
+            in_country_code = emk_codes_pkg.c_country_gb
+            and substr(in_vat_number, 1, 2) = emk_codes_pkg.c_vat_prefix_northern_ireland
         ) ) then
             raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'The VAT number does not belong to country '
                                                                            || in_country_code
                                                                            ||
                 case
                     when in_eu_vat_prefix is null
-                         and in_country_code <> 'GB' then
+                         and in_country_code <> emk_codes_pkg.c_country_gb then
                         ' (EU VAT numbers only)'
                 end
             );
@@ -172,7 +248,7 @@ create or replace package body emk_api.emk_party_api as
             raise_application_error(emk_errors_pkg.c_not_found, 'Company '
                                                                 || in_party_id
                                                                 || ' does not exist');
-        when e_resource_busy then
+        when emk_utilities_pkg.e_resource_busy then
             raise_application_error(emk_errors_pkg.c_record_locked, 'The company is being changed by another user: try again');
     end lock_party;
 
@@ -218,7 +294,7 @@ create or replace package body emk_api.emk_party_api as
             raise_application_error(emk_errors_pkg.c_not_found, 'Contact '
                                                                 || in_contact_id
                                                                 || ' does not exist');
-        when e_resource_busy then
+        when emk_utilities_pkg.e_resource_busy then
             raise_application_error(emk_errors_pkg.c_record_locked, 'The contact is being changed by another user: try again');
     end lock_contact;
 
@@ -245,6 +321,31 @@ create or replace package body emk_api.emk_party_api as
 
     end check_party_active;
 
+    -- Locks the role rows of a company (one role, or all if in_role_code is NULL) without waiting:
+    -- a shipment being saved holds them (lock_role), so a removal or a delete answers "try again"
+    -- instead of passing its checks before that shipment is committed (D-73)
+    procedure lock_party_roles (
+        in_party_id  in emk_data.emk_party_roles.party_id%type,
+        in_role_code in varchar2
+    ) is
+    begin
+        for r in ( select
+                                  null
+                              from
+                                  emk_data.emk_party_roles
+                   where
+                           party_id = in_party_id
+                       and ( in_role_code is null
+                             or role_code = in_role_code )
+        for update nowait ) loop
+            null;
+        end loop;
+    exception
+        when emk_utilities_pkg.e_resource_busy then
+            raise_application_error(emk_errors_pkg.c_record_locked, 'A shipment with this company is being saved by another user: try again'
+            );
+    end lock_party_roles;
+
     -- Parties ----------------------------------------------------------------
 
     procedure create_party (
@@ -255,15 +356,19 @@ create or replace package body emk_api.emk_party_api as
         in_postal_code   in emk_data.emk_parties.postal_code%type,
         in_city          in emk_data.emk_parties.city%type,
         in_language_code in emk_data.emk_parties.language_code%type,
+        in_role_codes    in varchar2,
         out_party_id     out emk_data.emk_parties.party_id%type
     ) is
 
         l_country    emk_data.emk_parties.country_code%type := upper(trim(in_country_code));
         l_vat_number emk_data.emk_parties.vat_number%type := normalise_vat(in_vat_number);
+        l_language   varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
+        l_roles      sys.odcivarchar2list := split_roles(in_role_codes);
         l_vat_prefix emk_data.emk_countries.eu_vat_prefix%type;
     begin
         check_country(l_country, l_vat_prefix);
         check_vat(l_vat_number, l_country, l_vat_prefix, null);
+        check_language(l_language);
         insert into emk_data.emk_parties (
             name,
             vat_number,
@@ -278,7 +383,12 @@ create or replace package body emk_api.emk_party_api as
                    trim(in_street),
                    trim(in_postal_code),
                    trim(in_city),
-                   lower(trim(in_language_code)) ) returning party_id into out_party_id;
+                   l_language ) returning party_id into out_party_id;
+
+        for i in 1..l_roles.count loop
+            add_role(out_party_id,
+                     l_roles(i));   -- checks that each role is valid today
+        end loop;
 
     exception
         when dup_val_on_index then   -- another session used the VAT number in the meantime
@@ -300,26 +410,29 @@ create or replace package body emk_api.emk_party_api as
         l_party      emk_data.emk_parties%rowtype;
         l_country    emk_data.emk_parties.country_code%type := upper(trim(in_country_code));
         l_vat_number emk_data.emk_parties.vat_number%type := normalise_vat(in_vat_number);
-        l_language   emk_data.emk_parties.language_code%type := nvl(
-            lower(trim(in_language_code)),
-            'en'
-        );
+        l_language   varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
         l_vat_prefix emk_data.emk_countries.eu_vat_prefix%type;
     begin
         lock_party(in_party_id, in_expected_updated_at, true, l_party);
-        check_country(l_country, l_vat_prefix);
+        check_country(l_country,
+                      l_vat_prefix,
+                      emk_utilities_pkg.is_changed(l_party.country_code, l_country));
         check_vat(l_vat_number, l_country, l_vat_prefix, in_party_id);
-        if not ( is_changed(l_party.name,
-                            trim(in_name))
-        or is_changed(l_party.vat_number, l_vat_number)
-        or is_changed(l_party.country_code, l_country)
-        or is_changed(l_party.street,
-                      trim(in_street))
-        or is_changed(l_party.postal_code,
-                      trim(in_postal_code))
-        or is_changed(l_party.city,
-                      trim(in_city))
-        or is_changed(l_party.language_code, l_language) ) then
+        if emk_utilities_pkg.is_changed(l_party.language_code, l_language) then
+            check_language(l_language);   -- a company keeps a language that was retired
+        end if;
+
+        if not ( emk_utilities_pkg.is_changed(l_party.name,
+                                              trim(in_name))
+        or emk_utilities_pkg.is_changed(l_party.vat_number, l_vat_number)
+        or emk_utilities_pkg.is_changed(l_party.country_code, l_country)
+        or emk_utilities_pkg.is_changed(l_party.street,
+                                        trim(in_street))
+        or emk_utilities_pkg.is_changed(l_party.postal_code,
+                                        trim(in_postal_code))
+        or emk_utilities_pkg.is_changed(l_party.city,
+                                        trim(in_city))
+        or emk_utilities_pkg.is_changed(l_party.language_code, l_language) ) then
             return;   -- nothing changed: no update, no journal row
         end if;
 
@@ -347,9 +460,10 @@ create or replace package body emk_api.emk_party_api as
 
         l_party emk_data.emk_parties%rowtype;
         l_count pls_integer;
-        l_user  emk_data.emk_parties.deleted_by%type := get_current_user;
+        l_user  emk_data.emk_parties.deleted_by%type := emk_utilities_pkg.get_current_user;
     begin
         lock_party(in_party_id, in_expected_updated_at, true, l_party);
+        lock_party_roles(in_party_id, null);   -- D-73: no shipment with this company is being saved
         select
             count(*)
         into l_count
@@ -409,37 +523,33 @@ create or replace package body emk_api.emk_party_api as
         in_party_id  in emk_data.emk_party_roles.party_id%type,
         in_role_code in emk_data.emk_party_roles.role_code%type
     ) is
-        l_role emk_data.emk_party_roles.role_code%type := upper(trim(in_role_code));
+        l_role  varchar2(4000 char) := upper(trim(in_role_code));   -- any length: an unknown role is a business error
+        l_count pls_integer;
     begin
         if l_role is null then
             raise_application_error(emk_errors_pkg.c_invalid_argument, 'A role is required');
         end if;
         check_party_active(in_party_id);
+        select
+            count(*)
+        into l_count
+        from
+            emk_data.emk_party_roles
+        where
+                party_id = in_party_id
+            and role_code = l_role;
+
+        if l_count > 0 then
+            return;   -- the company has the role already, also one that was retired since (D-68)
+        end if;
+        check_role_type(l_role);
         insert into emk_data.emk_party_roles (
             party_id,
             role_code
-        )
-            select
-                in_party_id,
-                l_role
-            from
-                dual
-            where
-                not exists (
-                    select
-                        null
-                    from
-                        emk_data.emk_party_roles
-                    where
-                            party_id = in_party_id
-                        and role_code = l_role
-                );
+        ) values ( in_party_id,
+                   l_role );
 
     exception
-        when e_check_violation then
-            raise_application_error(emk_errors_pkg.c_invalid_argument,
-                                    'Unknown role: '
-                                    || substr(in_role_code, 1, 20));
         when dup_val_on_index then
             null;   -- added by another session in the meantime: the result is the same
     end add_role;
@@ -449,10 +559,12 @@ create or replace package body emk_api.emk_party_api as
         in_role_code in emk_data.emk_party_roles.role_code%type
     ) is
 
-        l_role  emk_data.emk_party_roles.role_code%type := upper(trim(in_role_code));
-        l_count pls_integer;
+        l_role     varchar2(4000 char) := upper(trim(in_role_code));   -- any length: compared only
+        l_count    pls_integer;
+        l_has_role pls_integer;
     begin
         check_party_active(in_party_id);
+        lock_party_roles(in_party_id, l_role);   -- D-73: no shipment that needs the role is being saved
 
         -- Every shipment counts, also a deleted one: it keeps referring to the party in that role
         select
@@ -461,11 +573,11 @@ create or replace package body emk_api.emk_party_api as
         from
             emk_data.emk_shipments
         where
-            ( l_role = c_shipper
+            ( l_role = emk_codes_pkg.c_role_shipper
               and shipper_id = in_party_id )
-            or ( l_role = c_carrier
+            or ( l_role = emk_codes_pkg.c_role_carrier
                  and carrier_id = in_party_id )
-            or ( l_role = c_consignee
+            or ( l_role = emk_codes_pkg.c_role_consignee
                  and consignee_id = in_party_id );
 
         if l_count > 0 then
@@ -474,6 +586,33 @@ create or replace package body emk_api.emk_party_api as
                                                                         || ' is used by '
                                                                         || l_count
                                                                         || ' shipment(s)');
+        end if;
+
+        -- D-71: a company keeps at least one role
+        select
+            count(*),
+            count(
+                case
+                    when role_code = l_role then
+                        1
+                end
+            )
+        into
+            l_count,
+            l_has_role
+        from
+            emk_data.emk_party_roles
+        where
+            party_id = in_party_id;
+
+        if
+            l_has_role > 0
+            and l_count = 1
+        then
+            raise_application_error(emk_errors_pkg.c_party_role_required, 'Role '
+                                                                          || l_role
+                                                                          || ' is the last role of the company: a company needs at least one role'
+                                                                          );
         end if;
 
         delete from emk_data.emk_party_roles
@@ -487,23 +626,17 @@ create or replace package body emk_api.emk_party_api as
         in_party_id   in emk_data.emk_party_roles.party_id%type,
         in_role_codes in varchar2
     ) is
-        l_roles sys.odcivarchar2list := sys.odcivarchar2list();
+        l_roles sys.odcivarchar2list := split_roles(in_role_codes);
     begin
         check_party_active(in_party_id);
 
-        -- Requested roles without empty entries (NULL or '' = no role)
-        for i in 1..nvl(
-            regexp_count(in_role_codes, '[^:]+'),
-            0
-        ) loop
-            if trim(regexp_substr(in_role_codes, '[^:]+', 1, i)) is not null then   -- a NULL would empty NOT IN
-                l_roles.extend;
-                l_roles(l_roles.count) := upper(trim(regexp_substr(in_role_codes, '[^:]+', 1, i)));
-
-            end if;
+        -- Add first, so that the company never passes through "no role" (D-71); an error undoes
+        -- the whole call (statement-level rollback)
+        for i in 1..l_roles.count loop
+            add_role(in_party_id,
+                     l_roles(i));   -- does nothing for a role the company already has
         end loop;
 
-        -- Remove first, so that a refused removal stops before anything is added
         for r in (
             select
                 role_code
@@ -521,12 +654,30 @@ create or replace package body emk_api.emk_party_api as
             remove_role(in_party_id, r.role_code);
         end loop;
 
-        for i in 1..l_roles.count loop
-            add_role(in_party_id,
-                     l_roles(i));   -- does nothing for a role the company already has
-        end loop;
-
     end set_roles;
+
+    procedure lock_role (
+        in_party_id  in emk_data.emk_party_roles.party_id%type,
+        in_role_code in emk_data.emk_party_roles.role_code%type
+    ) is
+        l_found pls_integer;
+    begin
+        select
+            1
+        into l_found
+        from
+            emk_data.emk_party_roles
+        where
+                party_id = in_party_id
+            and role_code = upper(trim(in_role_code))
+        for update wait 3;
+
+    exception
+        when no_data_found then
+            null;   -- no such role: has_role rejects it
+        when emk_utilities_pkg.e_resource_busy or emk_utilities_pkg.e_lock_timeout then
+            raise_application_error(emk_errors_pkg.c_record_locked, 'The company is being changed by another user: try again');
+    end lock_role;
 
     function has_role (
         in_party_id  in emk_data.emk_party_roles.party_id%type,
@@ -581,12 +732,12 @@ create or replace package body emk_api.emk_party_api as
         l_contact emk_data.emk_contacts%rowtype;
     begin
         lock_contact(in_contact_id, in_expected_updated_at, true, l_contact);
-        if not ( is_changed(l_contact.full_name,
-                            trim(in_full_name))
-        or is_changed(l_contact.email,
-                      trim(in_email))
-        or is_changed(l_contact.phone,
-                      replace(in_phone, ' ')) ) then
+        if not ( emk_utilities_pkg.is_changed(l_contact.full_name,
+                                              trim(in_full_name))
+        or emk_utilities_pkg.is_changed(l_contact.email,
+                                        trim(in_email))
+        or emk_utilities_pkg.is_changed(l_contact.phone,
+                                        replace(in_phone, ' ')) ) then
             return;   -- nothing changed: no update, no journal row
         end if;
 
@@ -604,8 +755,9 @@ create or replace package body emk_api.emk_party_api as
         in_contact_id          in emk_data.emk_contacts.contact_id%type,
         in_expected_updated_at in emk_data.emk_contacts.updated_at%type
     ) is
+
         l_contact emk_data.emk_contacts%rowtype;
-        l_user    emk_data.emk_contacts.deleted_by%type := get_current_user;   -- a private function cannot be called in SQL
+        l_user    emk_data.emk_contacts.deleted_by%type := emk_utilities_pkg.get_current_user;   -- read once, before the statement
     begin
         lock_contact(in_contact_id, in_expected_updated_at, true, l_contact);
         update emk_data.emk_contacts
@@ -643,4 +795,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"98c7acf4bece89575bf3b72c8c88091eb7e472f9","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"a0086749598bc76dd99704f891bc0de1105c5b57","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

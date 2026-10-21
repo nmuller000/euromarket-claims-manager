@@ -4,8 +4,8 @@ create or replace package test_emk_views as
      * the views EMK_V_* hide soft-deleted rows (BR-13), show the roles of a
      * company as one value, deliver row_version so that the APIs accept it
      * back, list deleted records for the restore page, show the change
-     * history with the action of each change (D-67), and carry their own
-     * documentation header (spec §1.3).
+     * history with the action of each change (D-67), offer the code lists
+     * valid today (D-68), and carry their own documentation header (spec §1.3).
      *
      * @author Natalia Müller
      * @since  2026-10-17
@@ -39,12 +39,13 @@ create or replace package test_emk_views as
 
     --%test(FR-09: the shipment and contact histories show a change with the previous value)
     procedure shows_shipment_and_contact_history;
+
+    --%test(D-68: the code list views offer the values valid today: 2 languages, 6 roles, 7 statuses (4 open), 4 claim types, 6 document types)
+    procedure offers_valid_code_list_values;
 end test_emk_views;
 /
 
 create or replace package body test_emk_views as
-
-    c_version_mask constant varchar2(40 char) := 'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM';
 
     function new_party (
         in_name    in varchar2,
@@ -59,9 +60,9 @@ create or replace package body test_emk_views as
                                    in_street        => null,
                                    in_postal_code   => null,
                                    in_city          => null,
-                                   in_language_code => null,
+                                   in_language_code => 'en',
+                                   in_role_codes    => in_roles,
                                    out_party_id     => l_id);
-        emk_party_api.set_roles(l_id, in_roles);
         return l_id;
     end new_party;
 
@@ -74,6 +75,7 @@ create or replace package body test_emk_views as
         l_id emk_data.emk_shipments.shipment_id%type;
     begin
         emk_shipment_api.create_shipment(in_cmr_note_no          => in_note,
+                                         in_cmr_note_date        => date '2026-09-01',
                                          in_shipper_id           => in_shipper,
                                          in_carrier_id           => in_carrier,
                                          in_consignee_id         => in_consignee,
@@ -84,11 +86,16 @@ create or replace package body test_emk_views as
                                          in_pickup_date          => date '2026-09-01',
                                          in_agreed_delivery_date => null,
                                          in_delivery_date        => null,
+                                         in_disposal_date        => null,
                                          in_goods_description    => 'Test goods',
                                          in_packages             => 1,
                                          in_gross_weight_kg      => 100,
                                          in_carriage_charges     => null,
                                          in_currency_code        => null,
+                                         in_declared_value       => null,
+                                         in_declared_value_currency => null,
+                                         in_special_interest     => null,
+                                         in_special_interest_currency => null,
                                          out_shipment_id         => l_id);
         return l_id;
     end new_shipment;
@@ -99,7 +106,7 @@ create or replace package body test_emk_views as
         l_version varchar2(40 char);
     begin
         select row_version into l_version from emk_v_parties where party_id = in_party_id;
-        return to_timestamp_tz(l_version, c_version_mask);
+        return emk_row_version_pkg.parse_row_version(l_version);
     end party_version;
 
     function shipment_version (
@@ -108,7 +115,7 @@ create or replace package body test_emk_views as
         l_version varchar2(40 char);
     begin
         select row_version into l_version from emk_v_shipments where shipment_id = in_shipment_id;
-        return to_timestamp_tz(l_version, c_version_mask);
+        return emk_row_version_pkg.parse_row_version(l_version);
     end shipment_version;
 
     procedure documents_every_view is
@@ -120,7 +127,7 @@ create or replace package body test_emk_views as
         into   l_views, l_undocumented
         from   user_views
         where  view_name like 'EMK\_V\_%' escape '\';
-        ut.expect(l_views).to_equal(11);
+        ut.expect(l_views).to_equal(16);
         ut.expect(l_undocumented).to_equal(0);
     end documents_every_view;
 
@@ -159,7 +166,7 @@ create or replace package body test_emk_views as
     end shows_roles_as_one_value;
 
     procedure round_trips_row_version is
-        l_id   emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_id   emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'FORWARDER');
         l_name emk_data.emk_parties.name%type;
     begin
         -- Twice: after the update the version comes from updated_at, before from created_at
@@ -170,7 +177,7 @@ create or replace package body test_emk_views as
     end round_trips_row_version;
 
     procedure lists_deleted_records is
-        l_party       emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_party       emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'FORWARDER');
         l_contact     emk_data.emk_contacts.contact_id%type;
         l_entity      emk_v_deleted_records.entity%type;
         l_restorable  emk_v_deleted_records.restorable_yn%type;
@@ -203,7 +210,7 @@ create or replace package body test_emk_views as
     end shows_shipment_names;
 
     procedure shows_party_history is
-        l_id      emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', null);
+        l_id      emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'FORWARDER');
         l_actions varchar2(200 char);
         l_first   emk_v_party_history.previous_name%type;
         l_by      emk_v_party_history.changed_by%type;
@@ -239,19 +246,57 @@ create or replace package body test_emk_views as
         l_version   varchar2(40 char);
     begin
         l_shipment := new_shipment('CMR-TEST-VIEW-3', l_shipper, l_carrier, l_consignee);
-        emk_shipment_api.update_shipment(l_shipment, shipment_version(l_shipment), 'CMR-TEST-VIEW-3',
-                                         l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
-                                         date '2026-09-01', null, null, 'Changed goods', 1, 100, null, null);
+        emk_shipment_api.update_shipment(in_shipment_id          => l_shipment,
+                                         in_expected_updated_at  => shipment_version(l_shipment),
+                                         in_cmr_note_no          => 'CMR-TEST-VIEW-3',
+                                         in_cmr_note_date        => date '2026-09-01',
+                                         in_shipper_id           => l_shipper,
+                                         in_carrier_id           => l_carrier,
+                                         in_consignee_id         => l_consignee,
+                                         in_pickup_place         => 'Berlin',
+                                         in_origin_country       => 'DE',
+                                         in_delivery_place       => 'Paris',
+                                         in_destination_country  => 'FR',
+                                         in_pickup_date          => date '2026-09-01',
+                                         in_agreed_delivery_date => null,
+                                         in_delivery_date        => null,
+                                         in_disposal_date        => null,
+                                         in_goods_description    => 'Changed goods',
+                                         in_packages             => 1,
+                                         in_gross_weight_kg      => 100,
+                                         in_carriage_charges     => null,
+                                         in_currency_code        => null,
+                                         in_declared_value       => null,
+                                         in_declared_value_currency => null,
+                                         in_special_interest     => null,
+                                         in_special_interest_currency => null);
         select previous_goods_description into l_goods from emk_v_shipment_history where shipment_id = l_shipment;
         ut.expect(l_goods).to_equal('Test goods');
 
         emk_party_api.create_contact(l_consignee, 'Test Person', 'old@example.com', null, l_contact);
         select row_version into l_version from emk_v_contacts where contact_id = l_contact;
-        emk_party_api.update_contact(l_contact, to_timestamp_tz(l_version, c_version_mask), 'Test Person', 'new@example.com', null);
+        emk_party_api.update_contact(l_contact, emk_row_version_pkg.parse_row_version(l_version), 'Test Person', 'new@example.com', null);
         select previous_email, action into l_email, l_action from emk_v_contact_history where contact_id = l_contact;
         ut.expect(l_email).to_equal('old@example.com');
         ut.expect(l_action).to_equal('UPDATED');
     end shows_shipment_and_contact_history;
+
+    procedure offers_valid_code_list_values is
+        l_count pls_integer;
+    begin
+        select count(*) into l_count from emk_v_languages where valid_yn = 'Y';
+        ut.expect(l_count, 'languages').to_equal(2);
+        select count(*) into l_count from emk_v_party_role_types where valid_yn = 'Y';
+        ut.expect(l_count, 'roles').to_equal(6);
+        select count(*) into l_count from emk_v_claim_statuses where valid_yn = 'Y';
+        ut.expect(l_count, 'claim statuses').to_equal(7);
+        select count(*) into l_count from emk_v_claim_statuses where valid_yn = 'Y' and final_yn = 'N';
+        ut.expect(l_count, 'open claim statuses').to_equal(4);
+        select count(*) into l_count from emk_v_claim_types where valid_yn = 'Y';
+        ut.expect(l_count, 'claim types').to_equal(4);
+        select count(*) into l_count from emk_v_document_types where valid_yn = 'Y';
+        ut.expect(l_count, 'document types').to_equal(6);
+    end offers_valid_code_list_values;
 
 end test_emk_views;
 /

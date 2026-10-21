@@ -5,11 +5,14 @@
 -- Sources: UN Treaty Collection (CMR deposits, Art. 43 rule), EU authority
 -- table Countries and territories (name), ISO 3166-1 (iso_name), EU and EEA
 -- membership.
--- Idempotent MERGE: inserts missing rows, updates only rows whose values
--- changed (no needless updated_* changes), never deletes (a reference row is
--- closed with valid_to). Schema-qualified (ADR-008): runs in a session of
--- EMK_DATA or of the deployment account. Loaded by load_reference_data.sql;
--- added to the first release with `project stage add-custom` and runOnChange
+-- Insert-only MERGE (D-72): inserts the rows that are missing and never
+-- changes or deletes an existing row, so that running it again (DEV, a
+-- release) never overwrites production data. A change to an existing row
+-- is a separate change script, run once, that cites the authorized change
+-- request (ITIL change enablement; Liquibase: roll forward).
+-- Schema-qualified (ADR-008): runs in a session of EMK_DATA or of the
+-- deployment account. Loaded by load_reference_data.sql;
+-- added to the first release with `project stage add-custom`, run once
 -- (M1 plan, open point 6; first release in M5).
 --
 -- Author: Natalia Müller
@@ -81,16 +84,6 @@ USING (VALUES
         ('UZ', 'Uzbekistan', 'Uzbekistan', NULL, 'N', 'N', DATE '1995-12-27')
       ) s (country_code, name, iso_name, eu_vat_prefix, eu_member_yn, eea_member_yn, cmr_party_since)
 ON (t.country_code = s.country_code)
-WHEN MATCHED THEN UPDATE SET
-    t.name            = s.name,
-    t.iso_name        = s.iso_name,
-    t.eu_vat_prefix   = s.eu_vat_prefix,
-    t.eu_member_yn    = s.eu_member_yn,
-    t.eea_member_yn   = s.eea_member_yn,
-    t.cmr_party_since = s.cmr_party_since
-  WHERE DECODE(t.name, s.name, 0, 1) + DECODE(t.iso_name, s.iso_name, 0, 1)
-      + DECODE(t.eu_vat_prefix, s.eu_vat_prefix, 0, 1) + DECODE(t.eu_member_yn, s.eu_member_yn, 0, 1)
-      + DECODE(t.eea_member_yn, s.eea_member_yn, 0, 1) + DECODE(t.cmr_party_since, s.cmr_party_since, 0, 1) > 0
 WHEN NOT MATCHED THEN INSERT
     (country_code, name, iso_name, eu_vat_prefix, eu_member_yn, eea_member_yn, cmr_party_since)
 VALUES

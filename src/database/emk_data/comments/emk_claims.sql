@@ -12,7 +12,7 @@ comment on column emk_data.emk_claims.claim_no is
     'Business number CLM-YYYY-NNNNNN (EMK_CLAIM_NO_SEQ)';
 
 comment on column emk_data.emk_claims.claim_type is
-    'TOTAL_LOSS, PARTIAL_LOSS, DAMAGE or DELAY (different limitation rules)';
+    'Claim type (EMK_CLAIM_TYPES); different limitation rules';
 
 comment on column emk_data.emk_claims.currency_code is
     'Currency of the amounts (ISO 4217; ECB rate on registration_date, BR-12)';
@@ -39,7 +39,7 @@ comment on column emk_data.emk_claims.settled_amount is
     'Amount agreed; requires and does not exceed claimed_amount (BR-11)';
 
 comment on column emk_data.emk_claims.status is
-    'DRAFT, SUBMITTED, UNDER_REVIEW, NEGOTIATION, RESOLVED, REJECTED or ESCALATED (state machine, spec §4)';
+    'Status (EMK_CLAIM_STATUSES); changed only through the transitions of EMK_CLAIM_API (spec §4)';
 
 comment on column emk_data.emk_claims.weight_short_kg is
     'Gross weight lost or damaged in kg (liability cap, M4)';
@@ -48,4 +48,4 @@ comment on column emk_data.emk_claims.written_claim_date is
     'Written claim; suspends the limitation period (CMR Art. 32(2))';
 
 
--- sqlcl_snapshot {"hash":"0fa99ee32213d153c858e581ec25f5f192e9158e","type":"COMMENT","name":"emk_claims","schemaName":"emk_data","sxml":""}
+-- sqlcl_snapshot {"hash":"d28a4c914b2c40de74e8ca31e66f4db2bde7dfb6","type":"COMMENT","name":"emk_claims","schemaName":"emk_data","sxml":""}

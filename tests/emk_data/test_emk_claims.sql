@@ -3,6 +3,8 @@ create or replace package test_emk_claims as
      * Unit tests of the claims area in EMK_DATA: claims, claim documents and
      * status history (M1a step 5). Rules: BR-11 (amounts), D-41 (immutable
      * document file, error -20303), claim number format (BR-04), journals.
+     * Statuses, types and file types are code lists (D-68): an unknown value
+     * is rejected by the foreign key (ORA-02291).
      * Every test runs on its own data, created before the test and rolled back
      * after it by utPLSQL.
      *
@@ -40,8 +42,8 @@ create or replace package test_emk_claims as
     --%throws(-2290)
     procedure rejects_malformed_claim_number;
 
-    --%test(Unknown status is rejected)
-    --%throws(-2290)
+    --%test(D-68: an unknown status is rejected by the foreign key to the status list)
+    --%throws(-2291)
     procedure rejects_unknown_status;
 
     --%test(D-41: the file content of a document cannot change)
@@ -55,13 +57,29 @@ create or replace package test_emk_claims as
     --%test(D-41: document type and extracted text may change; the journal keeps the old type)
     procedure accepts_new_document_metadata;
 
-    --%test(Only PDF, JPEG and PNG documents are accepted)
-    --%throws(-2290)
+    --%test(D-68, BR-18: a file type outside the allowlist is rejected by the foreign key)
+    --%throws(-2291)
     procedure rejects_other_mime_type;
 
-    --%test(Status history rejects an unknown status)
-    --%throws(-2290)
+    --%test(D-68: the status history rejects an unknown status)
+    --%throws(-2291)
     procedure rejects_unknown_history_status;
+
+    --%test(D-68: an unknown claim type is rejected by the foreign key to the type list)
+    --%throws(-2291)
+    procedure rejects_unknown_claim_type;
+
+    --%test(D-68: an unknown document type is rejected by the foreign key to the type list)
+    --%throws(-2291)
+    procedure rejects_unknown_document_type;
+
+    --%test(CMR Art. 30(1): a damage claim needs the apparent-damage flag)
+    --%throws(-2290)
+    procedure rejects_damage_without_apparent_flag;
+
+    --%test(CMR Art. 30(1): a total loss claim has no apparent-damage flag)
+    --%throws(-2290)
+    procedure rejects_apparent_flag_for_total_loss;
 end test_emk_claims;
 /
 
@@ -76,15 +94,15 @@ create or replace package body test_emk_claims as
         l_consignee emk_parties.party_id%type;
         l_shipment  emk_shipments.shipment_id%type;
     begin
-        insert into emk_parties (name, country_code) values ('Test Shipper', 'DE') returning party_id into l_shipper;
-        insert into emk_parties (name, country_code) values ('Test Carrier', 'PL') returning party_id into l_carrier;
-        insert into emk_parties (name, country_code) values ('Test Consignee', 'FR') returning party_id into l_consignee;
+        insert into emk_parties (name, country_code, language_code) values ('Test Shipper', 'DE', 'en') returning party_id into l_shipper;
+        insert into emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into l_carrier;
+        insert into emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into l_consignee;
 
         insert into emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place, origin_country,
                                    delivery_place, destination_country, pickup_date, delivery_date,
-                                   goods_description, gross_weight_kg)
+                                   goods_description, gross_weight_kg, cmr_note_date)
         values ('CMR-TEST-CLAIMS', l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
-                date '2026-09-01', date '2026-09-03', 'Goods', 1000)
+                date '2026-09-01', date '2026-09-03', 'Goods', 1000, date '2026-09-01')
         returning shipment_id into l_shipment;
 
         insert into emk_claims (claim_no, shipment_id, claim_type, damage_apparent_yn, handler, registration_date,
@@ -177,6 +195,26 @@ create or replace package body test_emk_claims as
     begin
         insert into emk_claim_status_history (claim_id, to_status) values (g_claim_id, 'CLOSED');
     end rejects_unknown_history_status;
+
+    procedure rejects_unknown_claim_type is
+    begin
+        update emk_claims set claim_type = 'THEFT', damage_apparent_yn = null where claim_id = g_claim_id;
+    end rejects_unknown_claim_type;
+
+    procedure rejects_unknown_document_type is
+    begin
+        update emk_claim_documents set doc_type = 'CONTRACT' where document_id = g_document_id;
+    end rejects_unknown_document_type;
+
+    procedure rejects_damage_without_apparent_flag is
+    begin
+        update emk_claims set damage_apparent_yn = null where claim_id = g_claim_id;
+    end rejects_damage_without_apparent_flag;
+
+    procedure rejects_apparent_flag_for_total_loss is
+    begin
+        update emk_claims set claim_type = 'TOTAL_LOSS' where claim_id = g_claim_id;   -- the flag stays 'Y'
+    end rejects_apparent_flag_for_total_loss;
 
 end test_emk_claims;
 /

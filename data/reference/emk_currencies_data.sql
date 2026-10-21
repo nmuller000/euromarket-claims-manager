@@ -5,11 +5,14 @@
 -- Sources: ECB reference rates table of 2026-10-07 (RUB suspended), ISO 4217
 -- SIX lists of 2026-09-17 (iso_name, minor units; BGN and HRK from the
 -- historic list), EU authority table Currencies (name).
--- Idempotent MERGE: inserts missing rows, updates only rows whose values
--- changed (no needless updated_* changes), never deletes (a reference row is
--- closed with valid_to). Schema-qualified (ADR-008): runs in a session of
--- EMK_DATA or of the deployment account. Loaded by load_reference_data.sql;
--- added to the first release with `project stage add-custom` and runOnChange
+-- Insert-only MERGE (D-72): inserts the rows that are missing and never
+-- changes or deletes an existing row, so that running it again (DEV, a
+-- release) never overwrites production data. A change to an existing row
+-- is a separate change script, run once, that cites the authorized change
+-- request (ITIL change enablement; Liquibase: roll forward).
+-- Schema-qualified (ADR-008): runs in a session of EMK_DATA or of the
+-- deployment account. Loaded by load_reference_data.sql;
+-- added to the first release with `project stage add-custom`, run once
 -- (M1 plan, open point 6; first release in M5).
 --
 -- Author: Natalia Müller
@@ -53,15 +56,6 @@ USING (VALUES
         ('ZAR', 'Rand', 'Rand', 2, 'Y', CAST(NULL AS DATE))
       ) s (currency_code, name, iso_name, minor_units, ecb_rate_yn, valid_to)
 ON (t.currency_code = s.currency_code)
-WHEN MATCHED THEN UPDATE SET
-    t.name        = s.name,
-    t.iso_name    = s.iso_name,
-    t.minor_units = s.minor_units,
-    t.ecb_rate_yn = s.ecb_rate_yn,
-    t.valid_to    = s.valid_to
-  WHERE DECODE(t.name, s.name, 0, 1) + DECODE(t.iso_name, s.iso_name, 0, 1)
-      + DECODE(t.minor_units, s.minor_units, 0, 1) + DECODE(t.ecb_rate_yn, s.ecb_rate_yn, 0, 1)
-      + DECODE(t.valid_to, s.valid_to, 0, 1) > 0
 WHEN NOT MATCHED THEN INSERT
     (currency_code, name, iso_name, minor_units, ecb_rate_yn, valid_to)
 VALUES
