@@ -50,6 +50,7 @@ prompt APPLICATION 200 - EuroMarket Claims Manager
 --           Entries:              1
 --       Security:
 --         Authentication:         1
+--         Authorization:          6
 --         ACL Roles:              4
 --       User Interface:
 --         Themes:                 1
@@ -108,7 +109,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_value_01=>'EuroMarket Claims Manager'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>99929016
+,p_version_scn=>99950882
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -824,14 +825,98 @@ wwv_flow_imp_shared.create_plugin_setting(
 );
 end;
 /
+prompt --application/shared_components/security/authorizations/can_view_parties_shipments
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219519628163453)
+,p_name=>'CAN_VIEW_PARTIES_SHIPMENTS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER, COMPLIANCE_OFFICER, ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944634
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_edit_parties_shipments
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219703941168892)
+,p_name=>'CAN_EDIT_PARTIES_SHIPMENTS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944704
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_restore_records
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219927205173707)
+,p_name=>'CAN_RESTORE_RECORDS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944778
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_view_contact_history
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220158471179807)
+,p_name=>'CAN_VIEW_CONTACT_HISTORY'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'COMPLIANCE_OFFICER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944859
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_maintain_master_data
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220372425185392)
+,p_name=>'CAN_MAINTAIN_MASTER_DATA'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99950882
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_view_technical_log
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220555041190410)
+,p_name=>'CAN_VIEW_TECHNICAL_LOG'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99945134
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
 prompt --application/shared_components/security/app_access_control/claims_handler
 begin
 wwv_flow_imp_shared.create_acl_role(
  p_id=>wwv_flow_imp.id(54025791628652025)
 ,p_static_id=>'CLAIMS_HANDLER'
 ,p_name=>'CLAIMS_HANDLER'
-,p_description=>'Handles CMR claims: creates and edits parties, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims.'
-,p_version_scn=>93273251
+,p_description=>'Handles CMR claims: creates and edits companies, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims. Restores deleted records.'
+,p_version_scn=>99950675
 );
 end;
 /
@@ -863,8 +948,8 @@ wwv_flow_imp_shared.create_acl_role(
  p_id=>wwv_flow_imp.id(54026095751655167)
 ,p_static_id=>'ADMINISTRATOR'
 ,p_name=>'ADMINISTRATOR'
-,p_description=>'Maintains reference data (countries, holidays, rules, rates, templates), imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to claims.'
-,p_version_scn=>93273397
+,p_description=>'Maintains the master data (Master Data menu) and the reference data, reviews the technical log, imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to companies, shipments and claims.'
+,p_version_scn=>99945385
 );
 end;
 /
@@ -1539,4 +1624,4 @@ prompt  ...done
 
 
 
--- sqlcl_snapshot {"hash":"2bc8ee2babf3c99f6d7bc50a5563dde3590dccf3","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
+-- sqlcl_snapshot {"hash":"67b70678700c68ca6961b5da4c883ba87b2d7a13","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
