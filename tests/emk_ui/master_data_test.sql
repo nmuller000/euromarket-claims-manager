@@ -22,12 +22,12 @@
 -- is given at the start with APEX_ACL.ADD_USER_ROLE and removed at the end,
 -- also when a check fails. Data changes are rolled back. The log entries of
 -- the two refusals are committed by EMK_LOG_PKG (own transaction) and EMK_UI
--- cannot delete them: run master_data_test_cleanup.sql as EMK_API right
--- after this script. Refuses PROD.
+-- cannot delete them: run test_log_cleanup.sql as EMK_API right after
+-- this script. Refuses PROD.
 --
 -- Run from the repository root (DEV: through the proxy of EMK_UI):
 --   sql -thin "EMK_DEV[EMK_UI]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test.sql
---   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test_cleanup.sql
+--   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/test_log_cleanup.sql
 -- Output: logs\tests\master_data_test_<YYYYMMDD_HH24MISS>.log
 -- Expected last line: "RESULT: all checks passed"
 --
@@ -247,7 +247,7 @@ BEGIN
 
     DBMS_OUTPUT.PUT_LINE(CHR(10) || CASE WHEN l_failures = 0 THEN 'RESULT: all checks passed'
                                          ELSE 'RESULT: ' || l_failures || ' check(s) failed' END);
-    DBMS_OUTPUT.PUT_LINE('Next: run tests/emk_ui/master_data_test_cleanup.sql as EMK_DEV[EMK_API].');
+    DBMS_OUTPUT.PUT_LINE('Next: run tests/emk_ui/test_log_cleanup.sql as EMK_DEV[EMK_API].');
     IF l_failures > 0 THEN
         RAISE_APPLICATION_ERROR(c_test_failed, 'Master data test failed.');
     END IF;

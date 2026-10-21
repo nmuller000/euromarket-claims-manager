@@ -1,18 +1,19 @@
 -- =============================================================================
--- tests/emk_ui/master_data_test_cleanup.sql
--- Second part of the master data test (T-M1-44): runs as EMK_API, the owner
--- of the technical log, right after tests/emk_ui/master_data_test.sql.
---   1. Deletes the log entries of the two test users of that script (its
---      refusals are committed by EMK_LOG_PKG and EMK_UI cannot delete them),
---      the same rule as the utPLSQL suites: only entries the test caused.
---   2. Checks that the run left nothing behind: no test value, no test
---      company, the protected role, the claim status and the file type as
---      before.
+-- tests/emk_ui/test_log_cleanup.sql
+-- Last part of the tests of tests/emk_ui: runs as EMK_API, the owner of the
+-- technical log, after master_data_test.sql (T-M1-44) and
+-- error_messages_test.sql (step 7.8).
+--   1. Deletes the log entries of the test users of those scripts (they are
+--      committed by EMK_LOG_PKG and EMK_UI cannot delete them), the same rule
+--      as the utPLSQL suites: only entries the tests caused.
+--   2. Checks that the master data test left nothing behind: no test value,
+--      no test company, the protected role, the claim status and the file
+--      type as before.
 -- Refuses PROD.
 --
 -- Run from the repository root (DEV: through the proxy of EMK_API):
---   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test_cleanup.sql
--- Output: logs\tests\master_data_test_cleanup_<YYYYMMDD_HH24MISS>.log
+--   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/test_log_cleanup.sql
+-- Output: logs\tests\test_log_cleanup_<YYYYMMDD_HH24MISS>.log
 -- Expected last line: "RESULT: all checks passed"
 --
 -- Author: Natalia Müller
@@ -28,7 +29,7 @@ SET SERVEROUTPUT ON SIZE UNLIMITED
 HOST powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path 'logs\tests' | Out-Null"
 SET TERMOUT OFF
 COLUMN cfg_log NEW_VALUE emk_log_file
-SELECT 'logs\tests\master_data_test_cleanup_' || TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') || '.log' AS cfg_log FROM dual;
+SELECT 'logs\tests\test_log_cleanup_' || TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MISS') || '.log' AS cfg_log FROM dual;
 SET TERMOUT ON
 SPOOL &emk_log_file
 PROMPT Log of this run: &emk_log_file
@@ -47,11 +48,12 @@ BEGIN
 END;
 /
 
-PROMPT === Master data test: log entries of the test users, and nothing left behind
+PROMPT === Tests of tests/emk_ui: log entries of the test users, and nothing left behind
 DECLARE
-    -- The test users of master_data_test.sql: names used by no real user
+    -- The test users of master_data_test.sql and error_messages_test.sql: names used by no real user
     c_plain_user CONSTANT VARCHAR2(30 CHAR) := 'MASTER_DATA_TEST_USER';
     c_admin_user CONSTANT VARCHAR2(30 CHAR) := 'MASTER_DATA_TEST_ADMIN';
+    c_error_user CONSTANT VARCHAR2(30 CHAR) := 'ERROR_MESSAGES_TEST';
     l_failures PLS_INTEGER := 0;
     l_count    PLS_INTEGER;
     l_text     VARCHAR2(4000 CHAR);
@@ -66,13 +68,16 @@ DECLARE
 BEGIN
     -- 1. Log entries the test caused: the refusals of the two test users
     DELETE FROM emk_log
-    WHERE  created_by IN (c_plain_user, c_admin_user)
-    AND    log_level = 'WARN'
-    AND    (message = 'Role check refused' OR message LIKE 'Master data change rejected: %');
+    WHERE  (created_by IN (c_plain_user, c_admin_user)
+            AND log_level = 'WARN'
+            AND (message = 'Role check refused' OR message LIKE 'Master data change rejected: %'))
+    OR     (created_by = c_error_user
+            AND log_level = 'ERROR'
+            AND (message = 'Internal APEX error' OR message LIKE 'No friendly message for %'));
     l_count := SQL%ROWCOUNT;
     COMMIT;
     check_result(l_count >= 2, 'Log entries of the test users deleted (' || l_count || ')');
-    SELECT COUNT(*) INTO l_count FROM emk_log WHERE created_by IN (c_plain_user, c_admin_user);
+    SELECT COUNT(*) INTO l_count FROM emk_log WHERE created_by IN (c_plain_user, c_admin_user, c_error_user);
     check_result(l_count = 0, 'No log entry of the test users is left (' || l_count || ')');
 
     -- 2. Nothing else left behind
@@ -96,7 +101,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(CHR(10) || CASE WHEN l_failures = 0 THEN 'RESULT: all checks passed'
                                          ELSE 'RESULT: ' || l_failures || ' check(s) failed' END);
     IF l_failures > 0 THEN
-        RAISE_APPLICATION_ERROR(-20999, 'Master data test cleanup found something left behind.');
+        RAISE_APPLICATION_ERROR(-20999, 'Test log cleanup found something left behind.');
     END IF;
 END;
 /

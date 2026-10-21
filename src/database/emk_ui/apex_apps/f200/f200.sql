@@ -56,6 +56,7 @@ prompt APPLICATION 200 - EuroMarket Claims Manager
 --         Templates:
 --       PWA:
 --       Globalization:
+--         Messages:              40
 --       Reports:
 --       E-Mail:
 --     Supporting Objects:  Excluded
@@ -102,11 +103,12 @@ wwv_imp_workspace.create_flow(
 ,p_rejoin_existing_sessions=>'N'
 ,p_csv_encoding=>'Y'
 ,p_auto_time_zone=>'N'
+,p_error_handling_function=>'emk_api.emk_apex_error_pkg.handle_error'
 ,p_substitution_string_01=>'APP_NAME'
 ,p_substitution_value_01=>'EuroMarket Claims Manager'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>98036184
+,p_version_scn=>99929016
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -1007,7 +1009,246 @@ end;
 /
 prompt --application/shared_components/globalization/messages
 begin
-null;
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58205918319995214)
+,p_name=>'EMK_CONTACTS_EMAIL_CK'
+,p_message_text=>'The email address is not valid. Use the form name@example.com.'
+,p_version_scn=>99927518
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206132319995245)
+,p_name=>'EMK_CONTACTS_PHONE_CK'
+,p_message_text=>'The phone number is not valid. Write it in international format, starting with + and the country code (for example +49 30 1234567).'
+,p_version_scn=>99927518
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206405065995245)
+,p_name=>'EMK_DOCUMENT_TYPES_CODE_CK'
+,p_message_text=>'The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206748433995245)
+,p_name=>'EMK_DOCUMENT_TYPES_VALID_CK'
+,p_message_text=>'The "Valid until" date cannot be before the "Valid from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207007838995245)
+,p_name=>'EMK_ERROR_20001'
+,p_message_text=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207308520995245)
+,p_name=>'EMK_ERROR_20002'
+,p_message_text=>'This record no longer exists or was deleted. Reload the page.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207669546995245)
+,p_name=>'EMK_ERROR_20003'
+,p_message_text=>'Some information is missing or not valid. Check the highlighted fields.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207981376995245)
+,p_name=>'EMK_ERROR_20004'
+,p_message_text=>'Another user changed this record while you were editing it. Reload the page to see the changes, then make yours again.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208275337995245)
+,p_name=>'EMK_ERROR_20005'
+,p_message_text=>'Another user is saving this record right now. Wait a moment and try again.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208558379995245)
+,p_name=>'EMK_ERROR_20101'
+,p_message_text=>'The selected company does not have the required role (sender, carrier or consignee). Choose another company or add the role to it.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208865921995245)
+,p_name=>'EMK_ERROR_20102'
+,p_message_text=>'This role cannot be removed: the company has it in at least one shipment.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209035120995245)
+,p_name=>'EMK_ERROR_20103'
+,p_message_text=>'The VAT number does not match the company''s country: it must start with the country''s VAT prefix (for example DE for Germany).'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209390624995245)
+,p_name=>'EMK_ERROR_20104'
+,p_message_text=>'Another company already has this VAT number. If that company was deleted, restore it instead of creating a new one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209660288995246)
+,p_name=>'EMK_ERROR_20105'
+,p_message_text=>'This company cannot be deleted: it is used in active shipments.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209948193995246)
+,p_name=>'EMK_ERROR_20106'
+,p_message_text=>'A company needs at least one role.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210299067995246)
+,p_name=>'EMK_ERROR_20201'
+,p_message_text=>'This carrier already has a shipment with this consignment note number.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210503053995246)
+,p_name=>'EMK_ERROR_20202'
+,p_message_text=>'This shipment cannot be deleted: it has active claims.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210832229995246)
+,p_name=>'EMK_ERROR_20203'
+,p_message_text=>'The CMR Convention does not apply: neither the country of origin nor the country of destination was a party to it on the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211110044995246)
+,p_name=>'EMK_ERROR_20204'
+,p_message_text=>'The carrier must be a different company from the sender and the consignee.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211407003995246)
+,p_name=>'EMK_ERROR_20301'
+,p_message_text=>'The claim cannot move from its current status to the chosen one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211729470995246)
+,p_name=>'EMK_ERROR_20302'
+,p_message_text=>'Check the amounts: the settled amount cannot exceed the claimed amount, and the recovered amount cannot exceed the settled amount.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212091207995246)
+,p_name=>'EMK_ERROR_20303'
+,p_message_text=>'The file of a document cannot be changed. Upload the corrected file as a new document.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212340533995246)
+,p_name=>'EMK_ERROR_20401'
+,p_message_text=>'The selected value is not valid on this date. Choose another one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212612350995246)
+,p_name=>'EMK_ERROR_20402'
+,p_message_text=>'This value is used by the rules of the application, so it must stay valid.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212933754995246)
+,p_name=>'EMK_ERROR_20403'
+,p_message_text=>'This code already exists, but it may no longer be valid. Instead of creating it again, change its validity dates.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213296793995246)
+,p_name=>'EMK_ERROR_ORA_01438'
+,p_message_text=>'A number is too large. Check the highlighted field.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213538274995246)
+,p_name=>'EMK_ERROR_ORA_12899'
+,p_message_text=>'A value is too long. Shorten the highlighted field.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213866969995246)
+,p_name=>'EMK_ERROR_UNEXPECTED'
+,p_message_text=>'Something went wrong. Please try again; if it happens again, give your administrator this reference: %0.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214160353995248)
+,p_name=>'EMK_FILE_TYPES_VALID_CK'
+,p_message_text=>'The "Allowed until" date cannot be before the "Allowed from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214491577995248)
+,p_name=>'EMK_PARTIES_VAT_CK'
+,p_message_text=>'The VAT number is not valid: it starts with the two-letter country prefix, followed by 2 to 12 letters or digits (for example DE123456789).'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214790989995248)
+,p_name=>'EMK_PARTY_ROLE_TYPES_CODE_CK'
+,p_message_text=>'The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215089321995248)
+,p_name=>'EMK_PARTY_ROLE_TYPES_VALID_CK'
+,p_message_text=>'The "Valid until" date cannot be before the "Valid from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215311835995248)
+,p_name=>'EMK_SHIPMENTS_CHARGES_CK'
+,p_message_text=>'Enter the carriage charges and their currency together; the charges cannot be negative.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215674466995248)
+,p_name=>'EMK_SHIPMENTS_COUNTRIES_CK'
+,p_message_text=>'The country of origin and the country of destination must be different: the CMR applies only to carriage between two countries.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215947692995248)
+,p_name=>'EMK_SHIPMENTS_DATES_CK'
+,p_message_text=>'The delivery date and the agreed time-limit cannot be before the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216218605995248)
+,p_name=>'EMK_SHIPMENTS_DECLARED_VALUE_CK'
+,p_message_text=>'Enter the declared value and its currency together; the value must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216573367995248)
+,p_name=>'EMK_SHIPMENTS_DISPOSAL_CK'
+,p_message_text=>'The date the goods were placed at the consignee''s disposal cannot be before the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216839115995248)
+,p_name=>'EMK_SHIPMENTS_PACKAGES_CK'
+,p_message_text=>'The number of packages must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58217199299995250)
+,p_name=>'EMK_SHIPMENTS_SPECIAL_INTEREST_CK'
+,p_message_text=>'Enter the special interest in delivery and its currency together; the amount must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58217464966995250)
+,p_name=>'EMK_SHIPMENTS_WEIGHT_CK'
+,p_message_text=>'The gross weight must be greater than zero.'
+,p_version_scn=>99927520
+);
 end;
 /
 prompt --application/shared_components/globalization/dyntranslations
@@ -1298,4 +1539,4 @@ prompt  ...done
 
 
 
--- sqlcl_snapshot {"hash":"301fc23fe00da24a59b523542804946cd19b92fd","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
+-- sqlcl_snapshot {"hash":"2bc8ee2babf3c99f6d7bc50a5563dde3590dccf3","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
