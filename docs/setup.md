@@ -290,7 +290,7 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
    sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1"  @tests/run_tests.sql
    ```
 
-   Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-21: 52 in `EMK_DATA`, 75 in `EMK_API`).
+   Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-21: 52 in `EMK_DATA`, 81 in `EMK_API`).
 
 5. **Test in the context of the application** (as the connect user `EMK_UI`, with an APEX session; rolls everything back):
 
@@ -299,6 +299,15 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
    ```
 
    Expected last line: `RESULT: all checks passed` (2026-10-21: 15 checks). The concurrency test of the browser test (T-M1-39) uses `tests/emk_ui/hold_role_lock.sql` the same way; it holds a lock until Enter is pressed and writes nothing.
+
+6. **Master data test** (T-M1-44): as `EMK_UI` with an APEX session and a test user whose administrator role the script gives and removes; then, as the owner of the log, delete its log entries and check that nothing is left:
+
+   ```powershell
+   sql -thin "EMK_DEV[EMK_UI]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test.sql
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test_cleanup.sql
+   ```
+
+   Expected last line of each: `RESULT: all checks passed` (2026-10-21: 20 and 9 checks).
 
 ### 5.4 SQLcl Project (ADR-005, ADR-008)
 

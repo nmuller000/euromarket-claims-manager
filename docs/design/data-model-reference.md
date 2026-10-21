@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.4 (2026-10-21): code lists (§6, D-68) — business value lists as reference tables with validity instead of check constraints; file type allowlist (BR-18). v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
+| **Status** | Accepted v1.5 (2026-10-21): master data maintenance per list (§6: who adds a value, what the administrator may change, never deleted or re-coded, protected codes; D-82). v1.4 (2026-10-21): code lists (§6, D-68) — business value lists as reference tables with validity instead of check constraints; file type allowlist (BR-18). v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); read by `EMK_API` through `SELECT` grants |
 | **Milestone** | M1a (plan steps 2, 6 and 7.6) |
@@ -174,6 +174,22 @@ Business value lists of the application. **Rule** (spec §1.3 *Code lists*, deci
 
 **Who maintains what (D-72).** Read-only in the application: languages (a new one needs a translated application), countries, currencies. Maintained by the administrator, with a journal `<TABLE>_JN` (previous row, operation, user, time; not partitioned: a few rows a year): party role types, claim statuses and types (names, descriptions, order; the codes named in `EMK_CODES_PKG` cannot be retired), document types, file types (allowed period). **No foreign key to a code list has an index**: keys are never updated and rows never deleted, so Oracle's locking reason does not apply, and no query needs one (design README).
 
+**Master data maintenance (D-82, step 7.7).** Only the administrator, in the Master Data menu; `EMK_MASTER_DATA_API` checks the role itself ([api-design](api-design.md) decision 22).
+
+| List | Who adds a value | The administrator may change | Never changes |
+|------|------------------|------------------------------|---------------|
+| Languages, countries, currencies | Developer (data script) | Nothing: read only in the application | — |
+| Party role types | Administrator (the first values come with the data script) | Name, description, order, validity | Code; a code named in `EMK_CODES_PKG` is never retired |
+| Claim statuses | Developer, together with the state machine (`EMK_CLAIM_API`) | Name, description, order | Code; `final_yn` (part of the state machine); the validity of the codes named in `EMK_CODES_PKG` (all of them, from step 8) |
+| Claim types | Developer, together with the deadline rules | Name, description, order | Code; the validity of the codes named in `EMK_CODES_PKG` (all of them, from step 8) |
+| Document types | Administrator (the first values come with the data script) | Name, description, order, validity | Code |
+| File types | Developer (catalog: type, signature, extensions, with the criteria above) | Allowed period (`valid_from`, `valid_to`) | Type, name, signature, extensions |
+| File extensions | Developer | Nothing | — |
+
+- **Never deleted, never re-coded.** A value is retired with `valid_to`: the records that have it keep it, open claims too, and the lists of values no longer offer it. A code is never changed or reused: the primary key keeps a retired code, so it cannot come back with another meaning. This is the practice of the standards the application uses: ISO 3166 does not reassign a deleted country code for at least 50 years, and ISO 4217 keeps withdrawn currency codes as historic codes.
+- **Names may change**; the journal keeps the previous name, and pages and reports show the current one.
+- **Protected codes:** retiring a code named in `EMK_CODES_PKG` is rejected (`c_code_protected`, -20402, added in step 7.7). A code is protected while the program names it, and only a code change removes it from the package.
+
 **Why one table per list.** A single generic table (`list, code, name`) cannot be the target of a foreign key for one list only, mixes unrelated values and needs the list name in every query (the *One True Lookup Table* antipattern).
 
 ## 7. Open Points
@@ -197,6 +213,7 @@ Business value lists of the application. **Rule** (spec §1.3 *Code lists*, deci
 - SIX (ISO 4217 maintenance agency) — [Currency code lists](https://www.six-group.com/en/products-services/financial-information/data-standards.html)
 - EU Publications Office — [EU Vocabularies: Countries and territories](https://op.europa.eu/en/web/eu-vocabularies/countries-and-territories) · [Currencies](https://op.europa.eu/en/web/eu-vocabularies/authority-tables) (labels in English and German; read through the SPARQL endpoint `publications.europa.eu/webapi/rdf/sparql`)
 - CMR text — [Art. 1, 43 (UNECE)](https://unece.org/fileadmin/DAM/trans/conventn/cmr_e.pdf)
+- Code list practice — [ISO 3166: deleted codes not reassigned for at least 50 years (ICANN terminology paper)](https://community.icann.org/download/attachments/150179010/ccPDP4%20-Background%20terminology%20-%20ISO%203166%20Standard%20version%2002.pdf?api=v2) · [ISO 4217 amendment 164: withdrawn codes moved to the historic list (SIX)](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/amendments/dl_currency_iso_amendment_164.pdf) (D-82)
 - European Union — [Interinstitutional Style Guide, Annex A6](https://style-guide.europa.eu/en/content/-/isg/topic?identifier=annex-a6-country-and-territory-codes) · [VIES](https://ec.europa.eu/taxation_customs/vies/)
 - UN Treaty Collection — [CMR Convention, status](https://treaties.un.org/Pages/ViewDetails.aspx?src=TREATY&mtdsg_no=XI-B-11&chapter=11&clang=_en)
 - ECB — [Euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) · [Framework for the euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/pdf/exchange/Frameworkfortheeuroforeignexchangereferencerates.en.pdf) · [Bulgaria](https://www.ecb.europa.eu/euro/changeover/bulgaria/html/index.en.html) · [Croatia](https://www.ecb.europa.eu/press/pr/date/2022/html/ecb.pr220712~b97dd38de3.en.html)

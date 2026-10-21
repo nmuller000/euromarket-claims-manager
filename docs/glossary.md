@@ -133,6 +133,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Liquibase** | Database change-management tool, integrated in SQLcl. |
 | **Load balancer** | Component that distributes requests across several server instances (e.g., several ORDS nodes). |
 | **Mailpit** | Local email testing server: receives emails over SMTP and shows them in a web page without delivering them. |
+| **Master data** | The code lists the administrator maintains in the application's Master Data menu (party roles, claim statuses and types, document types, allowed file types). A value is retired, never deleted or re-coded; the codes the program names cannot be retired (D-82). |
 | **Master encryption key** | TDE key, one per PDB, that encrypts the tablespace keys; stored only in the keystore. |
 | **Media type (MIME type)** | Standard name of a file format registered at IANA, e.g. `application/pdf`; the type a browser sends with an upload is chosen by the client and is not trusted. |
 | **NL-to-SQL** | Translating a natural-language question into SQL (ADR-002). |

@@ -33,12 +33,12 @@ Defined **once** here; every table document only states which part applies ("aud
 
 | Area | Document | Schema | Milestone | Status |
 |------|----------|--------|-----------|--------|
-| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_DATA` | M1a | Accepted v1.4 |
+| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_DATA` | M1a | Accepted v1.5 |
 | Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_DATA` | M1a | Accepted v1.8 |
 | Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_DATA`, `EMK_API` (log) | M1a | Accepted v1.3 |
 | Personal data inventory (GDPR) | [personal-data.md](personal-data.md) | `EMK_DATA`, `EMK_API`, `EMK_INT` | M1a | Accepted v1.0 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
-| PL/SQL APIs (architecture, packages, flows, views for the application) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.4 |
+| PL/SQL APIs (architecture, packages, flows, views for the application) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.6 |
 
 ## Common Rules (spec §1.3)
 
