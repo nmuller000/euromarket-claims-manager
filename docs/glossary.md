@@ -16,15 +16,22 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Business rule** | A rule of the business domain that the system enforces (e.g., deadlines, allowed status changes); catalogued in spec §2.7. |
 | **Cabotage** | Domestic transport inside a country performed by a haulier registered in another country. |
 | **Carrier** | The company that undertakes to transport the goods; liable under the CMR for loss, damage and delay, within limits. |
+| **Claimant** | The person who makes a claim against the carrier: the sender (shipper) or the consignee of the shipment (CMR Art. 12, 13; BR-19). |
 | **Consignee** | The party entitled to receive the goods at destination. |
 | **Consignment note (CMR note)** | The transport document that confirms the contract of carriage under the CMR. |
 | **Cross-trade** | Transport between two countries by a haulier registered in a third country. |
+| **Declared value** | Value of the goods declared in the consignment note against a surcharge; it replaces the CMR liability limit of 8.33 SDR per kg (CMR Art. 24). |
+| **Goods placed at the disposal of the consignee** | The moment the consignee can take the goods; the 21-day reservation for delay counts from it (CMR Art. 30(3)). |
 | **Gross weight short** | Gross weight of the goods lost or missing; basis of the CMR liability limit. |
 | **Joint check** | Inspection of the goods carried out together by the consignee and the carrier (CMR Art. 30(2)). |
+| **Partial admission** | The carrier accepts part of a claim; the limitation period then runs again only for the part still in dispute (CMR Art. 32(2)). |
 | **Recovered amount** | Amount actually received from the carrier or its insurer for a claim. |
+| **Recovery payment** | One payment received for a claim from the carrier or its insurer; the recovered amount is their sum (D-77). |
 | **Recovery rate** | Recovered amount divided by claimed amount, in EUR; key indicator per carrier. |
 | **Settled amount** | Amount agreed with the carrier to close a claim. |
 | **Shipper** | The party that contracts the carriage (also called sender). |
+| **Special interest in delivery** | Amount declared in the consignment note against a surcharge, up to which additional proven loss can be claimed (CMR Art. 26). |
+| **Subrogation** | An insurer who paid the claimant takes over the claim against the carrier; governed by national law, out of scope of Release 1. |
 | **Tonne-kilometre (tkm)** | Unit of freight transport: one tonne of goods carried over one kilometre. |
 
 ### Application Roles
@@ -76,6 +83,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 |------|------------|
 | **ACL (network)** | Database rule that allows outbound connections only to approved hosts (`DBMS_NETWORK_ACL_ADMIN`). |
 | **AES-256 / AES-NI** | Advanced Encryption Standard with a 256-bit key, the encryption algorithm of TDE; AES-NI are CPU instructions that make it fast. |
+| **Allowlist** | List of the only values that are accepted; everything else is rejected. Safer than a list of forbidden values (denylist), which misses what nobody thought of; used for the file types of claim documents (BR-18). |
 | **APEX** | Oracle Application Express: low-code framework for web applications that run inside the database. |
 | **APEX Advisor** | APEX tool that checks an application for security, performance and quality issues. |
 | **APEX Data Load** | APEX feature that loads CSV, Excel, JSON or XML files into tables with column mapping. |
@@ -90,10 +98,12 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Backup piece** | File written by RMAN that contains a backup or part of it. |
 | **Block change tracking** | File in which Oracle records the changed blocks, so that an incremental backup reads only those blocks. |
 | **CDB / PDB** | Container Database / Pluggable Database. `FREEPDB1` is the PDB that hosts this project. |
+| **Change script** | A script, run once, that changes existing production data (e.g., retires a currency); it cites the authorized change request. Data scripts never overwrite data on their own (D-72). |
 | **Changelog** | Liquibase file that lists database changes in order; each change is applied once and recorded. |
 | **Changeset** | One database change inside a changelog (e.g., add a column); Liquibase applies it once per database. |
 | **Checksum (SHA-256)** | Fingerprint calculated from a file's content; matching the published value proves a download is complete and unaltered. |
 | **Chunk** | A segment of a source document stored with its embedding. |
+| **Code list** | Reference table of the values a business column may take (e.g., claim statuses), with a validity period and referenced by a foreign key, so that a value can be retired while old records keep it (spec §1.3). |
 | **Control file** | Small database file that acts as its table of contents: which data files and logs exist and which backups RMAN made. Saved automatically with each backup (`CONTROLFILE AUTOBACKUP`). |
 | **Corpus** | The collection of source documents the search works on; here, the CMR and the EU acts listed in spec §2.2. |
 | **Data file** | Operating-system file (`.DBF`) that stores the data of one tablespace. |
@@ -108,6 +118,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Embedding** | Numeric vector representing the meaning of a text. |
 | **Encrypted tablespace** | Tablespace whose data files are stored encrypted by TDE: decrypted when read into memory, so users and applications see normal data, while copied files or backups are unreadable without the keystore (ADR-011). |
 | **Fast recovery area** | Disk location managed by Oracle for archived logs, backups and flashback logs (`DB_RECOVERY_FILE_DEST`). |
+| **File signature (magic bytes)** | The first bytes of a file that identify its format, e.g. `%PDF-` for PDF; compared with the file extension to detect a file whose name lies about its content (BR-18). |
 | **First schema (APEX workspace)** | The database schema a workspace is created with. APEX cannot remove or change it later; to use another one, the workspace is created again. |
 | **Flashback (Database / PDB / Table)** | Oracle features that return a whole database, one PDB or one table to an earlier time without restoring a backup. |
 | **HNSW** | Hierarchical Navigable Small World: in-memory graph vector index for fast approximate search; needs `VECTOR_MEMORY_SIZE` (ADR-001). |
@@ -123,9 +134,11 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Load balancer** | Component that distributes requests across several server instances (e.g., several ORDS nodes). |
 | **Mailpit** | Local email testing server: receives emails over SMTP and shows them in a web page without delivering them. |
 | **Master encryption key** | TDE key, one per PDB, that encrypts the tablespace keys; stored only in the keystore. |
+| **Media type (MIME type)** | Standard name of a file format registered at IANA, e.g. `application/pdf`; the type a browser sends with an upload is chosen by the client and is not trusted. |
 | **NL-to-SQL** | Translating a natural-language question into SQL (ADR-002). |
 | **OAuth2 client credentials** | Flow in which a client application gets an access token with its own ID and secret; native in ORDS. |
 | **ONNX** | Open Neural Network Exchange: open format for trained AI models. An **ONNX model** is a file that Oracle can load and run inside the database (here, the embedding model of ADR-004). |
+| **Optimistic locking** | Protection against lost updates: a page saves only if the row still has the version it read (`row_version`); otherwise the user is told that another user changed it (D-43). |
 | **ORDS** | Oracle REST Data Services: web listener that serves APEX and REST APIs. |
 | **p50 / p95 (percentile)** | p50 (median): half of the requests are faster. p95: 95 of every 100 requests are faster; the rest form the "slow tail" that an average hides. |
 | **Parsing schema (APEX)** | Database schema whose privileges an APEX application uses to run its SQL and PL/SQL (here `EMK_UI`, which owns nothing). |
@@ -143,8 +156,11 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Restore point (guaranteed)** | Name for a point in time to which a database or PDB can be returned with flashback; a guaranteed one keeps the needed logs until it is dropped (used before each deployment, ADR-010). |
 | **Retention policy (recovery window)** | RMAN rule that says how long backups are kept, e.g. "recovery window of 7 days" = any moment of the last 7 days can be restored; older backups become obsolete and are deleted. |
 | **RMAN** | Recovery Manager: Oracle tool that makes backups (full and incremental, encrypted), checks them, deletes obsolete ones and restores and recovers the database; it records every backup in the control file ([backup runbook](operations/backup-runbook.md)). |
+| **Row lock** | Lock on one row held until the end of the transaction (`SELECT … FOR UPDATE`); `NOWAIT` answers at once if the row is locked, `WAIT n` waits up to n seconds (D-73). |
 | **Schema-only account** | Account with no password (`NO AUTHENTICATION`): nobody can log in to it directly; it owns objects and is reached only through proxy (`EMK_DATA`) or by `SYS` (`UT3`). |
+| **Scalar SQL macro** | PL/SQL function whose text Oracle copies into the SQL statement before running it, so a view can reuse an expression without a call per row (`EMK_ROW_VERSION_PKG.format_row_version`). |
 | **Seed and publish (APEX)** | Translation workflow: seed copies the texts of the primary application, the XLIFF file is translated and applied, and publish creates the translated application. |
+| **SQL assertion** | Integrity rule declared once that the database enforces across several tables (`CREATE ASSERTION`, Oracle 26ai 23.26.1). Not used in Release 1: the export tools do not carry it yet (D-70). |
 | **Select AI** | Oracle feature (`DBMS_CLOUD_AI`) that turns questions into SQL; not available in 26ai Free. |
 | **Session state protection** | APEX feature that prevents users from tampering with page item values in URLs. |
 | **SGA / PGA** | System Global Area (shared memory) / Program Global Area (per-session memory). |
@@ -167,6 +183,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **WALLET_ROOT** | Initialization parameter (26ai) that sets the folder of the keystore; the TDE keystore is in its subfolder `tde`. |
 | **Web Credentials** | APEX objects that store API keys securely, outside the code. |
 | **Workspace (APEX)** | Isolated development area in APEX, linked to one or more database schemas. |
+| **Write skew** | Two transactions each check a rule on data the other is changing, both pass, and together they break the rule (e.g., removing a role while a shipment that needs it is saved); prevented by locking what both read (D-73). |
 | **XLIFF** | XML Localization Interchange File Format: standard file used to translate application texts. |
 
 ### Methodology & Process

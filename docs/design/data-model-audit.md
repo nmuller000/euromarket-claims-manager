@@ -2,13 +2,13 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.2 (2026-10-13): schemas per ADR-008. v1.1 (2026-10-08): `created_on` / `jn_on` described as UTC date-time (§2) |
+| **Status** | Accepted v1.3 (2026-10-21): status history refers to the code list `EMK_CLAIM_STATUSES` (D-68); journals of the five code lists the administrator maintains, not partitioned (§5, D-72). v1.2 (2026-10-13): schemas per ADR-008. v1.1 (2026-10-08): `created_on` / `jn_on` described as UTC date-time (§2) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA`: journals, their triggers and the claim status history · `EMK_API`: `EMK_LOG` ([ADR-008](../adr/ADR-008-schema-separation.md) §4) |
 | **Milestone** | M1a (plan steps 1, 3–5) |
 | **Input** | [spec.md](../spec.md) v1.6 §1.3 (*Change history*, *Partitioning*, *Logging*), §4, FR-09 · [Standard audit block](README.md#standard-audit-block) · [Operational data](data-model-operational.md) |
 
-Append-only tables: the application log, the business history of claim statuses, and one journal per operational table. Audit block: **created only** (rows are never updated). Logs and journals use monthly interval partitioning (spec §1.3).
+Append-only tables: the application log, the business history of claim statuses, one journal per operational table and one per code list maintained in the application. Audit block: **created only** (rows are never updated). Logs and journals use monthly interval partitioning (spec §1.3).
 
 ## 1. Overview
 
@@ -16,7 +16,8 @@ Append-only tables: the application log, the business history of claim statuses,
 |-------|--------------------------|-------------|------------------------|---------|
 | `EMK_LOG` | ≈ 500,000 | Monthly interval | **90 days** (purge by partition) | Technical log for troubleshooting (spec §1.3 *Logging*) |
 | `EMK_CLAIM_STATUS_HISTORY` | ≈ 40,000 (≈ 4 transitions per claim) | No | Kept | Business history of statuses (spec §4); claim ageing and dashboards |
-| `<TABLE>_JN` (6 journals) | Depends on updates; ≈ 1–2 per business row | Monthly interval | Kept (retention decided in X4) | Previous version of each updated or deleted row (FR-09) |
+| `<TABLE>_JN` (6 journals of operational tables) | Depends on updates; ≈ 1–2 per business row | Monthly interval | Kept (retention decided in X4) | Previous version of each updated or deleted row (FR-09) |
+| `<TABLE>_JN` (5 journals of code lists) | A few rows a year (administrator changes) | **No** (D-72: small, no purge) | Kept | Who changed a code list, when, and the previous values |
 
 ## 2. Partitioning Design
 
@@ -68,7 +69,7 @@ PARTITION BY RANGE (created_on) INTERVAL (NUMTOYMINTERVAL(1, 'MONTH'))
 | Constraint / index | Definition |
 |--------------------|------------|
 | `EMK_LOG_PK` | `PRIMARY KEY (log_id)` (global index) |
-| `EMK_LOG_LEVEL_CK` | `log_level IN ('DEBUG','INFO','WARN','ERROR')` |
+| `EMK_LOG_LEVEL_CK` | `log_level IN ('DEBUG','INFO','WARN','ERROR')` — a technical value set only by `EMK_LOG_PKG`, so a check constraint, not a code list (D-68) |
 | Partitioning | Monthly interval on `created_on`; purge after 90 days |
 
 **Rules:** written by `EMK_LOG_PKG` in an **autonomous transaction**, so entries survive a rollback (spec §1.3). Messages never contain personal data or passwords (GDPR data minimisation; spec §1.3 *Secrets*). **Why 90 days:** long enough to investigate incidents, short enough to limit stored user identifiers.
@@ -88,7 +89,7 @@ PARTITION BY RANGE (created_on) INTERVAL (NUMTOYMINTERVAL(1, 'MONTH'))
 |--------------------|------------|--------|
 | `EMK_CLAIM_STATUS_HISTORY_PK` | `PRIMARY KEY (history_id)` | |
 | `…_CLAIMS_FK` | FK to `EMK_CLAIMS` | |
-| `…_FROM_CK`, `…_TO_CK` | Same status list as `EMK_CLAIMS.status` | |
+| `…_FROM_FK`, `…_TO_FK` | FKs to `EMK_CLAIM_STATUSES`, no index (code list, D-72) | Same code list as `EMK_CLAIMS.status` (D-68; replace `…_FROM_CK` and `…_TO_CK`) |
 | `…_CLAIM_IX` | `(claim_id, created_at)` | History of one claim in order; also serves the foreign key |
 
 Written by `EMK_CLAIM_API` in the same transaction as the status change (spec §4). **Not partitioned** (small) and **never purged** (business history used for ageing KPIs). The spec diagram names the columns `changed_at` / `changed_by`; the audit block already holds them as `created_at` / `created_by` (no duplicate columns). Decided: open point 3.
@@ -97,20 +98,22 @@ Written by `EMK_CLAIM_API` in the same transaction as the status change (spec §
 
 One journal per operational table: `EMK_PARTIES_JN`, `EMK_PARTY_ROLES_JN`, `EMK_CONTACTS_JN`, `EMK_SHIPMENTS_JN`, `EMK_CLAIMS_JN`, `EMK_CLAIM_DOCUMENTS_JN`.
 
+One journal per code list that the administrator maintains in the application (D-72): `EMK_PARTY_ROLE_TYPES_JN`, `EMK_CLAIM_STATUSES_JN`, `EMK_CLAIM_TYPES_JN`, `EMK_DOCUMENT_TYPES_JN`, `EMK_FILE_TYPES_JN`. Same columns and trigger, but **without `jn_on`, partitions and key index**: a few rows a year, never purged, and read whole (analysis before structures, design README). Languages, countries and currencies have none: read-only in the application, changed only by change scripts whose history is Git.
+
 | Column | Type | Null | Rule / reason |
 |--------|------|------|---------------|
 | `jn_id` | `NUMBER` | No | **PK**, identity |
 | `jn_operation` | `CHAR(1 CHAR)` | No | `U` = update, `D` = delete |
 | `jn_at` | `TIMESTAMP WITH TIME ZONE` | No | `DEFAULT ON NULL SYSTIMESTAMP`: when the change happened |
 | `jn_by` | `VARCHAR2(255 CHAR)` | No | User expression of the audit block: who made the change |
-| `jn_on` | `DATE` (virtual) | — | UTC date and time of `jn_at`; partition key (§2) |
+| `jn_on` | `DATE` (virtual) | — | UTC date and time of `jn_at`; partition key (§2); operational journals only |
 | *all columns of the base table* | Same types | Yes | The **previous** values (`:OLD`), including its audit columns; no constraints |
 
 | Constraint / index | Definition | Reason |
 |--------------------|------------|--------|
 | `<TABLE>_JN_PK` | `PRIMARY KEY (jn_id)` (global) | |
 | `<TABLE>_JN_OP_CK` | `jn_operation IN ('U','D')` | |
-| `<TABLE>_JN_KEY_IX` (local) | `(<entity>_id, jn_at)` | "Previous values of row X" in order |
+| `<TABLE>_JN_KEY_IX` (local) | `(<entity>_id, jn_at)` | "Previous values of row X" in order; operational journals only |
 | No foreign keys | — | The journal must keep its rows whatever happens to the base rows |
 
 **Trigger `<TABLE>_JN_AUD`:** `AFTER UPDATE OR DELETE … FOR EACH ROW`, inserts `:OLD` with the operation, time and user. Technical only (spec §1.3).

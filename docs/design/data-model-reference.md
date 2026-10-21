@@ -2,13 +2,13 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
+| **Status** | Accepted v1.4 (2026-10-21): code lists (§6, D-68) — business value lists as reference tables with validity instead of check constraints; file type allowlist (BR-18). v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); read by `EMK_API` through `SELECT` grants |
-| **Milestone** | M1a (plan step 2 and 6) |
+| **Milestone** | M1a (plan steps 2, 6 and 7.6) |
 | **Input** | [spec.md](../spec.md) v1.4 §1.3, §3 · [M1 plan](../plans/M1-plan.md) v1.2 open points 4–8 · [Standard audit block](README.md#standard-audit-block) |
 
-Reference tables hold standard code lists. They are keyed by ISO codes, never updated in their key, and changed through versioned `MERGE` scripts (`project stage add-custom`, `runOnChange:true`). Audit block: **created + updated** (no soft delete: a reference row is closed with `valid_to`, never deleted).
+Reference tables hold standard code lists (keyed by ISO codes) and the business code lists of the application (§6, keyed by their code). Keys are never updated. **Data scripts never overwrite production data** (D-72): reference data is loaded by insert-only `MERGE` scripts (missing rows only), added to a release once; a change to existing rows is a separate change script, run once, that cites the authorized change request (ITIL change enablement; Liquibase: roll forward, `runOnChange` not for data). Audit block: **created + updated** (no soft delete: a reference row is closed with `valid_to`, never deleted).
 
 ## 1. Overview
 
@@ -17,7 +17,12 @@ erDiagram
     EMK_COUNTRIES ||--o{ EMK_COUNTRY_NAMES : "translated as"
     EMK_CURRENCIES ||--o{ EMK_CURRENCY_NAMES : "translated as"
     EMK_CURRENCIES ||--o{ EMK_EXCHANGE_RATES : "has rates"
+    EMK_LANGUAGES ||--o{ EMK_COUNTRY_NAMES : "language of"
+    EMK_LANGUAGES ||--o{ EMK_CURRENCY_NAMES : "language of"
+    EMK_FILE_TYPES ||--o{ EMK_FILE_EXTENSIONS : "identified by"
 ```
+
+The other code lists (`EMK_LANGUAGES` for parties, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_CLAIM_TYPES`, `EMK_DOCUMENT_TYPES`, `EMK_FILE_TYPES` for documents) are referenced by operational tables ([data-model-operational.md](data-model-operational.md)).
 
 | Table | Rows (expected) | Growth | Partitioned | Journal |
 |-------|-----------------|--------|-------------|---------|
@@ -26,8 +31,9 @@ erDiagram
 | `EMK_CURRENCIES` | ≈ 33 | Static | No | No |
 | `EMK_CURRENCY_NAMES` | ≈ 33 per extra language | Static | No | No |
 | `EMK_EXCHANGE_RATES` | ≈ 45,000 (from 2020) | ≈ 7,700 per year | No | No |
+| Code lists (§6) | 2 to 7 each | Static | No | No |
 
-**Why no journals:** reference rows change only through versioned scripts; their history is the Git history of those scripts. **Why no partitioning:** small tables, no purge needed.
+**Journals:** standard lists (countries, currencies, rates) change only through change scripts, whose history is Git. The code lists the administrator maintains in the application have a journal `<TABLE>_JN` (§6). **Why no partitioning:** small tables, no purge needed.
 
 ## 2. `EMK_COUNTRIES`
 
@@ -97,7 +103,7 @@ Names in languages other than English, for the German UI (F-15) and German lette
 | Column | Type | Null | Rule / reason |
 |--------|------|------|---------------|
 | `country_code` / `currency_code` | `CHAR(2 CHAR)` / `CHAR(3 CHAR)` | No | **PK (1).** FK to the base table |
-| `language_code` | `CHAR(2 CHAR)` | No | **PK (2).** ISO 639 alpha-2, lower case |
+| `language_code` | `CHAR(2 CHAR)` | No | **PK (2).** ISO 639 alpha-2, lower case; FK `EMK_LANGUAGES` (§6) |
 | `name` | `VARCHAR2(100 CHAR)` | No | Translated name |
 | *audit block* | — | — | `created_*`, `updated_*` |
 
@@ -106,6 +112,7 @@ Names in languages other than English, for the German UI (F-15) and German lette
 | `EMK_COUNTRY_NAMES_PK` / `EMK_CURRENCY_NAMES_PK` | `PRIMARY KEY (<code>, language_code)` — also serves the foreign key |
 | `EMK_COUNTRY_NAMES_COUNTRIES_FK` / `EMK_CURRENCY_NAMES_CURRENCIES_FK` | `FOREIGN KEY (<code>) REFERENCES` the base table |
 | `…_LANG_CK` | `REGEXP_LIKE(language_code, '^[abcdefghijklmnopqrstuvwxyz]{2}$', 'c') AND language_code <> 'en'` — English lives in the base table |
+| `…_LANGUAGES_FK` | `FOREIGN KEY (language_code) REFERENCES emk_languages` — only languages of the list (D-68); no index (keys of a code list never change, D-72) |
 
 **Lookup:** `COALESCE(translated name for the session language, base name)`. In M1 only `de` rows are loaded.
 
@@ -132,7 +139,44 @@ Daily ECB reference rates: **units of the currency per 1 EUR**. Loaded in M1b th
 
 **BR-12 lookup** (function in M1b/M1c): the rate of the latest `rate_date <= business date` for the currency; EUR returns 1. With the primary key, this is an index range scan.
 
-## 6. Open Points
+## 6. Code Lists (D-68)
+
+Business value lists of the application. **Rule** (spec §1.3 *Code lists*, decided 2026-10-18): a business value list is a reference table with a validity period, referenced by a foreign key; never a `CHECK (col IN (...))` list. A check constraint can only allow or forbid a value: to retire a value that old rows still use, the check would have to stay (and keep accepting it) or be removed (and reject the old rows). A validity period retires the value for new records while old records keep it. Check constraints remain for technical values that only programs set (`Y`/`N` flags, journal operation `U`/`D`, log level, inbound status).
+
+| Table | Key | Values (Release 1) | Referenced by |
+|-------|-----|--------------------|---------------|
+| `EMK_LANGUAGES` | `language_code CHAR(2 CHAR)` (ISO 639-1, lower case) | `en`, `de`; no default, a company always chooses one (D-71) | `EMK_PARTIES`, `EMK_COUNTRY_NAMES`, `EMK_CURRENCY_NAMES` |
+| `EMK_PARTY_ROLE_TYPES` | `role_code VARCHAR2(20 CHAR)` | `SHIPPER`, `CONSIGNEE`, `CARRIER`, `FORWARDER`, `INSURER`, `SURVEYOR` | `EMK_PARTY_ROLES` |
+| `EMK_CLAIM_STATUSES` | `status_code VARCHAR2(20 CHAR)` | The 7 statuses of spec §4; `final_yn = 'Y'` for `RESOLVED`, `REJECTED`, `ESCALATED` | `EMK_CLAIMS.status`, `EMK_CLAIM_STATUS_HISTORY.from_status`, `.to_status` |
+| `EMK_CLAIM_TYPES` | `claim_type VARCHAR2(20 CHAR)` | `TOTAL_LOSS`, `PARTIAL_LOSS`, `DAMAGE`, `DELAY` | `EMK_CLAIMS` |
+| `EMK_DOCUMENT_TYPES` | `doc_type VARCHAR2(30 CHAR)` | `CMR_NOTE`, `DAMAGE_REPORT`, `PHOTO`, `INVOICE`, `CORRESPONDENCE`, `OTHER` | `EMK_CLAIM_DOCUMENTS` |
+| `EMK_FILE_TYPES` | `mime_type VARCHAR2(100 CHAR)` (IANA media type, lower case) | `application/pdf`, `image/jpeg`, `image/png` | `EMK_CLAIM_DOCUMENTS`, `EMK_FILE_EXTENSIONS` |
+| `EMK_FILE_EXTENSIONS` | `file_extension VARCHAR2(10 CHAR)` (lower case, no dot) | `pdf`, `jpg`, `jpeg`, `png`; technical, **no validity** (D-72) | — (read by `EMK_CLAIM_API`, BR-18) |
+
+**Columns.** Every list has its code, `name` (English display name), `valid_from DATE DEFAULT ON NULL DATE '1900-01-01'` (in `EMK_FILE_TYPES` without default and optional: empty = in the catalog, not allowed), `valid_to DATE` (`NULL` = still valid) and the audit block created + updated with its trigger `<TABLE>_BU`; `EMK_FILE_EXTENSIONS` has no validity. Business lists add `description VARCHAR2(400 CHAR)` and `sort_order NUMBER(3)` (position in lists). Extra columns: `EMK_CLAIM_STATUSES.final_yn` (closed claims; open claims are those with `N`), `EMK_FILE_TYPES.signature RAW(16)` (the first bytes of every file of the type), `EMK_FILE_EXTENSIONS.mime_type` (FK).
+
+| Constraint | Definition | Reason |
+|------------|------------|--------|
+| `<TABLE>_PK` | `PRIMARY KEY (<code>)` | |
+| `<TABLE>_CODE_CK` | Codes `REGEXP_LIKE(<code>, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ_]+$', 'c')`; language `'^[abcdefghijklmnopqrstuvwxyz]{2}$'`; media type `'^[abcdefghijklmnopqrstuvwxyz]+/[abcdefghijklmnopqrstuvwxyz0123456789.+-]+$'`; extension `'^[abcdefghijklmnopqrstuvwxyz0123456789]+$'` (`_MIME_CK`, `_EXT_CK`) | One spelling per code; explicit character lists (P-20) |
+| `<TABLE>_VALID_CK` | `valid_to IS NULL OR valid_to >= valid_from` (not on `EMK_FILE_EXTENSIONS`) | |
+| `EMK_CLAIM_STATUSES_FINAL_CK` | `final_yn IN ('Y','N')` | |
+| `EMK_FILE_EXTENSIONS_FILE_TYPES_FK` | FK to `EMK_FILE_TYPES` | No index: a code list (D-72) |
+| `EMK_FILE_TYPES_VALID_CK` | `valid_to IS NULL OR (valid_from IS NOT NULL AND valid_to >= valid_from)` | `valid_from` may be empty: in the catalog, not allowed (D-72) |
+
+**How validity is enforced.** The foreign key guarantees that a value exists; it cannot check a date. The APIs accept a **new** value only if it is valid today and keep a value a record already has (api-design decision 18). The views for the lists of values (`EMK_V_LANGUAGES`, `EMK_V_PARTY_ROLE_TYPES`, `EMK_V_CLAIM_STATUSES`, `EMK_V_CLAIM_TYPES`, `EMK_V_DOCUMENT_TYPES`) show `valid_yn` (valid today); a page offers those values plus the record's current value.
+
+**Codes used by the program.** `SHIPPER`, `CONSIGNEE`, `CARRIER` (BR-16), every status (state machine, spec §4) and every claim type (deadline rules, spec §5) are named in the code, once, in `EMK_CODES_PKG` (D-69; statuses and types from step 8). The language has no default, so no language is named in the code (D-71). These codes are retired only together with a code change; the master data API refuses to retire them (step 7.7), and a unit test fails if one of them is not valid today (`TEST_EMK_CODES_PKG`, `TEST_EMK_CODE_LISTS`). The transitions between statuses stay in `EMK_CLAIM_API` (BR-01): each transition has its own rules (amounts, reason), so a transition table would not remove code.
+
+**File types (BR-18, D-72).** A **catalog** maintained by developers and an **allowed period** maintained by the administrator. A developer adds a type, its signature and its extensions with documented criteria — the business needs it; its format standard defines a fixed signature; it is passive (no executables, scripts, HTML, SVG, macros); it is not a container (ZIP, Office Open XML) — reviewed in a pull request. The type arrives with `valid_from` empty, so it is **not allowed**; the administrator allows or retires it in the master data pages, which can never change a signature or an extension. Signatures: PDF `25 50 44 46 2D` (`%PDF-`, ISO 32000-2 §7.5.2), JPEG `FF D8 FF` (start-of-image marker `FFD8` and the first byte of the next marker, ITU-T T.81 Annex B), PNG `89 50 4E 47 0D 0A 1A 0A` (PNG Specification §5.2). The checks are designed in [api-design.md §9](api-design.md#9-claim-documents-file-checks-br-18-built-in-step-8).
+
+**Names in other languages.** The code lists have English names. German names come with the translated interface (F-15, M5), in name tables like `EMK_COUNTRY_NAMES` (§4); a list of values read from a table is not translated by the APEX text translation (XLIFF).
+
+**Who maintains what (D-72).** Read-only in the application: languages (a new one needs a translated application), countries, currencies. Maintained by the administrator, with a journal `<TABLE>_JN` (previous row, operation, user, time; not partitioned: a few rows a year): party role types, claim statuses and types (names, descriptions, order; the codes named in `EMK_CODES_PKG` cannot be retired), document types, file types (allowed period). **No foreign key to a code list has an index**: keys are never updated and rows never deleted, so Oracle's locking reason does not apply, and no query needs one (design README).
+
+**Why one table per list.** A single generic table (`list, code, name`) cannot be the target of a foreign key for one list only, mixes unrelated values and needs the list name in every query (the *One True Lookup Table* antipattern).
+
+## 7. Open Points
 
 | # | Point | Decision |
 |---|-------|----------|
@@ -144,8 +188,10 @@ Daily ECB reference rates: **units of the currency per 1 EUR**. Loaded in M1b th
 | 6 | `cmr_party_since` | **Decided (2026-10-08):** calculated with CMR Art. 43 (§2) |
 | 7 | RUB | **Decided (2026-10-08):** excluded (no ECB rate since 2022-03-01) |
 | 8 | REGEXP patterns | **Decided (2026-10-08):** explicit character lists and match parameter `'c'`, never ranges. Found in step 2: with the session sort `GERMAN`, `'^[A-Z]{2}$'` accepted `'xx'` (ranges follow `NLS_SORT`); see [README](README.md#common-rules-spec-13) |
+| 10 | Reference data in releases | A. `MERGE` that inserts and updates, `runOnChange`. B. Insert-only `MERGE`; changes to existing rows as separate change scripts with an authorized request | **Decided (2026-10-20, D-72): B** — a release never overwrites production data (owner); Liquibase recommends rolling forward with new changesets and warns against `runOnChange` for data; ITIL: a production change needs an authorized change request. Replaces open point 6 of the M1 plan |
+| 9 | Business value lists (languages, roles, statuses, claim and document types, file types) | A. Check constraints `IN (...)`. B. One reference table per list with validity and a foreign key. C. One generic code table | **Decided (2026-10-18, D-68): B** — a value can be retired while old rows keep it; the foreign key keeps integrity; one table per list avoids the generic table antipattern. Replaces the earlier choice of check constraints and static APEX lists (operational v1.0) |
 
-## 7. Sources
+## 8. Sources
 
 - ISO — [ISO 3166 Country Codes](https://www.iso.org/iso-3166-country-codes.html) · [ISO 4217 Currency Codes](https://www.iso.org/iso-4217-currency-codes.html) · [ISO 639](https://www.iso.org/standard/74575.html)
 - SIX (ISO 4217 maintenance agency) — [Currency code lists](https://www.six-group.com/en/products-services/financial-information/data-standards.html)
@@ -155,3 +201,4 @@ Daily ECB reference rates: **units of the currency per 1 EUR**. Loaded in M1b th
 - UN Treaty Collection — [CMR Convention, status](https://treaties.un.org/Pages/ViewDetails.aspx?src=TREATY&mtdsg_no=XI-B-11&chapter=11&clang=_en)
 - ECB — [Euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) · [Framework for the euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/pdf/exchange/Frameworkfortheeuroforeignexchangereferencerates.en.pdf) · [Bulgaria](https://www.ecb.europa.eu/euro/changeover/bulgaria/html/index.en.html) · [Croatia](https://www.ecb.europa.eu/press/pr/date/2022/html/ecb.pr220712~b97dd38de3.en.html)
 - Oracle APEX 24.2 — [Managing Application Globalization](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/managing-application-globalization.html) · [APEX_LANG.LANG](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/LANG_Function.html)
+- Code lists — [ISO 639 Language codes](https://www.iso.org/iso-639-language-code) · [IANA Media Types](https://www.iana.org/assignments/media-types/media-types.xhtml) · [RFC 8118 (application/pdf)](https://www.rfc-editor.org/rfc/rfc8118) · [PNG Specification §5.2](https://www.w3.org/TR/png-3/#5PNG-file-signature) · ITU-T T.81 (JPEG) Annex B · ISO 32000-2 §7.5.2 · [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html) · [OWASP ASVS 5.0 V5](https://github.com/OWASP/ASVS/blob/master/5.0/en/0x14-V5-File-Handling.md)

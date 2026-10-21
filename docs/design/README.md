@@ -33,15 +33,20 @@ Defined **once** here; every table document only states which part applies ("aud
 
 | Area | Document | Schema | Milestone | Status |
 |------|----------|--------|-----------|--------|
-| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_DATA` | M1a | Accepted v1.3 |
-| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_DATA` | M1a | Accepted v1.6 |
-| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_DATA`, `EMK_API` (log) | M1a | Accepted v1.2 |
+| Reference data | [data-model-reference.md](data-model-reference.md) | `EMK_DATA` | M1a | Accepted v1.4 |
+| Operational data | [data-model-operational.md](data-model-operational.md) | `EMK_DATA` | M1a | Accepted v1.8 |
+| Audit, logs and journals | [data-model-audit.md](data-model-audit.md) | `EMK_DATA`, `EMK_API` (log) | M1a | Accepted v1.3 |
+| Personal data inventory (GDPR) | [personal-data.md](personal-data.md) | `EMK_DATA`, `EMK_API`, `EMK_INT` | M1a | Accepted v1.0 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
-| PL/SQL APIs (architecture, packages, flows, views for the application) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.3 |
+| PL/SQL APIs (architecture, packages, flows, views for the application) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.4 |
 
 ## Common Rules (spec §1.3)
 
-- Keys: `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; reference tables keyed by ISO code; named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`); an index on every foreign key (a primary key whose leading column is the foreign key counts).
+- Keys: `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; reference tables keyed by ISO code; named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`).
+- **Indexes only after analysis** (D-72): each index is justified by a query that needs it or by Oracle's rule for foreign keys — index a foreign key unless the parent key is never updated or deleted ([Database Concepts 26ai, *Data Integrity*](https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html)); a primary key whose leading column is the foreign key counts. Foreign keys to code lists and other reference tables (keys never updated, rows never deleted) get no index unless a query needs one (D-72, D-81).
+- **Partitions only after analysis** (D-72): only for tables that keep growing and are purged by period (logs, journals of operational tables, inbound records); never for small tables such as code lists and their journals.
+- **Data scripts never overwrite production data** (D-72): reference data is loaded by insert-only `MERGE` scripts (missing rows only), added to a release once; a change to existing rows is a separate change script, run once, that cites the authorized change request (ITIL change enablement; Liquibase: roll forward, `runOnChange` not for data).
+- **Business value lists are code lists:** a reference table with a validity period per list and a foreign key, never `CHECK (col IN (...))`; check constraints only for technical values set by programs (`Y`/`N` flags, journal operation, log level). A check cannot retire a value that old rows use; a validity period can (D-68, [reference data §6](data-model-reference.md#6-code-lists-d-68)).
 - Text `VARCHAR2(n CHAR)`; amounts `NUMBER(p,s)`; business dates `DATE`; technical timestamps `TIMESTAMP WITH TIME ZONE`; flags `<name>_yn CHAR(1 CHAR)` with a check `IN ('Y','N')`.
 - Audit block on every table (above); soft delete and journals on operational tables; validity periods on reference tables; monthly interval partitioning on append-only tables.
 - No tablespace or storage clauses in the DDL (default tablespace of the schema).

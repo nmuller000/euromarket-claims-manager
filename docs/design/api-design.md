@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.3 (2026-10-18): step 7 as built (decisions D-64 to D-67), views, change history and grants for the application (§8). v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
+| **Status** | Accepted v1.4 (2026-10-21): code lists (D-68): a new language or role must be valid today, views for the lists of values; language and at least one role required, `create_party` with roles, error -20106 (D-71); common packages `EMK_UTILITIES_PKG`, `EMK_CODES_PKG`, `EMK_ROW_VERSION_PKG` (D-69); role locks between shipments and companies (D-73); file checks of claim documents designed for step 8 (BR-18, §9); required codes in the pages. v1.3 (2026-10-18): step 7 as built (decisions D-64 to D-67), views, change history and grants for the application (§8). v1.2 (2026-10-16): error package `EMK_ERRORS_PKG` (naming rule), log purge `EMK_LOG_PKG.purge_entries`. v1.1 (2026-10-10): schemas `EMK_DATA`, `EMK_API`, `EMK_UI` (ADR-008) |
 | **Schema** | `EMK_API` (APIs, services, views, log) · `EMK_DATA` (tables, journals, triggers) · `EMK_UI` (APEX parsing schema, no objects) · `EMK_INT` (integration, M1b) — [ADR-008](../adr/ADR-008-schema-separation.md) |
 | **Milestone** | M1a (plan steps 1, 7, 8) |
 | **Input** | [spec.md](../spec.md) §1, §2.7, §4, §7.1 · [Data model](README.md) · [ADR-007](../adr/ADR-007-integration-schema-and-account-hardening.md) · [ADR-008](../adr/ADR-008-schema-separation.md) |
@@ -100,7 +100,15 @@ flowchart LR
     sec --> err
     log --> err
     sec --> acl["APEX_ACL / APEX_APPLICATION"]
+    party --> util["EMK_UTILITIES_PKG"]
+    ship --> util
+    claim --> util
+    party --> codes["EMK_CODES_PKG"]
+    ship --> codes
+    claim --> codes
 ```
+
+- **Common packages** (decision 20): `EMK_UTILITIES_PKG` holds the functions every API needs (current user, change detection, validity on a date, the locked-row exceptions); `EMK_ROW_VERSION_PKG` writes `row_version` as text (a scalar SQL macro used by the views) and reads it back — a package of its own, so that `EMK_UI` executes only what the pages need (least privilege, 2026-10-21); `EMK_CODES_PKG` holds the codes that the rules name (roles of BR-16, `EUR`, `GB` and `XI` for the VAT rule; claim statuses and types in step 8). Each is written once.
 
 - Dependencies point in one direction only (no cycles): an API may call a lower API (`EMK_SHIPMENT_API` checks party roles through `EMK_PARTY_API`), never the other way.
 - `EMK_SECURITY_PKG` is used by `EMK_CLAIM_API` for BR-02. `EMK_PARTY_API` and `EMK_SHIPMENT_API` do not check roles in Release 1 (§5, decision 4).
@@ -109,15 +117,16 @@ flowchart LR
 
 | Package | Subprogram | Rules and errors |
 |---------|------------|------------------|
-| `EMK_PARTY_API` | `create_party (in_name, in_vat_number, in_country_code, in_street, in_postal_code, in_city, in_language_code, out_party_id)` | VAT normalised (upper case, no spaces); prefix = country's `eu_vat_prefix` (`XI` allowed for `GB`) → `c_vat_country_mismatch`; duplicate VAT → `c_duplicate_vat` (message says "restore" if the party is deleted, D-39) |
-| | `update_party (in_party_id, in_expected_updated_at, …same fields…)` | Optimistic locking → `c_record_changed`; same checks as create; no update if nothing changed |
+| `EMK_PARTY_API` | `create_party (in_name, in_vat_number, in_country_code, in_street, in_postal_code, in_city, in_language_code, in_role_codes, out_party_id)` | VAT normalised (upper case, no spaces); prefix = country's `eu_vat_prefix` (`XI` allowed for `GB`) → `c_vat_country_mismatch`; duplicate VAT → `c_duplicate_vat` (message says "restore" if the party is deleted, D-39); language required (→ `c_invalid_argument`), lower case, from `EMK_LANGUAGES` and valid today → `c_reference_not_valid` (D-68); the company is created **with its roles** (at least one → `c_party_role_required`, D-71) |
+| | `update_party (in_party_id, in_expected_updated_at, …same fields…)` | Optimistic locking → `c_record_changed`; same checks as create, but country and language validity only when they change (a party keeps a retired country or language); no update if nothing changed |
 | | `delete_party (in_party_id, in_expected_updated_at)` | Rejected while active shipments use the party → `c_party_in_use`; active contacts are soft-deleted in the same transaction |
 | | `restore_party (in_party_id)` | `deleted_yn` Y→N, `deleted_by`/`deleted_at` → NULL (D-39); contacts are restored one by one (`restore_contact`); does nothing if the party is not deleted |
-| | `add_role (in_party_id, in_role_code)` / `remove_role (in_party_id, in_role_code)` | BR-16: a role used by any shipment (also soft-deleted) cannot be removed → `c_party_role_in_use`; adding an existing role does nothing |
-| | `set_roles (in_party_id, in_role_codes)` | The complete list of roles, colon-separated (an APEX checkbox item): adds the missing roles and removes the others with the rules above, so that the page computes no difference itself |
+| | `add_role (in_party_id, in_role_code)` / `remove_role (in_party_id, in_role_code)` | BR-16: a role used by any shipment (also soft-deleted) cannot be removed → `c_party_role_in_use`; adding an existing role does nothing, also if it was retired since; a new role must be in `EMK_PARTY_ROLE_TYPES` and valid today → `c_reference_not_valid` (D-68); no role → `c_invalid_argument` |
+| | `set_roles (in_party_id, in_role_codes)` | The complete list of roles, colon-separated (an APEX checkbox item): adds the missing roles first, then removes the others, with the rules above, so that the page computes no difference itself; an empty list and removing the last role → `c_party_role_required` (D-71) |
+| | `lock_role (in_party_id, in_role_code)` | Locks the role row until the end of the transaction (`FOR UPDATE WAIT 3`), called by `EMK_SHIPMENT_API` before its BR-16 check; `remove_role` and `delete_party` lock the same rows `NOWAIT` → `c_record_locked` (decision 21) |
 | | `has_role (in_party_id, in_role_code) RETURN BOOLEAN` | Active party with the role; used by `EMK_SHIPMENT_API` |
 | | `create_contact` / `update_contact` / `delete_contact` / `restore_contact` | Personal data (spec §3.3); optimistic locking on update and delete; phone stored without spaces (E.164); a contact of a deleted party cannot be restored |
-| `EMK_SHIPMENT_API` | `create_shipment (in_cmr_note_no, in_shipper_id, in_carrier_id, in_consignee_id, in_pickup_place, in_origin_country, in_delivery_place, in_destination_country, in_pickup_date, in_agreed_delivery_date, in_delivery_date, in_goods_description, in_packages, in_gross_weight_kg, in_carriage_charges, in_currency_code, out_shipment_id)` | Note number `UPPER(TRIM())`; dates `TRUNC`; the carrier is never the shipper or the consignee (CMR Art. 1(1), carriage for reward) → `c_carrier_not_third_party`; **BR-16** each party active with its role → `c_party_role_missing`; **BR-17** one country is a CMR party on the pickup date → `c_cmr_not_applicable`; both countries and the currency valid on the pickup date, currency EUR or with an ECB rate → `c_reference_not_valid`; **BR-03** duplicate → `c_duplicate_cmr_note` |
+| `EMK_SHIPMENT_API` | `create_shipment (in_cmr_note_no, in_cmr_note_date, in_shipper_id, in_carrier_id, in_consignee_id, in_pickup_place, in_origin_country, in_delivery_place, in_destination_country, in_pickup_date, in_agreed_delivery_date, in_delivery_date, in_disposal_date, in_goods_description, in_packages, in_gross_weight_kg, in_carriage_charges, in_currency_code, in_declared_value, in_declared_value_currency, in_special_interest, in_special_interest_currency, out_shipment_id)` | Note number `UPPER(TRIM())`; date of the consignment note required (D-79); the currencies of the declared value and of the special interest as the carriage charges (D-78); dates `TRUNC`; the carrier is never the shipper or the consignee (CMR Art. 1(1), carriage for reward) → `c_carrier_not_third_party`; **BR-16** each party active with its role → `c_party_role_missing`; **BR-17** one country is a CMR party on the pickup date → `c_cmr_not_applicable`; both countries and the currency valid on the pickup date, currency EUR or with an ECB rate → `c_reference_not_valid`; **BR-03** duplicate → `c_duplicate_cmr_note`; the role rows of the three companies are locked until the commit (decision 21) |
 | | `update_shipment (in_shipment_id, in_expected_updated_at, …)` | Same checks; optimistic locking |
 | | `delete_shipment (in_shipment_id, in_expected_updated_at)` / `restore_shipment (in_shipment_id)` | Rejected while active claims exist → `c_shipment_in_use`; restore re-checks BR-16 (a party may have lost its role) |
 
@@ -215,7 +224,7 @@ Decisions taken while building step 7 (D-64 to D-66, 2026-10-16/17):
 |---|----------|--------|-----------------------|
 | 5 | `set_roles` takes the complete role list of a company | The APEX page passes its checkbox value; computing which roles to add and remove would be business logic in the page | Only `add_role` / `remove_role`, with the difference computed in APEX |
 | 6 | `restore_contact`; restoring something not deleted does nothing; deleting something already deleted raises `c_not_found` | The design said contacts are restored one by one, without a subprogram; a second restore does no harm, a delete of a missing row is an error | Error on a second restore |
-| 7 | A party's country is valid **today**; a VAT number only for EU countries (prefix = the country's EU VAT prefix, `XI` also for `GB`) | The party record describes the company now; `vat_number` holds EU VAT numbers in VIES format | Accepting any VAT number for non-EU countries |
+| 7 | A party's country is valid **today** (on update only when it changes: a party keeps a retired country, D-68); a VAT number only for EU countries (prefix = the country's EU VAT prefix, `XI` also for `GB`) | The party record describes the company now; `vat_number` holds EU VAT numbers in VIES format | Accepting any VAT number for non-EU countries |
 | 8 | Values are normalised before they are stored (trimmed names, VAT upper case without spaces, phone without spaces); format rules stay in the check constraints, whose errors reach the caller unchanged and are turned into messages by the APEX error handling function | One place per rule: the table for formats within a row, the API for rules across tables | Repeating format checks in the API |
 | 9 | Countries (origin, destination) are checked for validity like the currency | "The same temporal validity (from/to) as currencies: no obsolete country codes, robust against future changes of international codes, negligible performance impact" (owner) | Checking only the currency |
 | 10 | Countries, currency and CMR membership are checked on the **pickup date**, not today | "Shipments are past events: the rules in force at the time of carriage apply, so historic data and old claims with ended currencies or rules can be registered" (owner). The pickup date is mandatory; an update rechecks everything with the new date | Today's date: rejects correct old shipments (kuna in 2021) |
@@ -226,6 +235,9 @@ Decisions taken while building step 7 (D-64 to D-66, 2026-10-16/17):
 | 15 | Country and currency names in English; German names when the interface is translated (M5) | The German name tables exist; no page uses them before the translation | Both languages now |
 | 16 | Views are documented by their `/** */` header only, without `COMMENT ON` | SQLcl project 25.4 exports the comments of tables only (checked on the export of step 7.4); the header is exported with the view, so database and repository stay equal | `COMMENT ON` plus a custom release script: the same text twice and a script to maintain |
 | 17 | Change history visible in the application through three views over the journals, with the action of each change (`UPDATED`, `DELETED`, `RESTORED`) computed from the next version; contacts' history for the compliance officer only | The app-context test reads the history as `EMK_UI` and rolls back, and users see who changed what (FR-09); former personal data shown only to who needs it (GDPR Art. 5(1)(c)) | Two test scripts that commit test data and delete it physically |
+| 18 | Code lists (D-68, 2026-10-18): a **new** value (language, role; later status, claim type, document type, file type) must exist in its reference table and be valid **today**; a value a record already has stays when it is retired | The foreign key guarantees that the value exists, but cannot check a date; rejecting stored values that were retired later would block every update of old records | Re-checking every stored value on each update |
+| 20 | Common packages (D-69, 2026-10-20): `EMK_UTILITIES_PKG` for common functions and `EMK_CODES_PKG` for the codes named by the rules; the reference tables stay the lists of values, maintained in the application; the codes in `EMK_CODES_PKG` are protected there. `row_version` is formatted by a scalar SQL macro, so the views make no call per row | Each function and code was copied in several packages (the user function twice, change detection four times, the roles twice, the validity check five times); one place to change. Two packages, because a changed code recompiles only what uses codes ([Oracle: schema object dependency](https://docs.oracle.com/en/database/oracle/oracle-database/26/adfns/schema-object-dependency.html)) | One package for everything; copies in each API |
+| 21 | Concurrency between a shipment and its companies (D-73, 2026-10-21): saving a shipment locks the role rows of its three companies (always shipper, carrier, consignee; waits up to 3 s); removing a role or deleting a company locks the same rows without waiting. Whichever comes second is checked against what the first committed | Without it, a role could be removed (or a company deleted) between the shipment's BR-16 check and its commit, leaving a shipment with a company that lacks the role (write skew). The fixed order prevents deadlocks between single-shipment transactions; a page saves in milliseconds, so the wait is short. Tested through the application (`tests/emk_ui/hold_role_lock.sql`); M1b batches must commit in small units, because a batch holds these locks until it commits | Locking the whole party row (blocks every edit of the company); accepting the risk |
 
 ## 6. Best-Practice Review
 
@@ -251,6 +263,7 @@ Checked against the SmartDB properties (Oracle: [The SmartDB Manifesto](https://
 | -20103 | `c_vat_country_mismatch` | VAT prefix does not match the party's country |
 | -20104 | `c_duplicate_vat` | VAT number already used (also by a soft-deleted party) |
 | -20105 | `c_party_in_use` | Party has active shipments |
+| -20106 | `c_party_role_required` | A company needs at least one role (D-71) |
 | -20202 | `c_shipment_in_use` | Shipment has active claims |
 | -20203 | `c_cmr_not_applicable` | BR-17: no CMR party on the pickup date |
 | -20204 | `c_carrier_not_third_party` | The carrier is also the shipper or the consignee (CMR Art. 1(1), D-64) |
@@ -272,13 +285,22 @@ APEX parses as `EMK_UI`, which has **no privilege on any table** (ADR-008): page
 | `EMK_V_PARTY_HISTORY` | History region of the company form | When, who (APEX user), action (`UPDATED`, `DELETED`, `RESTORED`), the values before the change |
 | `EMK_V_CONTACT_HISTORY` | History of contacts (compliance officer only) | When, who, action, former name, email and phone |
 | `EMK_V_SHIPMENT_HISTORY` | History region of the shipment form | When, who, action, the values before the change |
+| `EMK_V_LANGUAGES` | List of languages (company form) | Code, name, `valid_yn` (valid today), validity from/to |
+| `EMK_V_PARTY_ROLE_TYPES` | Role checkboxes (company form) | Code, name, description, order, `valid_yn`, validity |
+| `EMK_V_CLAIM_STATUSES` | Status lists and filters (step 8) | Code, name, description, order, `final_yn` (open claims have `N`), `valid_yn`, validity |
+| `EMK_V_CLAIM_TYPES` | List of claim types (step 8) | Code, name, description, order, `valid_yn`, validity |
+| `EMK_V_DOCUMENT_TYPES` | List of document types (step 8) | Code, name, description, order, `valid_yn`, validity |
 
-`row_version` is `NVL(updated_at, created_at)` as text in the format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; a page keeps it in a hidden item and passes `TO_TIMESTAMP_TZ(:ITEM, <same format>)` as `in_expected_updated_at` (decision 14).
+A list of values offers the values with `valid_yn = 'Y'` **plus the value the record already has**, so that an old record with a retired value still shows it (decision 18). The file type tables have no view: only `EMK_CLAIM_API` reads them (§9).
+
+**Required codes in the pages (owner, 2026-10-21):** a code column that is `NOT NULL` in its table is a **required** page item whose list of values has **no empty entry** (country, language, roles — at least one —, claim type, status, document type); the API rejects an empty value as well, because it is also called by the import. A code is optional only where the data model says why: the currency of carriage charges and of claim amounts (only together with an amount), the previous status of the first status change, the apparent-damage flag (only for partial loss and damage).
+
+`row_version` is `NVL(updated_at, created_at)` as text in the format `YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM`; the views write it with `EMK_ROW_VERSION_PKG.format_row_version`; a page keeps it in a hidden item and passes `EMK_ROW_VERSION_PKG.parse_row_version(:ITEM)` as `in_expected_updated_at`, so the format exists in one place (decision 14, D-69).
 
 | From → to | Grant | Reason |
 |-----------|-------|--------|
-| `EMK_DATA` → `EMK_API` | `SELECT WITH GRANT OPTION` on `EMK_PARTIES`, `EMK_PARTY_ROLES`, `EMK_CONTACTS`, `EMK_SHIPMENTS`, `EMK_COUNTRIES`, `EMK_CURRENCIES` and the journals `EMK_PARTIES_JN`, `EMK_CONTACTS_JN`, `EMK_SHIPMENTS_JN` | Oracle grants access to a view only if its owner may pass on access to the tables it reads; otherwise the grant to `EMK_UI` fails with `ORA-01720` ([GRANT](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/GRANT.html)) |
-| `EMK_API` → `EMK_UI` | `SELECT` on the 11 views; `EXECUTE` on `EMK_PARTY_API` and `EMK_SHIPMENT_API` | The minimum for APEX to read and write; nothing on any table |
+| `EMK_DATA` → `EMK_API` | `SELECT WITH GRANT OPTION` on `EMK_PARTIES`, `EMK_PARTY_ROLES`, `EMK_CONTACTS`, `EMK_SHIPMENTS`, `EMK_COUNTRIES`, `EMK_CURRENCIES`, the journals `EMK_PARTIES_JN`, `EMK_CONTACTS_JN`, `EMK_SHIPMENTS_JN` and the seven code lists (`EMK_LANGUAGES`, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_CLAIM_TYPES`, `EMK_DOCUMENT_TYPES`, `EMK_FILE_TYPES`, `EMK_FILE_EXTENSIONS`) with the journals of the five maintained in the application | Oracle grants access to a view only if its owner may pass on access to the tables it reads; otherwise the grant to `EMK_UI` fails with `ORA-01720` ([GRANT](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/GRANT.html)) |
+| `EMK_API` → `EMK_UI` | `SELECT` on the 16 views; `EXECUTE` on `EMK_ROW_VERSION_PKG` only of the common packages; `EXECUTE` on `EMK_PARTY_API` and `EMK_SHIPMENT_API` | The minimum for APEX to read and write; nothing on any table |
 
 The database grants the views to `EMK_UI`, the schema of the whole application; it does not know APEX roles. Who sees a page or region is decided by APEX authorization schemes per role (spec §7.1):
 
@@ -287,3 +309,25 @@ The database grants the views to `EMK_UI`, the schema of the whole application; 
 | Companies | ✔ | ✔ | – | ✔ |
 | Shipments | ✔ | ✔ | – | ✔ |
 | Contacts (former personal data) | – | ✔ | – | – |
+
+## 9. Claim Documents: File Checks (BR-18, built in step 8)
+
+A claim document is evidence (CMR Art. 30), and a file uploaded by a user is untrusted input. `EMK_CLAIM_API` stores a document only after these checks, in the database (server side). The file filter of the APEX upload item works in the browser only and can be bypassed: it is a convenience, not a control.
+
+| # | Check | Rule | Error |
+|---|-------|------|-------|
+| 1 | **Allowlist** | The extension after the last dot of the file name, in lower case, is in `EMK_FILE_EXTENSIONS` and valid today, and its file type in `EMK_FILE_TYPES` is valid today. Only the types the business needs: PDF, JPEG, PNG | `c_file_type_not_allowed` (-20304, added in step 8) |
+| 2 | **Size** | 1 byte to 10 MB, and `DBMS_LOB.GETLENGTH(content) = file_size` | `EMK_CLAIM_DOCUMENTS_SIZE_CK`; `c_invalid_argument` |
+| 3 | **Content** | The file starts with the signature of its type: `DBMS_LOB.SUBSTR(content, UTL_RAW.LENGTH(signature), 1) = signature` | `c_file_content_mismatch` (-20305, added in step 8) |
+| 4 | **Type stored** | `mime_type` is the type of the extension, set by the API; the type sent by the browser is ignored, because the client chooses it and it is easy to forge | — |
+
+- A rejected file is logged as `WARN` with the claim id and the extension only, never the file name or the content (traceability without personal data, as decision 11).
+- The file name is only displayed; the file is stored in a `BLOB`, never in a directory, so the name is never used as a path (CWE-434).
+- **Documented allowlist:** the two tables and their data scripts ([emk_file_types_data.sql](../../data/reference/emk_file_types_data.sql), [emk_file_extensions_data.sql](../../data/reference/emk_file_extensions_data.sql)). There is no maintenance page: a new type is a change of the script, reviewed in a pull request (decision 19).
+- **Not in Release 1 (growth path):** malware scanning (needs an external scanning service) and re-writing images. The signature check is a minimum, not a proof that a file is harmless (OWASP).
+
+| # | Decision | Reason | Alternative not taken |
+|---|----------|--------|-----------------------|
+| 19 | Allowlist of file types in two reference tables (types with their signature; extensions), changed only by a data script; checks in `EMK_CLAIM_API` | OWASP: allow only the extensions the business needs, validate the content and never trust the type sent by the client. ASVS 5.0 requires documented types for each upload feature (V5.1.1) and a match of extension and content (V5.2.2). A table also lets a type be retired without touching old documents | A check constraint on the type sent by the browser (forgeable, no retirement); a maintenance page (an administrator could allow a dangerous type by mistake) |
+
+Sources: [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html) · [OWASP ASVS 5.0, V5 File Handling](https://github.com/OWASP/ASVS/blob/master/5.0/en/0x14-V5-File-Handling.md) · [CWE-434](https://cwe.mitre.org/data/definitions/434.html) · signatures: [PNG Specification §5.2](https://www.w3.org/TR/png-3/#5PNG-file-signature), ITU-T T.81 Annex B (JPEG markers), ISO 32000-2 §7.5.2 (PDF file header) · [RFC 8118 (application/pdf)](https://www.rfc-editor.org/rfc/rfc8118)
