@@ -5,13 +5,16 @@ create or replace force editionable view emk_api.emk_v_document_types (
     sort_order,
     valid_yn,
     valid_from,
-    valid_to
+    valid_to,
+    row_version
 ) as
     select
     /**
      * Document types for the APEX lists of values (D-68). valid_yn = 'Y' if
      * the type is valid today: a list offers those, plus the value the
      * document already has.
+     * The master data pages read it too (D-82): row_version for optimistic
+     * locking (EMK_ROW_VERSION_PKG.format_row_version).
      *
      * @author Natalia Müller
      * @since  2026-10-18
@@ -29,11 +32,12 @@ create or replace force editionable view emk_api.emk_v_document_types (
                 'Y'
             else
                 'N'
-        end as valid_yn,
+        end                                                                         as valid_yn,
         valid_from,
-        valid_to
+        valid_to,
+        emk_api.emk_row_version_pkg.format_row_version(nvl(updated_at, created_at)) as row_version
     from
         emk_data.emk_document_types;
 
 
--- sqlcl_snapshot {"hash":"111bc2516304a894160a122826af212024380652","type":"VIEW","name":"EMK_V_DOCUMENT_TYPES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"523b7a70db02ddbb364f3faef6ee5ff3093156e0","type":"VIEW","name":"EMK_V_DOCUMENT_TYPES","schemaName":"EMK_API","sxml":""}

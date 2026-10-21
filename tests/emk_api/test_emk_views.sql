@@ -127,7 +127,7 @@ create or replace package body test_emk_views as
         into   l_views, l_undocumented
         from   user_views
         where  view_name like 'EMK\_V\_%' escape '\';
-        ut.expect(l_views).to_equal(16);
+        ut.expect(l_views).to_equal(18);   -- 7.7: EMK_V_FILE_TYPES, EMK_V_CODE_LIST_HISTORY (D-82)
         ut.expect(l_undocumented).to_equal(0);
     end documents_every_view;
 

@@ -17,3 +17,4 @@
 @@test_emk_party_api.sql
 @@test_emk_shipment_api.sql
 @@test_emk_views.sql
+@@test_emk_master_data_api.sql

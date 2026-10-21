@@ -85,8 +85,14 @@ create or replace package emk_api.emk_errors_pkg as
     c_reference_not_valid constant pls_integer := -20401;  -- code outside its validity period (e.g. HRK in 2024)
     e_reference_not_valid exception;
     pragma exception_init ( e_reference_not_valid, -20401 );
+    c_code_protected constant pls_integer := -20402;  -- D-82, a code named in EMK_CODES_PKG cannot be retired
+    e_code_protected exception;
+    pragma exception_init ( e_code_protected, -20402 );
+    c_code_exists constant pls_integer := -20403;  -- D-82, code already in its list, also if retired (never reused)
+    e_code_exists exception;
+    pragma exception_init ( e_code_exists, -20403 );
 end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"7a76898977c9d52d40c14bee7b7cdfa73c506056","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"bf636de69e73cf2c9010f5f19c0177a5a73e981e","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}

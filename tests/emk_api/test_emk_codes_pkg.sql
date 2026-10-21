@@ -22,6 +22,9 @@ create or replace package test_emk_codes_pkg as
 
     --%test(EU VAT: GB is a valid country outside the EU, so that the prefix XI is the only VAT number it accepts)
     procedure keeps_gb_for_northern_ireland;
+
+    --%test(D-82: the roles named by the rules, and only they, are protected in the master data)
+    procedure protects_rule_roles;
 end test_emk_codes_pkg;
 /
 
@@ -72,6 +75,15 @@ create or replace package body test_emk_codes_pkg as
         ut.expect(l_eu_member_yn, 'GB outside the EU').to_equal('N');
         ut.expect(l_eu_vat_prefix, 'GB has no EU VAT prefix of its own').to_be_null();
     end keeps_gb_for_northern_ireland;
+
+    procedure protects_rule_roles is
+    begin
+        ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_shipper), 'SHIPPER').to_be_true();
+        ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_carrier), 'CARRIER').to_be_true();
+        ut.expect(emk_codes_pkg.is_protected_role(emk_codes_pkg.c_role_consignee), 'CONSIGNEE').to_be_true();
+        ut.expect(emk_codes_pkg.is_protected_role('SURVEYOR'), 'a role no rule names').to_be_false();
+        ut.expect(emk_codes_pkg.is_protected_role(null), 'an empty code').to_be_false();
+    end protects_rule_roles;
 
 end test_emk_codes_pkg;
 /
