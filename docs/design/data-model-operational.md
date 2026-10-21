@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.8 (2026-10-21): code lists (D-68) — language, role, claim status and type, document type and file type are foreign keys to reference tables with validity instead of check constraints, without indexes (D-72); language required without default and at least one role per company (D-71); `EMK_CLAIMS_APPARENT_CK` names two types (D-70); file checks of documents (BR-18); consignment note particulars of shipments (D-78, D-79); claimant, wilful misconduct, partial admission, settlement date and recovery payments planned for step 8 (D-75–D-77); date of the consignment note in any order with the pickup and three indexes removed (D-81). v1.7 (2026-10-16): error package `EMK_ERRORS_PKG`. v1.6 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
+| **Status** | Accepted v1.9 (2026-10-22): CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); index `EMK_SHIPMENTS_SENDER_IX`, foreign key `EMK_SHIPMENTS_SENDER_FK`. v1.8 (2026-10-21): code lists (D-68) — language, role, claim status and type, document type and file type are foreign keys to reference tables with validity instead of check constraints, without indexes (D-72); language required without default and at least one role per company (D-71); `EMK_CLAIMS_APPARENT_CK` names two types (D-70); file checks of documents (BR-18); consignment note particulars of shipments (D-78, D-79); claimant, wilful misconduct, partial admission, settlement date and recovery payments planned for step 8 (D-75–D-77); date of the consignment note in any order with the pickup and three indexes removed (D-81). v1.7 (2026-10-16): error package `EMK_ERRORS_PKG`. v1.6 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); changed only through the APIs in `EMK_API` (object grants, no `DELETE` on soft-deleted tables) |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
@@ -17,7 +17,7 @@ Operational tables hold the business records. Audit block: **created + updated +
 erDiagram
     EMK_PARTIES ||--o{ EMK_PARTY_ROLES : "plays"
     EMK_PARTIES ||--o{ EMK_CONTACTS : "has"
-    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "shipper / carrier / consignee"
+    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "sender / carrier / consignee"
     EMK_SHIPMENTS ||--o{ EMK_CLAIMS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_DOCUMENTS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_RECOVERIES : "recovered by"
@@ -63,7 +63,7 @@ erDiagram
 
 ## 2a. `EMK_PARTY_ROLES`
 
-A company can play **several roles** (a forwarder that also carries with its own trucks; a shipper of one shipment that is the consignee of another), so a single "party type" column would be wrong. This is the standard *party–role* pattern: a new role is a new row, not a table change.
+A company can play **several roles** (a forwarder that also carries with its own trucks; a sender of one shipment that is the consignee of another), so a single "party type" column would be wrong. This is the standard *party–role* pattern: a new role is a new row, not a table change.
 
 | Column | Type | Null | Rule / reason |
 |--------|------|------|---------------|
@@ -73,7 +73,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 
 | Role code | Meaning | CMR | UN/EDIFACT 3035 | Used in Release 1 |
 |-----------|---------|-----|-----------------|-------------------|
-| `SHIPPER` | Sender / consignor of the goods | Art. 5–7 | `CZ` | Shipments (required) |
+| `SENDER` | Sender of the goods (called sender in other modes, consignor in UN/EDIFACT) | Art. 6(1)(b), 7 | `CZ` | Shipments (required) |
 | `CONSIGNEE` | Receiver of the goods | Art. 13, 30 | `CN` | Shipments (required) |
 | `CARRIER` | Carrier liable for loss, damage, delay | Art. 17 | `CA` | Shipments and claims (required) |
 | `FORWARDER` | Freight forwarder that arranges the carriage | — | `FW` | Optional |
@@ -86,7 +86,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_PARTY_ROLES_PARTIES_FK` | FK to `EMK_PARTIES` | |
 | `EMK_PARTY_ROLES_ROLE_TYPES_FK` | FK to `EMK_PARTY_ROLE_TYPES` | Code list (D-68): a role can be retired; companies keep it, the API gives only roles valid today. Replaces the check constraint of v1.1 |
 | `EMK_PARTY_ROLES_ROLE_IX` | `(role_code, party_id)` | APEX lists of values such as "carriers" read by role; also indexes the foreign key to the role list |
-| **BR-16** (API) | The shipper, carrier and consignee of a shipment have the role `SHIPPER`, `CARRIER` and `CONSIGNEE`; a role still used by a shipment cannot be removed; a company has at least one role (D-71); saving a shipment locks the role rows it needs, so a concurrent removal waits for it (D-73) | Cross-table rule. A declarative alternative (foreign key on a virtual column) was not verified for this case and is not used |
+| **BR-16** (API) | The sender, carrier and consignee of a shipment have the role `SENDER`, `CARRIER` and `CONSIGNEE`; a role still used by a shipment cannot be removed; a company has at least one role (D-71); saving a shipment locks the role rows it needs, so a concurrent removal waits for it (D-73) | Cross-table rule. A declarative alternative (foreign key on a virtual column) was not verified for this case and is not used |
 
 ## 3. `EMK_CONTACTS` (personal data)
 
@@ -114,16 +114,16 @@ A company can play **several roles** (a forwarder that also carries with its own
 |--------|------|------|---------------|
 | `shipment_id` | `NUMBER` | No | **PK**, identity |
 | `cmr_note_no` | `VARCHAR2(50 CHAR)` | No | CMR consignment note number; no international format (free text, trimmed, upper case); unique **per carrier** (BR-03, spec v1.5) |
-| `cmr_note_date` | `DATE` | No | Date of the consignment note (CMR Art. 6(1)(a)), required; taken as the making of the contract for the limitation period of other cases (Art. 32(1)(c), spec §5.3 L11); any order with `pickup_date` (L14, D-81) |
-| `shipper_id`, `carrier_id`, `consignee_id` | `NUMBER` | No | FK `EMK_PARTIES`; each party must have the matching role (BR-16) |
-| `pickup_place` | `VARCHAR2(100 CHAR)` | No | Place of taking over the goods (postal code and town), a mandatory particular of the consignment note (CMR Art. 6(1)(d)); relevant for jurisdiction (Art. 31) |
-| `origin_country` | `CHAR(2 CHAR)` | No | FK `EMK_COUNTRIES`; country of `pickup_place` |
+| `cmr_note_date` | `DATE` | No | Date of the consignment note (CMR Art. 6(1)(a)), required; taken as the making of the contract for the limitation period of other cases (Art. 32(1)(c), spec §5.3 L11); any order with `taking_over_date` (L14, D-81) |
+| `sender_id`, `carrier_id`, `consignee_id` | `NUMBER` | No | FK `EMK_PARTIES`; each party must have the matching role (BR-16) |
+| `taking_over_place` | `VARCHAR2(100 CHAR)` | No | Place of taking over the goods (postal code and town), a mandatory particular of the consignment note (CMR Art. 6(1)(d)); relevant for jurisdiction (Art. 31) |
+| `origin_country` | `CHAR(2 CHAR)` | No | FK `EMK_COUNTRIES`; country of `taking_over_place` |
 | `delivery_place` | `VARCHAR2(100 CHAR)` | No | Place designated for delivery (Art. 6(1)(d)); its public holidays drive the reservation deadline (spec §5.1) |
 | `destination_country` | `CHAR(2 CHAR)` | No | FK `EMK_COUNTRIES`; country of `delivery_place` |
-| `pickup_date` | `DATE` | No | Taking over of the goods |
-| `agreed_delivery_date` | `DATE` | Yes | Agreed time-limit (delay, total loss; CMR Art. 19, 20) |
+| `taking_over_date` | `DATE` | No | Taking over of the goods |
+| `agreed_time_limit` | `DATE` | Yes | Agreed time-limit (delay, total loss; CMR Art. 19, 20) |
 | `delivery_date` | `DATE` | Yes | Delivery (starts reservation and limitation periods) |
-| `disposal_date` | `DATE` | Yes | Goods placed at the consignee's disposal (Art. 30(3)): start of the delay reservation; not before `pickup_date` (logic, L14); without it the deadline calculation uses `delivery_date` (L12, D-79) |
+| `disposal_date` | `DATE` | Yes | Goods placed at the consignee's disposal (Art. 30(3)): start of the delay reservation; not before `taking_over_date` (logic, L14); without it the deadline calculation uses `delivery_date` (L12, D-79) |
 | `goods_description` | `VARCHAR2(500 CHAR)` | No | |
 | `packages` | `NUMBER(7)` | Yes | Number of packages |
 | `gross_weight_kg` | `NUMBER(12,3)` | No | kg (SI), gram precision; basis of the liability cap (CMR Art. 23) |
@@ -138,16 +138,16 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `EMK_SHIPMENTS_PK` | `PRIMARY KEY (shipment_id)` | |
 | `EMK_SHIPMENTS_CMR_NOTE_UK` | `UNIQUE (carrier_id, cmr_note_no)` | BR-03: never reused by the same carrier, including soft-deleted rows (the key ignores `deleted_yn`). Its leading column also indexes the carrier foreign key, so `…_CARRIER_IX` is not needed |
 | `EMK_SHIPMENTS_CMR_NOTE_CK` | `cmr_note_no = UPPER(TRIM(cmr_note_no))` | BR-03 relies on one spelling per number (`abc123 ` and `ABC123` would otherwise be two keys); inner spaces and hyphens are kept as printed by the carrier |
-| `EMK_SHIPMENTS_COUNTRIES_CK` | `origin_country <> destination_country` | Cross-border carriage only (CMR Art. 1); the second condition of Art. 1 (one country is a CMR party on the pickup date) is **BR-17**, checked in the API because it reads `EMK_COUNTRIES` |
-| `EMK_SHIPMENTS_DAY_CK` | `pickup_date = TRUNC(pickup_date) AND (delivery_date IS NULL OR delivery_date = TRUNC(delivery_date)) AND (agreed_delivery_date IS NULL OR agreed_delivery_date = TRUNC(agreed_delivery_date))` | Business dates have no time part (spec §1.3): deadlines are counted in calendar days |
-| `EMK_SHIPMENTS_DATES_CK` | `(delivery_date IS NULL OR delivery_date >= pickup_date) AND (agreed_delivery_date IS NULL OR agreed_delivery_date >= pickup_date)` | Physically impossible otherwise; logic, not CMR text (L14) |
+| `EMK_SHIPMENTS_COUNTRIES_CK` | `origin_country <> destination_country` | Cross-border carriage only (CMR Art. 1); the second condition of Art. 1 (one country is a CMR party on the date of taking over) is **BR-17**, checked in the API because it reads `EMK_COUNTRIES` |
+| `EMK_SHIPMENTS_DAY_CK` | `taking_over_date = TRUNC(taking_over_date) AND (delivery_date IS NULL OR delivery_date = TRUNC(delivery_date)) AND (agreed_time_limit IS NULL OR agreed_time_limit = TRUNC(agreed_time_limit))` | Business dates have no time part (spec §1.3): deadlines are counted in calendar days |
+| `EMK_SHIPMENTS_DATES_CK` | `(delivery_date IS NULL OR delivery_date >= taking_over_date) AND (agreed_time_limit IS NULL OR agreed_time_limit >= taking_over_date)` | Physically impossible otherwise; logic, not CMR text (L14) |
 | `EMK_SHIPMENTS_WEIGHT_CK` | `gross_weight_kg > 0` | |
 | `EMK_SHIPMENTS_PACKAGES_CK` | `packages IS NULL OR packages > 0` | |
-| `EMK_SHIPMENTS_NOTE_DATE_CK` | `cmr_note_date = TRUNC(cmr_note_date)` | Business date (spec §1.3). No order with the pickup date: the CMR fixes none (L14, D-81) |
-| `EMK_SHIPMENTS_DISPOSAL_CK` | `disposal_date IS NULL OR (disposal_date = TRUNC(disposal_date) AND disposal_date >= pickup_date)` | (D-79) Goods cannot be at the consignee's disposal before they are taken over; logic, not CMR text (L14) |
-| `EMK_SHIPMENTS_DECLARED_VALUE_CK`, `…_SPECIAL_INTEREST_CK` | Each: both empty, or the amount `> 0` and its currency (`IS NOT NULL` explicit) | (D-78); the currency is EUR or has an ECB rate on the pickup date (API, as the carriage charges) |
+| `EMK_SHIPMENTS_NOTE_DATE_CK` | `cmr_note_date = TRUNC(cmr_note_date)` | Business date (spec §1.3). No order with the date of taking over: the CMR fixes none (L14, D-81) |
+| `EMK_SHIPMENTS_DISPOSAL_CK` | `disposal_date IS NULL OR (disposal_date = TRUNC(disposal_date) AND disposal_date >= taking_over_date)` | (D-79) Goods cannot be at the consignee's disposal before they are taken over; logic, not CMR text (L14) |
+| `EMK_SHIPMENTS_DECLARED_VALUE_CK`, `…_SPECIAL_INTEREST_CK` | Each: both empty, or the amount `> 0` and its currency (`IS NOT NULL` explicit) | (D-78); the currency is EUR or has an ECB rate on the date of taking over (API, as the carriage charges) |
 | `EMK_SHIPMENTS_CHARGES_CK` | `(carriage_charges IS NULL AND currency_code IS NULL) OR (carriage_charges IS NOT NULL AND carriage_charges >= 0 AND currency_code IS NOT NULL)` | An amount always has its currency, and a currency only comes with an amount |
-| FK + index per foreign key | `…_SHIPPER_IX`, `…_CONSIGNEE_IX`, `…_ORIGIN_IX`, `…_DEST_IX` (carrier: covered by `…_CMR_NOTE_UK`); currencies without index (D-81: no query groups by currency) | FK index rule; carrier and countries are also dashboard filters |
+| FK + index per foreign key | `…_SENDER_IX`, `…_CONSIGNEE_IX`, `…_ORIGIN_IX`, `…_DEST_IX` (carrier: covered by `…_CMR_NOTE_UK`); currencies without index (D-81: no query groups by currency) | FK index rule; carrier and countries are also dashboard filters |
 
 ## 5. `EMK_CLAIMS`
 
@@ -156,7 +156,7 @@ A company can play **several roles** (a forwarder that also carries with its own
 | `claim_id` | `NUMBER` | No | identity | **PK** |
 | `claim_no` | `VARCHAR2(15 CHAR)` | No | — | **UK.** `CLM-YYYY-NNNNNN` from `EMK_CLAIM_NO_SEQ` (M1 plan open point 2) |
 | `shipment_id` | `NUMBER` | No | — | FK `EMK_SHIPMENTS` (BR-04: exactly one shipment) |
-| `claimant_id` | `NUMBER` | No | — | **Planned for step 8 (D-76).** FK `EMK_PARTIES`: who claims; the shipper or the consignee of the shipment (BR-19, CMR Art. 12, 13(1)); checked by the API because it reads the shipment. The claim is addressed to the shipment's carrier. Index `EMK_CLAIMS_CLAIMANT_IX`: the company page lists its claims |
+| `claimant_id` | `NUMBER` | No | — | **Planned for step 8 (D-76).** FK `EMK_PARTIES`: who claims; the sender or the consignee of the shipment (BR-19, CMR Art. 12, 13(1)); checked by the API because it reads the shipment. The claim is addressed to the shipment's carrier. Index `EMK_CLAIMS_CLAIMANT_IX`: the company page lists its claims |
 | `claim_type` | `VARCHAR2(20 CHAR)` | No | — | FK `EMK_CLAIM_TYPES`: `TOTAL_LOSS`, `PARTIAL_LOSS`, `DAMAGE`, `DELAY` (total and partial loss have different limitation rules, spec §5) |
 | `damage_apparent_yn` | `CHAR(1 CHAR)` | Yes | — | Apparent or not (CMR Art. 30(1)); only for `PARTIAL_LOSS` and `DAMAGE` |
 | `wilful_misconduct_yn` | `CHAR(1 CHAR)` | No | `'N'` | **Planned for step 8 (D-75).** `Y` = the claimant alleges wilful misconduct or equivalent default (CMR Art. 29, 32(1)): the limitation period may be 3 years instead of 1 and the liability limits may not apply. A person's allegation, recorded in the journal; only a court recognises it ([spec §5.3](../spec.md#53-legal-assumptions-no-legal-review)) |
@@ -258,7 +258,7 @@ One row per payment received for a claim, so that partial payments, their payer 
 | 6 | Long texts | `MAX_STRING_SIZE` is `STANDARD` by default (4000 bytes per `VARCHAR2`) | Text columns ≤ 1000 characters (safe in UTF-8); longer texts as `CLOB`. **Decided;** `MAX_STRING_SIZE = STANDARD` verified on 2026-10-07 |
 | 7 | LOB options | Compression / deduplication (included in Free) | **Decided: not used** (§6) |
 | 8 | Kinds of party | A. No roles. B. One `party_type` per party. C. Role flags. D. Role table | **Decided: D** (§2a) — a party can play several roles; a new role is a row, not a table change. Six roles; BR-16 (spec v1.6) |
-| 9 | Places of taking over and delivery | Countries only, or places too | **Decided: `pickup_place`, `delivery_place`** (text) — mandatory particulars of the consignment note (Art. 6(1)(d)); a UN/LOCODE location table is the growth path, too large for the MVP (~100,000 codes) |
+| 9 | Places of taking over and delivery | Countries only, or places too | **Decided: `taking_over_place`, `delivery_place`** (text) — mandatory particulars of the consignment note (Art. 6(1)(d)); a UN/LOCODE location table is the growth path, too large for the MVP (~100,000 codes) |
 | 10 | Tariffs, employees, addresses | Separate tables or not | **Decided: none** — outside the claims scope (intent §5: no TMS); users are APEX accounts; one address per party is enough for letters |
 | 11 | Value lists: language, role, claim status and type, document type, file type | A. Check constraints (v1.0–v1.7). B. Reference tables with validity and foreign keys | **Decided (2026-10-18, D-68): B** — "what happens if a role is no longer valid?" (owner): a check constraint cannot retire a value that old rows use; a validity period can. Details in [reference data §6](data-model-reference.md#6-code-lists-d-68) |
 | 12 | Apparent-damage rule across tables | A. `EMK_CLAIMS_APPARENT_CK` naming the two types of CMR Art. 30. B. A column of `EMK_CLAIM_TYPES` with a SQL assertion (`CREATE ASSERTION`, Oracle 26ai 23.26.1) | **Decided (2026-10-20, D-70): A.** The assertion worked in a test (6 of 6 cases) but `DBMS_METADATA` does not support it yet (`ORA-31600`; dictionary type `UNDEFINED`), so neither the SQLcl project export nor Data Pump would carry it. A new claim type needs new deadline rules, so the check is changed in the same pull request. Assertions are a growth path once the tools export them |
@@ -277,6 +277,7 @@ One row per payment received for a claim, so that partial payments, their payer 
 | v1.6 | 2026-10-13 | Schema `EMK_DATA` instead of `EMK_APP` (ADR-008). |
 | v1.7 | 2026-10-16 | Error package renamed `EMK_ERRORS_PKG` (naming rule). |
 | v1.8 | 2026-10-18/21 | Code lists (D-68): foreign keys to `EMK_LANGUAGES`, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_DOCUMENT_TYPES`, `EMK_FILE_TYPES` replace the value lists in check constraints, without indexes (D-72); `EMK_CLAIMS_APPARENT_CK` names only partial loss and damage (D-70); language required without default, at least one role per company (D-71); document file checks (BR-18). Shipments: date of the consignment note, disposal date, declared value and special interest (D-78, D-79). Claims, planned for step 8: claimant (D-76), wilful misconduct flag (D-75), admitted amount and date, settlement date, recovery payments in `EMK_CLAIM_RECOVERIES` (§6a, D-77). Date of the consignment note in any order with the pickup (L14) and indexes `EMK_SHIPMENTS_CURRENCY_IX`, `EMK_CLAIMS_CURRENCY_IX`, `EMK_PARTIES_COUNTRY_IX` removed (D-81). Accepted by the owner. |
+| v1.9 | 2026-10-22 | CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)). Accepted by the owner. |
 
 ## 10. Sources
 

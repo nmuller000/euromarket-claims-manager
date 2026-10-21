@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.24 (2026-10-21); v1.23 (2026-10-21) |
+| **Status** | Accepted v1.25 (2026-10-22); v1.24 (2026-10-21) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -60,7 +60,7 @@ Solid lines = MVP. Dashed lines = extensions. The APIs are PL/SQL packages in th
 
 | Topic | Convention |
 |-------|------------|
-| **Business dates** | `DATE` without time (pickup, delivery, reservation, written claim). Deadlines are calendar dates. |
+| **Business dates** | `DATE` without time (taking over, delivery, reservation, written claim). Deadlines are calendar dates. |
 | **Technical timestamps** | `TIMESTAMP WITH TIME ZONE`, stored in UTC (audit, logs, alerts). |
 | **Time zone for deadlines** | Calendar days in the country of delivery; public holidays from `EMK_PUBLIC_HOLIDAYS` of that country (Q4 decision, §5). |
 | **Data formats** | International standards only: countries ISO 3166-1 alpha-2; currencies ISO 4217 (with minor units); dates and timestamps ISO 8601 (`YYYY-MM-DD`, UTC offset) in files and interfaces; languages ISO 639 alpha-2; phone numbers ITU-T E.164; email syntax RFC 5322; EU VAT numbers in VIES format; weights in kg (SI); CSV files RFC 4180 in UTF-8; database character set AL32UTF8. Values are stored neutrally (`DATE`, `NUMBER`) and displayed in the user's language format (F-15). Codes from other systems (EU `EL`, `UK`; VAT prefix `XI`) are never used as keys. |
@@ -114,7 +114,7 @@ What each feature solves and how. Detailed requirements follow in §2.1–2.6; b
 | ID | Requirement | Scope |
 |----|-------------|-------|
 | FR-01 | Manage parties (companies) and their contact persons. | MVP |
-| FR-02 | Register shipments: CMR note number, shipper, carrier, consignee, origin/destination country, pickup/delivery dates, goods, packages, gross weight; date of the consignment note and, if known, the date the goods were placed at the consignee's disposal; when entered in the consignment note, the declared value and the special interest in delivery (CMR Art. 6, 24, 26, 30(3)). | MVP |
+| FR-02 | Register shipments: CMR note number, sender, carrier, consignee, origin/destination country, dates of taking over and delivery, goods, packages, gross weight; date of the consignment note and, if known, the date the goods were placed at the consignee's disposal; when entered in the consignment note, the declared value and the special interest in delivery (CMR Art. 6, 24, 26, 30(3)). | MVP |
 | FR-03 | Import shipments from CSV or Excel through the ELT pattern (§1.3): landing table, validation, error report per row, `MERGE` without duplicates. | MVP |
 | FR-04 | Register claims linked to a shipment: type (loss, damage, delay), apparent/non-apparent damage, joint check date, reservation date, written claim date, carrier rejection date, claimed / settled / recovered amounts, currency, documents. | MVP |
 | FR-05 | Enforce the claim state machine (§4) in PL/SQL. | MVP |
@@ -187,7 +187,7 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 | BR-01 | A claim changes status only through the transitions of §4. | Design | `EMK_CLAIM_API` | SC-QA-03 |
 | BR-02 | Only the `CLAIMS_HANDLER` role changes a claim's status. | Design (§7.1) | APEX authorization + `EMK_CLAIM_API` | Unit |
 | BR-03 | The CMR note number is unique **per carrier**, including soft-deleted shipments; a carrier never reuses it (the CMR defines no numbering scheme, so different carriers may use the same number). | Business | Unique constraint | Unit |
-| BR-04 | A claim belongs to exactly one shipment. Damage, partial loss and delay claims require the delivery date; total loss requires the agreed delivery date or the pickup date. | CMR Art. 30, 32 | `EMK_CLAIM_API` | Unit |
+| BR-04 | A claim belongs to exactly one shipment. Damage, partial loss and delay claims require the delivery date; total loss requires the agreed time-limit or the date of taking over. | CMR Art. 30, 32 | `EMK_CLAIM_API` | Unit |
 | BR-05 | Reservation deadlines follow §5 (`RES_*` rules). | CMR Art. 30 | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-06 | Limitation deadlines follow §5 (`LIM_*` rules); a written claim suspends the period until the carrier's written rejection. | CMR Art. 32 | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-07 | The start day of a period is not counted. | CMR Art. 30(4), 32(1) | `EMK_DEADLINE_API` | SC-QA-04 |
@@ -199,10 +199,10 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 | BR-13 | Operational records are soft-deleted only; deleted records are hidden but kept. | Design (§1.3) | APIs + views | Unit |
 | BR-14 | Imported rows that fail validation are rejected with a reason; valid rows are loaded; the import never creates duplicates. | Design (§1.3) | `EMK_INBOUND_PKG` (`EMK_INT`) + `EMK_SHIPMENT_API` | SC-QA-06 |
 | BR-15 | Erasure of personal data is done by pseudonymisation, never by soft delete. [EXT] | GDPR Art. 17 | Erasure procedure (FR-41) | SC-SEC-07 |
-| BR-16 | The shipper, carrier and consignee of a shipment have the role `SHIPPER`, `CARRIER` and `CONSIGNEE`; a company has at least one role and may have several; a role still used by a shipment cannot be removed. | Design | `EMK_SHIPMENT_API`, `EMK_PARTY_API` | Unit |
-| BR-17 | A shipment falls under the CMR: origin and destination are different countries (check constraint) and at least one of them is a CMR party on the pickup date (`cmr_party_since <= pickup_date`); otherwise it is rejected. | CMR Art. 1 | `EMK_SHIPMENT_API`, import (`EMK_INBOUND_PKG`) | Unit |
+| BR-16 | The sender, carrier and consignee of a shipment have the role `SENDER`, `CARRIER` and `CONSIGNEE`; a company has at least one role and may have several; a role still used by a shipment cannot be removed. | Design | `EMK_SHIPMENT_API`, `EMK_PARTY_API` | Unit |
+| BR-17 | A shipment falls under the CMR: origin and destination are different countries (check constraint) and at least one of them is a CMR party on the date of taking over (`cmr_party_since <= taking_over_date`); otherwise it is rejected. | CMR Art. 1 | `EMK_SHIPMENT_API`, import (`EMK_INBOUND_PKG`) | Unit |
 | BR-18 | A claim document is stored only if its file name extension is in the allowlist of file types (`EMK_FILE_EXTENSIONS`, `EMK_FILE_TYPES`) and valid on the upload date, its content starts with the signature of that type, and its size is at most 10 MB. The checks run in the database; the media type sent by the browser is ignored and the stored type is the one the server determined. | OWASP ASVS 5.0 V5.1.1, V5.2.2; CWE-434 | `EMK_CLAIM_API` | Unit |
-| BR-19 | A claim names its **claimant**, who is the shipper or the consignee of its shipment, and is addressed to the shipment's carrier. | CMR Art. 12, 13(1), 17 | `EMK_CLAIM_API` | Unit |
+| BR-19 | A claim names its **claimant**, who is the sender or the consignee of its shipment, and is addressed to the shipment's carrier. | CMR Art. 12, 13(1), 17 | `EMK_CLAIM_API` | Unit |
 
 ---
 
@@ -214,7 +214,7 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 erDiagram
     EMK_PARTIES ||--o{ EMK_PARTY_ROLES : "plays"
     EMK_PARTIES ||--o{ EMK_CONTACTS : "has"
-    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is shipper"
+    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is sender"
     EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is carrier"
     EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is consignee"
     EMK_PARTIES ||--o{ EMK_CLAIMS : "is claimant"
@@ -288,15 +288,15 @@ erDiagram
         NUMBER shipment_id PK
         VARCHAR2 cmr_note_no "UK with carrier_id"
         DATE cmr_note_date "Art. 6(1)(a)"
-        NUMBER shipper_id FK
+        NUMBER sender_id FK
         NUMBER carrier_id FK
         NUMBER consignee_id FK
-        VARCHAR2 pickup_place
+        VARCHAR2 taking_over_place
         CHAR origin_country FK
         VARCHAR2 delivery_place
         CHAR destination_country FK
-        DATE pickup_date
-        DATE agreed_delivery_date
+        DATE taking_over_date
+        DATE agreed_time_limit
         DATE delivery_date
         DATE disposal_date "Art. 30(3)"
         NUMBER gross_weight_kg
@@ -311,7 +311,7 @@ erDiagram
         NUMBER claim_id PK
         VARCHAR2 claim_no UK
         NUMBER shipment_id FK
-        NUMBER claimant_id FK "shipper or consignee (BR-19)"
+        NUMBER claimant_id FK "sender or consignee (BR-19)"
         VARCHAR2 claim_type FK "EMK_CLAIM_TYPES"
         CHAR damage_apparent_yn
         DATE registration_date
@@ -384,7 +384,7 @@ erDiagram
         DATE valid_to
     }
     EMK_PARTY_ROLE_TYPES {
-        VARCHAR2 role_code PK "SHIPPER CONSIGNEE CARRIER FORWARDER INSURER SURVEYOR"
+        VARCHAR2 role_code PK "SENDER CONSIGNEE CARRIER FORWARDER INSURER SURVEYOR"
         VARCHAR2 name
         DATE valid_from
         DATE valid_to
@@ -503,8 +503,8 @@ Verified against the [official CMR text](https://unece.org/DAM/trans/conventn/cm
 | Date | CMR | Stored in | Used by |
 |------|-----|-----------|---------|
 | Date of the consignment note | Art. 6(1)(a), 4 | `EMK_SHIPMENTS.cmr_note_date` (required) | `LIM_OTHER`: 3 months after the making of the contract of carriage (spec §5.3 L11) |
-| Taking over of the goods | Art. 6(1)(d) | `EMK_SHIPMENTS.pickup_date` | `LIM_TOTAL` without an agreed time-limit; value of the goods (Art. 23(1)) |
-| Agreed time-limit | Art. 19 | `EMK_SHIPMENTS.agreed_delivery_date` | Delay; `LIM_TOTAL` |
+| Taking over of the goods | Art. 6(1)(d) | `EMK_SHIPMENTS.taking_over_date` | `LIM_TOTAL` without an agreed time-limit; value of the goods (Art. 23(1)) |
+| Agreed time-limit | Art. 19 | `EMK_SHIPMENTS.agreed_time_limit` | Delay; `LIM_TOTAL` |
 | Delivery | Art. 30(1) | `EMK_SHIPMENTS.delivery_date` | `RES_APPARENT`, `RES_NON_APPARENT`, `LIM_PARTIAL` |
 | Goods placed at the consignee's disposal | Art. 30(3) | `EMK_SHIPMENTS.disposal_date` (optional) | `RES_DELAY` (without it: the delivery date, L12) |
 | Joint check | Art. 30(2) | `EMK_CLAIMS.joint_check_date` | `RES_AFTER_CHECK` |
@@ -550,13 +550,13 @@ The deadlines follow the official text of the CMR (§5; text checked on 2026-10-
 | L5 | One written claim per object suspends once: further claims with the same object do not suspend again (Art. 32(2)); a partial admission restarts the period for the part still in dispute |
 | L6 | Not calculated, because the law of the court decides: the extension and interruption of the period (Art. 32(3)) and which default counts as equivalent to wilful misconduct (Art. 29). For Germany, § 435 HGB (intent or recklessness with awareness that damage would probably result; [official text](https://www.gesetze-im-internet.de/hgb/__435.html)) may be treated as equivalent; **to be confirmed with a specialist** before a real case |
 | L7 | Day counting and public holidays as in §5 and the Q4 decision (§5.1) |
-| L8 | **Who may claim** (Art. 12, 13(1)): the sender until the consignee takes over the rights, the consignee after the goods arrived or were lost. The Convention does not always say which of the two holds the right in a given case (the applicable law decides), so the application does **not** decide it: the handler chooses the claimant among the shipper and the consignee of the shipment (BR-19). Subrogation of an insurer who paid the claimant is governed by national law and is out of scope |
+| L8 | **Who may claim** (Art. 12, 13(1)): the sender until the consignee takes over the rights, the consignee after the goods arrived or were lost. The Convention does not always say which of the two holds the right in a given case (the applicable law decides), so the application does **not** decide it: the handler chooses the claimant among the sender and the consignee of the shipment (BR-19). Subrogation of an insurer who paid the claimant is governed by national law and is out of scope |
 | L9 | **Interest** (Art. 27(1)): 5 % per year on each amount paid, from the date the claim was sent in writing to the carrier until the payment date; **simple interest**, actual days over a 365-day year, not compounded. Shown as information only (view), never stored or claimed automatically. The Convention does not fix the day count: **to be confirmed with a specialist** |
 | L10 | **Conversion** (Art. 27(2)): a payment in another currency is converted into the claim currency at the ECB reference rate of the payment day (the latest earlier rate on days without one, as BR-12) |
 | L11 | **Date of the contract** (Art. 32(1)(c)): the date of the consignment note is taken as the making of the contract of carriage; the note confirms the contract (Art. 4), which may be older. **To be confirmed with a specialist** |
 | L12 | **Goods placed at the disposal of the consignee** (Art. 30(3)): when the date is not entered, the deadline calculation uses the delivery date and says so |
 | L13 | **Personal data** (GDPR Art. 4(1), 30): the [inventory](design/personal-data.md) lists every column that holds or may hold personal data; it is a technical inventory, not the record of processing activities of Art. 30 (purposes, legal bases), which a data protection specialist should review |
-| L14 | **Order of the shipment dates — a business decision, not CMR text.** The Convention lists the dates of the consignment note (Art. 6(1)(a)) but does not fix their order. The application therefore **accepts a consignment note dated before, on or after the pickup** (a note may be made out after loading). It **rejects** dates that are physically impossible for the same goods: delivery, agreed delivery and placing at the consignee's disposal before the pickup. These checks are logic, not law; the client confirms them (D-81) |
+| L14 | **Order of the shipment dates — a business decision, not CMR text.** The Convention lists the dates of the consignment note (Art. 6(1)(a)) but does not fix their order. The application therefore **accepts a consignment note dated before, on or after the taking over** (a note may be made out after loading). It **rejects** dates that are physically impossible for the same goods: delivery, agreed time-limit and placing at the consignee's disposal before the taking over. These checks are logic, not law; the client confirms them (D-81) |
 
 **Tests for M2** (`EMK_DEADLINE_API`): the excluded start day; leap years; total loss with and without an agreed time-limit; wilful misconduct (3 years, same start); a repeated written claim that does not suspend again; a partial admission.
 
@@ -918,3 +918,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.22 | 2026-10-18/21 | §1.3 *Code lists*: business value lists as reference tables with validity and foreign keys, check constraints only for technical values (D-68); §2.7 BR-18 (file checks of claim documents: allowlist, extension and content signature, server side); §3.1 the code lists as entities of the diagram, with their foreign keys; §3.2 code list tables; §7.1 code lists as reference data; §7.3 upload checks; BR-16: at least one role per company (D-71); §8.4 test level *Application context*; §10 `tests/emk_ui/`; §5.3 legal assumptions without legal review, wilful misconduct (D-75); BR-19 claimant (D-76); BR-11 with partial admission, settlement date and recovery payments, L9 interest, L10 conversion (D-77); FR-02 and BR-10 declared value and special interest (D-78); §5 dates of the consignment note and of disposal stored, L11–L12 (D-79); §3.3 and L13 personal data inventory (D-80); L14 order of the shipment dates (D-81). Accepted by the owner. |
 | v1.23 | 2026-10-21 | §1.3 *Code lists* and §7.1: the administrator maintains the code lists in the Master Data menu, with their change history, checked in the pages and in the API; code lists removed from the row of reference data changed by scripts (D-82). Accepted by the owner. |
 | v1.24 | 2026-10-21 | §8.4 *Application context*: checks that need an application role, with a test role given and removed by the script; the owner of the log deletes their log entries (master data, step 7.7). Accepted by the owner. |
+| v1.25 | 2026-10-22 | CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); FR-02, BR-04, BR-16, BR-17, BR-19, §3.1 diagram, §5 key dates. Accepted by the owner. |

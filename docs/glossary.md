@@ -16,7 +16,7 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Business rule** | A rule of the business domain that the system enforces (e.g., deadlines, allowed status changes); catalogued in spec §2.7. |
 | **Cabotage** | Domestic transport inside a country performed by a haulier registered in another country. |
 | **Carrier** | The company that undertakes to transport the goods; liable under the CMR for loss, damage and delay, within limits. |
-| **Claimant** | The person who makes a claim against the carrier: the sender (shipper) or the consignee of the shipment (CMR Art. 12, 13; BR-19). |
+| **Claimant** | The person who makes a claim against the carrier: the sender or the consignee of the shipment (CMR Art. 12, 13; BR-19). |
 | **Consignee** | The party entitled to receive the goods at destination. |
 | **Consignment note (CMR note)** | The transport document that confirms the contract of carriage under the CMR. |
 | **Cross-trade** | Transport between two countries by a haulier registered in a third country. |
@@ -29,9 +29,10 @@ Terms used in this repository, in two parts: **Functional** (business, logistics
 | **Recovery payment** | One payment received for a claim from the carrier or its insurer; the recovered amount is their sum (D-77). |
 | **Recovery rate** | Recovered amount divided by claimed amount, in EUR; key indicator per carrier. |
 | **Settled amount** | Amount agreed with the carrier to close a claim. |
-| **Shipper** | The party that contracts the carriage (also called sender). |
+| **Sender** | The party that contracts the carriage with the carrier and is named in the consignment note (CMR Art. 6(1)(b)); called sender in other modes and consignor in UN/EDIFACT (`CZ`). |
 | **Special interest in delivery** | Amount declared in the consignment note against a surcharge, up to which additional proven loss can be claimed (CMR Art. 26). |
 | **Subrogation** | An insurer who paid the claimant takes over the claim against the carrier; governed by national law, out of scope of Release 1. |
+| **Taking over (of the goods)** | The moment the carrier takes charge of the goods at the place of taking over (CMR Art. 6(1)(d), 17(1)): the carrier's liability starts, and the shipment is checked on this date (BR-17). |
 | **Tonne-kilometre (tkm)** | Unit of freight transport: one tonne of goods carried over one kilometre. |
 
 ### Application Roles
@@ -144,7 +145,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **p50 / p95 (percentile)** | p50 (median): half of the requests are faster. p95: 95 of every 100 requests are faster; the rest form the "slow tail" that an average hides. |
 | **Parsing schema (APEX)** | Database schema whose privileges an APEX application uses to run its SQL and PL/SQL (here `EMK_UI`, which owns nothing). |
 | **Partitioning** | Splitting a large table into smaller parts (e.g., by date) that the database manages transparently. |
-| **Party role** | Function a company plays in a shipment or claim (shipper, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
+| **Party role** | Function a company plays in a shipment or claim (sender, consignee, carrier, forwarder, insurer, surveyor); a company can have several roles (`EMK_PARTY_ROLES`, BR-16). Aligned with UN/EDIFACT code list 3035. |
 | **PL/SQL** | Oracle's procedural extension of SQL, used for business logic. |
 | **Point-in-time recovery** | Recovery of a database or PDB up to a chosen moment (for example just before a wrong mass update); later changes are lost. |
 | **Profile (password)** | Set of password and session rules assigned to an account (e.g., `ORA_CIS_PROFILE`: failed logins, expiry, reuse, complexity, inactivity lock). |
