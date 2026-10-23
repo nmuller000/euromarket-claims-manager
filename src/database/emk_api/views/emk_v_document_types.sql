@@ -11,8 +11,8 @@ create or replace force editionable view emk_api.emk_v_document_types (
     select
     /**
      * Document types for the APEX lists of values (D-68). valid_yn = 'Y' if
-     * the type is valid today: a list offers those, plus the value the
-     * document already has.
+     * the type is valid today: a list offers those only; a retired value the
+     * document already has is shown apart by the page (D-86).
      * The master data pages read it too (D-82): row_version for optimistic
      * locking (EMK_ROW_VERSION_PKG.format_row_version).
      *
@@ -40,4 +40,4 @@ create or replace force editionable view emk_api.emk_v_document_types (
         emk_data.emk_document_types;
 
 
--- sqlcl_snapshot {"hash":"523b7a70db02ddbb364f3faef6ee5ff3093156e0","type":"VIEW","name":"EMK_V_DOCUMENT_TYPES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"df0253edb80918f51b5f0e82afd629b1c640303e","type":"VIEW","name":"EMK_V_DOCUMENT_TYPES","schemaName":"EMK_API","sxml":""}

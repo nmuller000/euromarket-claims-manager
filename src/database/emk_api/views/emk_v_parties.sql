@@ -8,6 +8,9 @@ create or replace force editionable view emk_api.emk_v_parties (
     postal_code,
     city,
     language_code,
+    language_name,
+    country_valid_yn,
+    language_valid_yn,
     roles,
     roles_in_use,
     deletable_yn,
@@ -23,6 +26,9 @@ create or replace force editionable view emk_api.emk_v_parties (
      * the company, the English country name, its roles as one colon-separated
      * value (the format of an APEX checkbox item) and row_version, the version
      * for optimistic locking as text (EMK_ROW_VERSION_PKG.format_row_version).
+     * country_valid_yn and language_valid_yn = 'N' when the value of the
+     * company is no longer valid today: the form offers valid values only and
+     * asks the user to choose another one (D-86).
      * The company page shows the rules before the user saves (step 7.8):
      * roles_in_use, the roles a shipment uses (they cannot be removed), and
      * deletable_yn = 'Y' if no active shipment uses the company; both come
@@ -43,6 +49,23 @@ create or replace force editionable view emk_api.emk_v_parties (
         p.postal_code,
         p.city,
         p.language_code,
+        l.name                                                                          as language_name,
+        case
+            when c.valid_from <= trunc(sysdate)
+                 and ( c.valid_to is null
+                       or c.valid_to >= trunc(sysdate) ) then
+                'Y'
+            else
+                'N'
+        end                                                                             as country_valid_yn,
+        case
+            when l.valid_from <= trunc(sysdate)
+                 and ( l.valid_to is null
+                       or l.valid_to >= trunc(sysdate) ) then
+                'Y'
+            else
+                'N'
+        end                                                                             as language_valid_yn,
         (
             select
                 listagg(r.role_code, ':') within group(
@@ -69,8 +92,9 @@ create or replace force editionable view emk_api.emk_v_parties (
     from
              emk_data.emk_parties p
         join emk_data.emk_countries c on c.country_code = p.country_code
+        join emk_data.emk_languages l on l.language_code = p.language_code
     where
         p.deleted_yn = 'N';
 
 
--- sqlcl_snapshot {"hash":"c4490e09a293dd6aa5d6b944b23fe9144ec87966","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"9fc1a18264db0d5f651749ec0990da59787d1a52","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}

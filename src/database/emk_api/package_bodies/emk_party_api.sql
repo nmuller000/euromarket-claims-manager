@@ -659,14 +659,20 @@ create or replace package body emk_api.emk_party_api as
                      l_roles(i));   -- does nothing for a role the company already has
         end loop;
 
+        -- Only roles valid today are removed: a retired role is kept, and removed only by
+        -- remove_role (D-86: the page offers valid roles only and must not delete one silently)
         for r in (
             select
-                role_code
+                pr.role_code
             from
-                emk_data.emk_party_roles
+                     emk_data.emk_party_roles pr
+                join emk_data.emk_party_role_types rt on rt.role_code = pr.role_code
             where
-                    party_id = in_party_id
-                and role_code not in (
+                    pr.party_id = in_party_id
+                and rt.valid_from <= trunc(sysdate)
+                and ( rt.valid_to is null
+                      or rt.valid_to >= trunc(sysdate) )
+                and pr.role_code not in (
                     select
                         column_value
                     from
@@ -854,4 +860,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"f82dba9a474a1b9471b2d8c01c7729986219d425","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"5ea79202ec231248630390faa77ce78db4bc008a","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

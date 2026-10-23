@@ -13,7 +13,8 @@ create or replace force editionable view emk_api.emk_v_party_role_types (
     /**
      * Roles a company can play, for the APEX lists of values and checkbox
      * lists (D-68, BR-16). valid_yn = 'Y' if the role is valid today: a list
-     * offers those, plus the roles the company already has.
+     * offers those only; the retired roles a company keeps are shown apart
+     * (EMK_V_PARTY_ROLES.valid_yn, D-86).
      * The master data pages read it too (D-82): row_version for optimistic
      * locking (EMK_ROW_VERSION_PKG.format_row_version); protected_yn = 'Y'
      * for a role named by the rules (EMK_CODES_PKG.is_protected_role): the
@@ -49,4 +50,4 @@ create or replace force editionable view emk_api.emk_v_party_role_types (
         emk_data.emk_party_role_types;
 
 
--- sqlcl_snapshot {"hash":"31bf00bd6c146d7ac29f7a6414831773f639908c","type":"VIEW","name":"EMK_V_PARTY_ROLE_TYPES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"de911a027758bf28183561aea2392d9d06f26be3","type":"VIEW","name":"EMK_V_PARTY_ROLE_TYPES","schemaName":"EMK_API","sxml":""}

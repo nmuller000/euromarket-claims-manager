@@ -158,11 +158,13 @@ create or replace package emk_api.emk_party_api as
     );
 
     /**
-     * Sets the complete list of roles of a company: adds the missing ones and
-     * removes the others, with the rules of add_role and remove_role (a
-     * retired role the company has stays if it is in the list). For a
-     * checkbox list of an APEX page, so that the page does not compute the
-     * difference itself (business logic stays in the API).
+     * Sets the roles of a company that are valid today: adds the missing ones
+     * and removes the other valid ones, with the rules of add_role and
+     * remove_role. A retired role the company still has is never removed
+     * here, because a list of values offers only valid roles and must not
+     * delete a role silently (D-86): it is removed only by remove_role, an
+     * explicit action. For a checkbox list of an APEX page, so that the page
+     * does not compute the difference itself (business logic stays in the API).
      *
      * @param  in_party_id   company
      * @param  in_role_codes roles separated by colons, e.g. SENDER:CARRIER
@@ -298,4 +300,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"909a7f634f0eaee72cee6085dbde4659ad91ff98","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"e7890e978fe4cc08fc434fa4abde80f413ec9578","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

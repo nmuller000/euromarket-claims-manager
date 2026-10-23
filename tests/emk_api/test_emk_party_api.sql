@@ -119,6 +119,9 @@ create or replace package test_emk_party_api as
     --%test(Step 7.8: the page knows before saving which roles are in use and whether the company can be deleted)
     procedure shows_rules_before_saving;
 
+    --%test(D-86: set_roles never removes a retired role silently; the views show it apart, with its last valid day)
+    procedure keeps_retired_role_on_set_roles;
+
     --%endcontext
 
     --%context(Contacts)
@@ -547,6 +550,30 @@ create or replace package body test_emk_party_api as
         select roles_in_use into l_view_roles from emk_v_parties where party_id = l_sender;
         ut.expect(l_view_roles, 'the view shows the same').to_equal('SENDER');
     end shows_rules_before_saving;
+
+    procedure keeps_retired_role_on_set_roles is
+        l_party    emk_data.emk_parties.party_id%type := new_party('Test Retired Role', 'DE', in_roles => 'FORWARDER:SURVEYOR');
+        l_roles    varchar2(100 char);
+        l_valid_yn varchar2(1 char);
+        l_valid_to date;
+        l_language varchar2(1 char);
+    begin
+        update emk_data.emk_party_role_types set valid_to = trunc(sysdate) - 1 where role_code = 'SURVEYOR';
+        -- The checkboxes offer valid roles only: the page sends CARRIER without SURVEYOR
+        emk_party_api.set_roles(in_party_id => l_party, in_role_codes => 'CARRIER');
+        select listagg(role_code, ':') within group (order by role_code)
+        into   l_roles
+        from   emk_data.emk_party_roles
+        where  party_id = l_party;
+        ut.expect(l_roles, 'FORWARDER removed, CARRIER added, the retired SURVEYOR kept').to_equal('CARRIER:SURVEYOR');
+        select valid_yn, valid_to into l_valid_yn, l_valid_to
+        from   emk_v_party_roles
+        where  party_id = l_party and role_code = 'SURVEYOR';
+        ut.expect(l_valid_yn, 'the view marks the retired role').to_equal('N');
+        ut.expect(l_valid_to, 'with its last valid day').to_equal(trunc(sysdate) - 1);
+        select language_valid_yn into l_language from emk_v_parties where party_id = l_party;
+        ut.expect(l_language, 'the language en is valid').to_equal('Y');
+    end keeps_retired_role_on_set_roles;
 
 end test_emk_party_api;
 /

@@ -11,8 +11,8 @@ create or replace force editionable view emk_api.emk_v_claim_types (
     select
     /**
      * Claim types for the APEX lists of values (D-68). valid_yn = 'Y' if the
-     * type is valid today: a list offers those, plus the value the claim
-     * already has.
+     * type is valid today: a list offers those only; a retired value the
+     * claim already has is shown apart by the page (D-86).
      * The master data pages read it too (D-82): row_version for optimistic
      * locking (EMK_ROW_VERSION_PKG.format_row_version).
      *
@@ -40,4 +40,4 @@ create or replace force editionable view emk_api.emk_v_claim_types (
         emk_data.emk_claim_types;
 
 
--- sqlcl_snapshot {"hash":"766674029192efa8caeaee4a69d31adb6c5cb02f","type":"VIEW","name":"EMK_V_CLAIM_TYPES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"aef8899dcaa56d5781e4449f69c2d747010996ee","type":"VIEW","name":"EMK_V_CLAIM_TYPES","schemaName":"EMK_API","sxml":""}
