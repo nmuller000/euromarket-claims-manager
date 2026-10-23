@@ -5,7 +5,7 @@
     name: Navigation Menu
 
   subscription: 
-    version-number: 93267185
+    version-number: 100389750
 
   source: 
     type: Static Values
@@ -35,6 +35,36 @@
 
     user-defined-attributes: 
       translatable: false
+
+  - # ====== Entry: Companies ====================================
+    id: 58606412956218585
+    label: 
+      label: Companies
+
+    icon: 
+      image/icon-css-classes: fa-building
+
+    layout: 
+      sequence: 20
+
+    is-current: 
+      type: Pages
+      pages: 
+      - 10
+
+    link: 
+      target: 
+        url: 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.::::'
+        page: 10 # Companies
+
+    click-counting: 
+      count-clicks: false
+
+    user-defined-attributes: 
+      translatable: false
+
+    security: 
+      authorization-scheme: CAN_VIEW_PARTIES_SHIPMENTS # 58219519628163453
 
 - # ====== List: Navigation Bar ================================
   id: 54011275321567578

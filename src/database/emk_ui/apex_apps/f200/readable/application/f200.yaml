@@ -61,9 +61,10 @@ globalization:
   automatic-csv-encoding: true
 
 application-format-masks: 
-  date: DS
-  timestamp: DS
-  timestamp-time-zone: DS
+  date: DD/MM/YYYY
+  date-time: 'DD/MM/YYYY HH24:MI'
+  timestamp: 'DD/MM/YYYY HH24:MI'
+  timestamp-time-zone: 'DD/MM/YYYY HH24:MI'
 
 character-value-comparison: 
   behavior: Database session NLS setting (default)
@@ -116,7 +117,7 @@ attributes:
   auto-dismiss-success-messages: false
 
 subscription: 
-  version-number: 99950882
+  version-number: 100389750
 
 substitutions: 
 - # ====== Substitution: APP_NAME ==============================

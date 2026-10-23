@@ -36,10 +36,10 @@ prompt APPLICATION 200 - EuroMarket Claims Manager
 --   Exported By:     EMK_UI
 --   Flashback:       0
 --   Export Type:     Application Export
---     Pages:                      3
+--     Pages:                      4
 --       Items:                    3
 --       Processes:                4
---       Regions:                  2
+--       Regions:                  4
 --       Buttons:                  1
 --     Shared Components:
 --       Logic:
@@ -47,7 +47,7 @@ prompt APPLICATION 200 - EuroMarket Claims Manager
 --       Navigation:
 --         Lists:                  2
 --         Breadcrumbs:            1
---           Entries:              1
+--           Entries:              2
 --       Security:
 --         Authentication:         1
 --         Authorization:          6
@@ -85,9 +85,10 @@ wwv_imp_workspace.create_flow(
 ,p_flow_language=>'en'
 ,p_flow_language_derived_from=>'FLOW_PRIMARY_LANGUAGE'
 ,p_allow_feedback_yn=>'Y'
-,p_date_format=>'DS'
-,p_timestamp_format=>'DS'
-,p_timestamp_tz_format=>'DS'
+,p_date_format=>'DD/MM/YYYY'
+,p_date_time_format=>'DD/MM/YYYY HH24:MI'
+,p_timestamp_format=>'DD/MM/YYYY HH24:MI'
+,p_timestamp_tz_format=>'DD/MM/YYYY HH24:MI'
 ,p_flow_image_prefix => nvl(wwv_flow_application_install.get_image_prefix,'')
 ,p_authentication_id=>wwv_flow_imp.id(54009270784567532)
 ,p_application_tab_set=>0
@@ -109,7 +110,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_value_01=>'EuroMarket Claims Manager'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>99950882
+,p_version_scn=>100389750
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -145,7 +146,7 @@ wwv_flow_imp_shared.create_list(
  p_id=>wwv_flow_imp.id(54010014388567539)
 ,p_name=>'Navigation Menu'
 ,p_list_status=>'PUBLIC'
-,p_version_scn=>93267185
+,p_version_scn=>100389750
 );
 wwv_flow_imp_shared.create_list_item(
  p_id=>wwv_flow_imp.id(54021798876567639)
@@ -154,6 +155,16 @@ wwv_flow_imp_shared.create_list_item(
 ,p_list_item_link_target=>'f?p=&APP_ID.:1:&APP_SESSION.::&DEBUG.:::'
 ,p_list_item_icon=>'fa-home'
 ,p_list_item_current_type=>'TARGET_PAGE'
+);
+wwv_flow_imp_shared.create_list_item(
+ p_id=>wwv_flow_imp.id(58606412956218585)
+,p_list_item_display_sequence=>20
+,p_list_item_link_text=>'Companies'
+,p_list_item_link_target=>'f?p=&APP_ID.:10:&SESSION.::&DEBUG.::::'
+,p_list_item_icon=>'fa-building'
+,p_security_scheme=>wwv_flow_imp.id(58219519628163453)
+,p_list_item_current_type=>'COLON_DELIMITED_PAGE_LIST'
+,p_list_item_current_for_pages=>'10'
 );
 end;
 /
@@ -979,6 +990,11 @@ wwv_flow_imp_page.create_page_group(
  p_id=>wwv_flow_imp.id(54015082748567606)
 ,p_group_name=>'Administration'
 );
+wwv_flow_imp_page.create_page_group(
+ p_id=>wwv_flow_imp.id(58616457386700031)
+,p_group_name=>'Companies'
+,p_group_desc=>unistr('Companies (senders, consignees, carriers and other roles), their contact persons and change history. Pages 10\201319.')
+);
 end;
 /
 prompt --application/shared_components/navigation/breadcrumbs/breadcrumb
@@ -992,6 +1008,12 @@ wwv_flow_imp_shared.create_menu_option(
 ,p_short_name=>'Home'
 ,p_link=>'f?p=&APP_ID.:1:&APP_SESSION.::&DEBUG.:::'
 ,p_page_id=>1
+);
+wwv_flow_imp_shared.create_menu_option(
+ p_id=>wwv_flow_imp.id(58607315751218603)
+,p_short_name=>'Companies'
+,p_link=>'f?p=&APP_ID.:10:&APP_SESSION.::&DEBUG.:::'
+,p_page_id=>10
 );
 end;
 /
@@ -1401,6 +1423,166 @@ wwv_flow_imp_page.create_page_plug(
 );
 end;
 /
+prompt --application/pages/page_00010
+begin
+wwv_flow_imp_page.create_page(
+ p_id=>10
+,p_name=>'Companies'
+,p_alias=>'COMPANIES'
+,p_step_title=>'Companies'
+,p_autocomplete_on_off=>'OFF'
+,p_group_id=>wwv_flow_imp.id(58616457386700031)
+,p_page_template_options=>'#DEFAULT#'
+,p_required_role=>wwv_flow_imp.id(58219519628163453)
+,p_protection_level=>'C'
+,p_page_component_map=>'18'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58606810697218595)
+,p_plug_name=>'Breadcrumb'
+,p_region_template_options=>'#DEFAULT#:t-BreadcrumbRegion--useBreadcrumbTitle'
+,p_component_template_options=>'#DEFAULT#'
+,p_plug_template=>2531463326621247859
+,p_plug_display_sequence=>10
+,p_plug_display_point=>'REGION_POSITION_01'
+,p_menu_id=>wwv_flow_imp.id(54009547511567534)
+,p_plug_source_type=>'NATIVE_BREADCRUMB'
+,p_menu_template_id=>4072363345357175094
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58607548591218603)
+,p_plug_name=>'Companies'
+,p_region_template_options=>'#DEFAULT#:t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc'
+,p_plug_template=>2100526641005906379
+,p_plug_display_sequence=>10
+,p_query_type=>'SQL'
+,p_plug_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select p.party_id,',
+'       p.name,',
+'       p.vat_number,',
+'       p.country_name,',
+'       p.city,',
+'       (select listagg(r.role_name, '', '') within group (order by r.role_name)',
+'        from   emk_api.emk_v_party_roles r',
+'        where  r.party_id = p.party_id) as role_names,',
+'       p.language_name',
+'from   emk_api.emk_v_parties p',
+'order  by p.name',
+''))
+,p_plug_source_type=>'NATIVE_IR'
+,p_prn_page_header=>'Companies'
+);
+wwv_flow_imp_page.create_worksheet(
+ p_id=>wwv_flow_imp.id(58607616061218603)
+,p_name=>'Companies'
+,p_max_row_count_message=>'The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.'
+,p_no_data_found_message=>'No data found.'
+,p_max_rows_per_page=>'50'
+,p_pagination_type=>'ROWS_X_TO_Y'
+,p_pagination_display_pos=>'BOTTOM_RIGHT'
+,p_report_list_mode=>'TABS'
+,p_lazy_loading=>false
+,p_show_detail_link=>'N'
+,p_show_rows_per_page=>'N'
+,p_show_flashback=>'N'
+,p_show_download=>'N'
+,p_enable_mail_download=>'Y'
+,p_owner=>'EMK_ADMIN'
+,p_internal_uid=>58607616061218603
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58608366896218609)
+,p_db_column_name=>'PARTY_ID'
+,p_display_order=>1
+,p_column_identifier=>'A'
+,p_column_label=>'Party Id'
+,p_column_type=>'NUMBER'
+,p_display_text_as=>'HIDDEN_ESCAPE_SC'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58608716514218610)
+,p_db_column_name=>'NAME'
+,p_display_order=>2
+,p_column_identifier=>'B'
+,p_column_label=>'Company name'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'Y'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609184393218610)
+,p_db_column_name=>'VAT_NUMBER'
+,p_display_order=>3
+,p_column_identifier=>'C'
+,p_column_label=>'VAT number'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609590884218610)
+,p_db_column_name=>'COUNTRY_NAME'
+,p_display_order=>4
+,p_column_identifier=>'D'
+,p_column_label=>'Country'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609901012218610)
+,p_db_column_name=>'CITY'
+,p_display_order=>5
+,p_column_identifier=>'E'
+,p_column_label=>'City'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_tz_dependent=>'N'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58610380427218612)
+,p_db_column_name=>'ROLE_NAMES'
+,p_display_order=>6
+,p_column_identifier=>'F'
+,p_column_label=>'Roles'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58610731750218612)
+,p_db_column_name=>'LANGUAGE_NAME'
+,p_display_order=>7
+,p_column_identifier=>'G'
+,p_column_label=>'Correspondence language'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_rpt(
+ p_id=>wwv_flow_imp.id(58614736758502218)
+,p_application_user=>'APXWS_DEFAULT'
+,p_report_seq=>10
+,p_report_alias=>'586148'
+,p_status=>'PUBLIC'
+,p_is_default=>'Y'
+,p_report_columns=>'PARTY_ID:NAME:VAT_NUMBER:COUNTRY_NAME:CITY:ROLE_NAMES:LANGUAGE_NAME'
+,p_sort_column_1=>'NAME'
+,p_sort_direction_1=>'ASC'
+,p_sort_column_2=>'0'
+,p_sort_direction_2=>'ASC'
+,p_sort_column_3=>'0'
+,p_sort_direction_3=>'ASC'
+,p_sort_column_4=>'0'
+,p_sort_direction_4=>'ASC'
+,p_sort_column_5=>'0'
+,p_sort_direction_5=>'ASC'
+,p_sort_column_6=>'0'
+,p_sort_direction_6=>'ASC'
+);
+end;
+/
 prompt --application/pages/page_09999
 begin
 wwv_flow_imp_page.create_page(
@@ -1624,4 +1806,4 @@ prompt  ...done
 
 
 
--- sqlcl_snapshot {"hash":"67b70678700c68ca6961b5da4c883ba87b2d7a13","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
+-- sqlcl_snapshot {"hash":"c2a6a348d1b2d6047bcea32c62b080a2f80ae393","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}

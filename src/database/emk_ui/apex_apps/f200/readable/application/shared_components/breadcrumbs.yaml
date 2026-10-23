@@ -19,3 +19,17 @@
         url: 'f?p=&APP_ID.:1:&APP_SESSION.::&DEBUG.:::'
         page: 1 # Home
 
+  - # ====== Entry: Companies ====================================
+    id: 58607315751218603
+    identification: 
+      name: Companies
+      page-number: 10
+
+    execution: 
+      sequence: 10
+
+    link: 
+      target: 
+        url: 'f?p=&APP_ID.:10:&APP_SESSION.::&DEBUG.:::'
+        page: 10 # Companies
+
