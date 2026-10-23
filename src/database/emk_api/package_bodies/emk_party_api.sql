@@ -11,6 +11,48 @@ create or replace package body emk_api.emk_party_api as
 
     -- Private helpers -----------------------------------------------------------
 
+    -- Active shipments that use the company in any role (delete_party, is_deletable)
+    function count_active_shipments (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return pls_integer is
+        l_count pls_integer;
+    begin
+        select
+            count(*)
+        into l_count
+        from
+            emk_data.emk_shipments
+        where
+                deleted_yn = 'N'
+            and in_party_id in ( sender_id, carrier_id, consignee_id );
+
+        return l_count;
+    end count_active_shipments;
+
+    -- Shipments, also deleted ones, that use the company in the role: they keep
+    -- referring to it (remove_role, get_roles_in_use)
+    function count_role_uses (
+        in_party_id in emk_data.emk_parties.party_id%type,
+        in_role     in varchar2
+    ) return pls_integer is
+        l_count pls_integer;
+    begin
+        select
+            count(*)
+        into l_count
+        from
+            emk_data.emk_shipments
+        where
+            ( in_role = emk_codes_pkg.c_role_sender
+              and sender_id = in_party_id )
+            or ( in_role = emk_codes_pkg.c_role_carrier
+                 and carrier_id = in_party_id )
+            or ( in_role = emk_codes_pkg.c_role_consignee
+                 and consignee_id = in_party_id );
+
+        return l_count;
+    end count_role_uses;
+
     -- Normalised language code; a company always has one (D-71)
     function require_language (
         in_language_code in varchar2
@@ -464,15 +506,7 @@ create or replace package body emk_api.emk_party_api as
     begin
         lock_party(in_party_id, in_expected_updated_at, true, l_party);
         lock_party_roles(in_party_id, null);   -- D-73: no shipment with this company is being saved
-        select
-            count(*)
-        into l_count
-        from
-            emk_data.emk_shipments
-        where
-                deleted_yn = 'N'
-            and in_party_id in ( sender_id, carrier_id, consignee_id );
-
+        l_count := count_active_shipments(in_party_id);
         if l_count > 0 then
             raise_application_error(emk_errors_pkg.c_party_in_use, 'The company is used by '
                                                                    || l_count
@@ -567,19 +601,7 @@ create or replace package body emk_api.emk_party_api as
         lock_party_roles(in_party_id, l_role);   -- D-73: no shipment that needs the role is being saved
 
         -- Every shipment counts, also a deleted one: it keeps referring to the party in that role
-        select
-            count(*)
-        into l_count
-        from
-            emk_data.emk_shipments
-        where
-            ( l_role = emk_codes_pkg.c_role_sender
-              and sender_id = in_party_id )
-            or ( l_role = emk_codes_pkg.c_role_carrier
-                 and carrier_id = in_party_id )
-            or ( l_role = emk_codes_pkg.c_role_consignee
-                 and consignee_id = in_party_id );
-
+        l_count := count_role_uses(in_party_id, l_role);
         if l_count > 0 then
             raise_application_error(emk_errors_pkg.c_party_role_in_use, 'Role '
                                                                         || l_role
@@ -699,6 +721,43 @@ create or replace package body emk_api.emk_party_api as
         return l_count > 0;
     end has_role;
 
+    function get_roles_in_use (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return varchar2 is
+
+        l_roles varchar2(100 char);
+
+        -- Adds the role if a shipment uses the company in it; alphabetical order by the calls below
+        procedure add_if_used (
+            in_role in varchar2
+        ) is
+        begin
+            if count_role_uses(in_party_id, in_role) > 0 then
+                l_roles := l_roles
+                           ||
+                    case
+                        when l_roles is not null then
+                            ':'
+                    end
+                           || in_role;
+
+            end if;
+        end add_if_used;
+
+    begin
+        add_if_used(emk_codes_pkg.c_role_carrier);
+        add_if_used(emk_codes_pkg.c_role_consignee);
+        add_if_used(emk_codes_pkg.c_role_sender);
+        return l_roles;
+    end get_roles_in_use;
+
+    function is_deletable (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return boolean is
+    begin
+        return count_active_shipments(in_party_id) = 0;
+    end is_deletable;
+
     -- Contacts ---------------------------------------------------------------
 
     procedure create_contact (
@@ -795,4 +854,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"ae7bc9f7e67ddbf68468e2ddbce130a7d21257f3","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"f82dba9a474a1b9471b2d8c01c7729986219d425","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

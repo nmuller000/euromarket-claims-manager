@@ -116,6 +116,9 @@ create or replace package test_emk_party_api as
     --%throws(emk_errors_pkg.c_party_role_required)
     procedure rejects_removal_of_last_role;
 
+    --%test(Step 7.8: the page knows before saving which roles are in use and whether the company can be deleted)
+    procedure shows_rules_before_saving;
+
     --%endcontext
 
     --%context(Contacts)
@@ -522,6 +525,28 @@ create or replace package body test_emk_party_api as
         emk_party_api.delete_party(l_id, version_of_party(l_id));
         emk_party_api.restore_contact(l_contact);
     end rejects_restore_of_contact_of_deleted_party;
+
+    procedure shows_rules_before_saving is
+        l_sender    emk_data.emk_parties.party_id%type := new_party('Test Sender', 'DE', in_roles => 'SENDER:FORWARDER');
+        l_carrier   emk_data.emk_parties.party_id%type := new_party('Test Carrier', 'PL', in_roles => 'CARRIER');
+        l_consignee emk_data.emk_parties.party_id%type := new_party('Test Consignee', 'FR', in_roles => 'CONSIGNEE');
+        l_shipment  emk_data.emk_shipments.shipment_id%type;
+        l_view_roles varchar2(100 char);
+    begin
+        ut.expect(emk_party_api.get_roles_in_use(l_sender), 'no shipment yet').to_be_null();
+        ut.expect(emk_party_api.is_deletable(l_sender), 'deletable without shipments').to_be_true();
+        l_shipment := new_shipment(l_sender, l_carrier, l_consignee);
+        ut.expect(emk_party_api.get_roles_in_use(l_sender), 'sender in use, forwarder not').to_equal('SENDER');
+        ut.expect(emk_party_api.get_roles_in_use(l_carrier), 'carrier in use').to_equal('CARRIER');
+        ut.expect(emk_party_api.is_deletable(l_sender), 'not deletable with an active shipment').to_be_false();
+        update emk_data.emk_shipments
+        set    deleted_yn = 'Y', deleted_by = 'TEST', deleted_at = systimestamp
+        where  shipment_id = l_shipment;
+        ut.expect(emk_party_api.is_deletable(l_sender), 'deletable when the shipment is deleted').to_be_true();
+        ut.expect(emk_party_api.get_roles_in_use(l_sender), 'a deleted shipment still uses the role').to_equal('SENDER');
+        select roles_in_use into l_view_roles from emk_v_parties where party_id = l_sender;
+        ut.expect(l_view_roles, 'the view shows the same').to_equal('SENDER');
+    end shows_rules_before_saving;
 
 end test_emk_party_api;
 /

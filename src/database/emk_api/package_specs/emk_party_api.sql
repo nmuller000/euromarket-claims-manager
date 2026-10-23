@@ -204,6 +204,32 @@ create or replace package emk_api.emk_party_api as
         in_role_code in emk_data.emk_party_roles.role_code%type
     ) return boolean;
 
+    /**
+     * Roles of the company that a shipment uses, also a deleted one: they
+     * cannot be removed (BR-16, T-M1-29). The company page shows them, so
+     * that the user knows before saving (step 7.8); remove_role applies the
+     * same rule.
+     *
+     * @param  in_party_id company
+     * @return the roles in use, colon-separated in alphabetical order (e.g.
+     *         CARRIER:SENDER); NULL if no shipment uses the company
+     */
+    function get_roles_in_use (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return varchar2;
+
+    /**
+     * Tells whether the company can be deleted: no active shipment uses it.
+     * The company page offers "Delete" only then (step 7.8); delete_party
+     * applies the same rule.
+     *
+     * @param  in_party_id company
+     * @return TRUE if no active shipment uses the company
+     */
+    function is_deletable (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return boolean;
+
     -- Contacts (personal data, spec §3.3) --------------------------------------
 
     /**
@@ -272,4 +298,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"e5d4540c3d7bf4461edae789877d5e62ff6ee1f2","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"909a7f634f0eaee72cee6085dbde4659ad91ff98","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

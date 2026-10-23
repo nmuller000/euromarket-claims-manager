@@ -9,6 +9,8 @@ create or replace force editionable view emk_api.emk_v_parties (
     city,
     language_code,
     roles,
+    roles_in_use,
+    deletable_yn,
     created_at,
     created_by,
     updated_at,
@@ -21,6 +23,10 @@ create or replace force editionable view emk_api.emk_v_parties (
      * the company, the English country name, its roles as one colon-separated
      * value (the format of an APEX checkbox item) and row_version, the version
      * for optimistic locking as text (EMK_ROW_VERSION_PKG.format_row_version).
+     * The company page shows the rules before the user saves (step 7.8):
+     * roles_in_use, the roles a shipment uses (they cannot be removed), and
+     * deletable_yn = 'Y' if no active shipment uses the company; both come
+     * from EMK_PARTY_API, which applies the same rules.
      * Changes go through EMK_PARTY_API.
      *
      * @author Natalia Müller
@@ -48,6 +54,13 @@ create or replace force editionable view emk_api.emk_v_parties (
             where
                 r.party_id = p.party_id
         )                                                                               as roles,
+        emk_api.emk_party_api.get_roles_in_use(p.party_id)                              as roles_in_use,
+        case
+            when emk_api.emk_party_api.is_deletable(p.party_id) then
+                'Y'
+            else
+                'N'
+        end                                                                             as deletable_yn,
         p.created_at,
         p.created_by,
         p.updated_at,
@@ -60,4 +73,4 @@ create or replace force editionable view emk_api.emk_v_parties (
         p.deleted_yn = 'N';
 
 
--- sqlcl_snapshot {"hash":"8452b0ae04c3ca8eadd006087141b490e93ed38f","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"c4490e09a293dd6aa5d6b944b23fe9144ec87966","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}
