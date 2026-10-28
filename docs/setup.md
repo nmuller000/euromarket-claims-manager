@@ -298,16 +298,25 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
    sql -thin "EMK_DEV[EMK_UI]@localhost:1521/FREEPDB1" @tests/emk_ui/app_context_test.sql
    ```
 
-   Expected last line: `RESULT: all checks passed` (2026-10-21: 15 checks). The concurrency test of the browser test (T-M1-39) uses `tests/emk_ui/hold_role_lock.sql` the same way; it holds a lock until Enter is pressed and writes nothing.
+   Expected last line: `RESULT: all checks passed` (2026-10-28: 15 checks). The concurrency test of the browser test (T-M1-39) uses `tests/emk_ui/hold_role_lock.sql` the same way; it holds a lock until Enter is pressed and writes nothing.
 
 6. **Master data test** (T-M1-44): as `EMK_UI` with an APEX session and a test user whose administrator role the script gives and removes; then, as the owner of the log, delete its log entries and check that nothing is left:
 
    ```powershell
    sql -thin "EMK_DEV[EMK_UI]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test.sql
-   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/master_data_test_cleanup.sql
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/test_log_cleanup.sql
    ```
 
-   Expected last line of each: `RESULT: all checks passed` (2026-10-21: 20 and 9 checks).
+   Expected last line of each: `RESULT: all checks passed` (2026-10-28: 20 and 9 checks). `test_log_cleanup.sql` deletes the log entries of every UI test (master data and error messages).
+
+7. **Error messages test** (step 7.8): as `EMK_UI` with an APEX session, every business error code and every constraint a user can reach gets its friendly text message through the error handling function, and an unexpected error gets the generic message with the number of its log entry; then the same cleanup of the log:
+
+   ```powershell
+   sql -thin "EMK_DEV[EMK_UI]@localhost:1521/FREEPDB1" @tests/emk_ui/error_messages_test.sql
+   sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1" @tests/emk_ui/test_log_cleanup.sql
+   ```
+
+   Expected last line of each: `RESULT: all checks passed` (2026-10-28: 46 and 9 checks).
 
 ### 5.4 SQLcl Project (ADR-005, ADR-008)
 
