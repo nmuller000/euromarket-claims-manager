@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.0 (2026-10-28) (D-85) |
+| **Status** | Accepted v1.1 (2026-10-28): C11 duplicate submissions, C12 application attributes (D-91). v1.0 (2026-10-28) (D-85) |
 | **Schema** | `EMK_UI` (APEX parsing schema, application 200); pages read views and call the APIs of `EMK_API` ([api-design.md](api-design.md)) |
 | **Milestone** | M1a step 7.8 onwards; every page of the application |
 | **Input** | [spec.md](../spec.md) §1.3 (*Error handling*), §7.1 (roles) · owner rules of 2026-10-21/22 · the official sources in §6 |
@@ -49,6 +49,8 @@ How every page of the application is built, so that it is understandable for its
 | C8 | **Dates on screen**: `DD/MM/YYYY`; date and time `DD/MM/YYYY HH24:MI` (e.g. the change history); set once in the globalization attributes of the application, never per page. Files, interfaces and APIs keep ISO 8601 (`YYYY-MM-DD`, spec §1.3). Not the mask `DS`: it follows the territory of the session, which the application primary language `en` sets to AMERICA (`MM/DD/RRRR`), and the territories differ between users; Oracle also allows `DS` only together with `TS`. Improvement for the German interface (M5): `DD.MM.YYYY` if its users ask for it | Owner decision (D-85); Oracle SQL Language Reference, format models (`DS`); APEX globalization attributes |
 | C9 | **Page numbers by area**: 1 home; 10–19 companies; 20–29 shipments; 30–39 claims (step 8); 50–59 master data; 80 restore; 90–99 administration (technical log); 9999 login; 0 global page. Page groups follow the same areas | Maintainability (R8) |
 | C10 | **Authorization schemes of type *Is In Role or Group***: the role names separated by commas **without spaces** (`CLAIMS_HANDLER,COMPLIANCE_OFFICER,ADMINISTRATOR`). APEX does not remove a space after a comma: a name with a leading space matches no role, and every role after the first one is denied (P-48, step 7.8) | Tested in APEX 24.2 (2026-10-28); test with the demo user of **each** role in the list (§5, item 9) |
+| C11 | **Forms do not accept a duplicate submission**: page attribute *Enable Duplicate Page Submissions* **No** on every page that saves data. A double click on *Create* or a reload after saving would otherwise run the process twice (e.g. a company without VAT number created twice); test also a failed validation followed by a corrected submit | APEX: *Allow duplicate page submissions* (D-91) |
+| C12 | **Application attributes**: *Allow Feedback* **off** and *Progressive Web App* **off** (no business need, P6); session in the application, not only in the instance: **maximum 8 hours, idle 30 minutes** (a working day; personal data and claims: the upper end of the OWASP range for low-risk applications, 15–30 minutes; a warning 5 minutes before the end lets the user extend the session); *Available with Developer Toolbar* only in DEV, *Available* in TEST and PROD (M5 security checklist) | APEX 24.2 session timeout; OWASP WSTG (D-91) |
 
 ## 2b. Performance
 
@@ -100,7 +102,7 @@ How every page of the application is built, so that it is understandable for its
 4. Every item has a label; required items: template *Required* and a *Not Null* validation (R2, R3); in every report the column that names the record has *Value Identifies Row* (row header for screen readers, an Advisor accessibility check).
 5. No list reloads the page (R4); lists of values are shared (R6); queries use bind variables, without `V()` or `&ITEM.` (R7, R11), and list only the columns they show (R14); no function on an indexed column (R12).
 6. Page, regions, buttons and every process that changes data have the authorization scheme of their capability; the menu entry too (P5).
-6a. One primary button; buttons, dialog, help, title and page number follow C1–C5 and C9; role names of an authorization scheme without spaces (C10); reports show 50 rows and format dates and numbers by masks (C6–C8, R13, R15).
+6a. One primary button; buttons, dialog, help, title and page number follow C1–C5 and C9; role names of an authorization scheme without spaces (C10); a page that saves data refuses a duplicate submission (C11); the application attributes follow C12; reports show 50 rows and format dates and numbers by masks (C6–C8, R13, R15).
 7. Every message the page can show is friendly (P3).
 8. APEX Advisor: no open finding (R9).
 9. The page is tested in the browser with the demo user of each role (step 7.9).
@@ -108,6 +110,7 @@ How every page of the application is built, so that it is understandable for its
 ## 6. Sources
 
 **Oracle APEX 24.2**
+- [Configuring Session Timeout for an Instance](https://docs.oracle.com/en/database/oracle/apex/24.2/aeadm/configuiring-session-timeout.html) · [Configuring Security Attributes (23.1)](https://docs.oracle.com/en/database/oracle/apex/23.1/htmdb/configuring-security-attributes.html) · [Allow duplicate page submissions (4.2)](https://docs.oracle.com/cd/E37097_01/doc.42/e35125/GUID-731C4FCE-B5A3-4D72-9D2A-5E6A495AF5A5.htm)
 - [Accessibility Guide — About](https://docs.oracle.com/en/database/oracle/apex/24.2/aeacc/about-accessibility.html) · [Developing Accessible Themes](https://docs.oracle.com/en/database/oracle/apex/24.2/aeacc/developing-accessible-themes.html) · [Form Pages and Items](https://docs.oracle.com/en/database/oracle/apex/24.1/aeacc/form-pages-and-items.html) · [Testing Apps for Accessibility](https://docs.oracle.com/en/database/oracle/apex/24.2/aeacc/testing-apps-for-accessibility.html) · [Accessibility Help Text](https://docs.oracle.com/en/database/oracle/apex/24.2/aeacc/accessibility-help-text.html)
 - [Running Advisor to Check Application Integrity](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/running-advisor-to-check-application-integrity.html) · [About Best Practices to Improve Performance](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/about-best-practices-to-improve-performance.html)
 - [Example of an Error Handling Function](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/Example-of-an-Error-Handling-Function.html) · [APEX_ERROR](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/APEX_ERROR.html) · [Creating Text Messages](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/creating-text-messages.html) · [APEX_LANG.MESSAGE](https://docs.oracle.com/en/database/oracle/apex/24.1/aeapi/MESSAGE-Function.html) · [APEX_AUTHORIZATION.IS_AUTHORIZED](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/IS_AUTHORIZED-Function.html) · [Configuring Security Attributes](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/configuring-security-attributes.html)
@@ -128,8 +131,12 @@ How every page of the application is built, so that it is understandable for its
 - [Oracle 26 SQL Language Quick Reference — Format Models (`DS`, `TS`)](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlqr/Format-Models.html) · [Oracle 19 — Using Indexes in Database Applications](https://docs.oracle.com/en/database/oracle/oracle-database/19/adfns/indexes.html)
 - [APEX 24.2 — About Build Options](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/about-build-options.html) · [APEX 24.2 — Managing Page and Region Caching](https://docs.oracle.com/en/database/oracle/apex/24.2/aeadm/managing-page-and-region-caching.html) · [APEX 24.1 — Editing Regions (Server Cache)](https://docs.oracle.com/en/database/oracle/apex/24.1/htmdb/editing-regions.html) · [APEX 24.2 — Available Debug Levels](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/available-debug-levels.html) · [APEX 24.2 — Viewing Debug Messages](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/viewing-debug-messages.html)
 
+**Session security (C12)**
+- OWASP — [Web Security Testing Guide: Testing Session Timeout](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/07-Testing_Session_Timeout) · [Insufficient Session Expiration](https://owasp.org/index.php/OWASP_Periodic_Table_of_Vulnerabilities_-_Insufficient_Session_Expiration)
+
 ## 7. Revision History
 
 | Version | Date | Change |
 |---------|------|--------|
 | v1.0 | 2026-10-22 | First version (D-85): owner rules P1–P5, page rules R1–R10 from the official sources, build conventions C1–C10 (dates `DD/MM/YYYY`, page numbers by area, role names without spaces), performance rules R11–R18, errors and messages, page patterns, checklist. Accepted by the owner (2026-10-28). |
+| v1.1 | 2026-10-28 | Review before the contact page (D-91): C11 forms refuse a duplicate submission; C12 application attributes (no feedback, no progressive web app, session 8 hours and idle 30 minutes in the application, developer toolbar only in DEV); checklist item 6a. Accepted by the owner. |

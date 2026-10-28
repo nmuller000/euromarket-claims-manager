@@ -39,7 +39,7 @@ Defined **once** here; every table document only states which part applies ("aud
 | Personal data inventory (GDPR) | [personal-data.md](personal-data.md) | `EMK_DATA`, `EMK_API`, `EMK_INT` | M1a | Accepted v1.0 |
 | Integration | data-model-integration.md | `EMK_INT` | M1b | Not started |
 | PL/SQL APIs (architecture, packages, flows, views for the application) | [api-design.md](api-design.md) | `EMK_API` | M1a | Accepted v1.8 |
-| User interface guidelines (APEX pages: principles, page rules, build conventions, performance, messages, patterns, checklist) | [ui-guidelines.md](ui-guidelines.md) | `EMK_UI` | M1a | Accepted v1.0 |
+| User interface guidelines (APEX pages: principles, page rules, build conventions, performance, messages, patterns, checklist) | [ui-guidelines.md](ui-guidelines.md) | `EMK_UI` | M1a | Accepted v1.1 |
 
 ## Common Rules (spec §1.3)
 
