@@ -9,6 +9,7 @@
 -- =============================================================================
 
 @@test_emk_reference_data.sql
+@@test_emk_code_lists.sql
 @@test_emk_shipments.sql
 @@test_emk_claims.sql
 @@test_emk_exchange_rates.sql

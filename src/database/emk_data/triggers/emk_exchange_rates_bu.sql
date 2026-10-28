@@ -7,6 +7,8 @@ create or replace editionable trigger emk_data.emk_exchange_rates_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-09
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -22,4 +24,4 @@ end;
 alter trigger emk_data.emk_exchange_rates_bu enable;
 
 
--- sqlcl_snapshot {"hash":"ef9e68996c8cea5493d907931634c09083aec81d","type":"TRIGGER","name":"EMK_EXCHANGE_RATES_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"ead10b618f53aa4b2d6222daa51ab827f9c5e5e3","type":"TRIGGER","name":"EMK_EXCHANGE_RATES_BU","schemaName":"EMK_DATA","sxml":""}

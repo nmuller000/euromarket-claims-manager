@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_claims_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-09
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_claims_bu enable;
 
 
--- sqlcl_snapshot {"hash":"8bba06bc18e38edd801b6574e00528e0fbac99f0","type":"TRIGGER","name":"EMK_CLAIMS_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"cd39845338dd286f87de736d1cdcce3b836fb52c","type":"TRIGGER","name":"EMK_CLAIMS_BU","schemaName":"EMK_DATA","sxml":""}

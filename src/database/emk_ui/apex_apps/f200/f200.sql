@@ -36,26 +36,30 @@ prompt APPLICATION 200 - EuroMarket Claims Manager
 --   Exported By:     EMK_UI
 --   Flashback:       0
 --   Export Type:     Application Export
---     Pages:                      3
---       Items:                    3
---       Processes:                4
---       Regions:                  2
---       Buttons:                  1
+--     Pages:                      5
+--       Items:                   24
+--       Validations:              7
+--       Processes:               11
+--       Regions:                 11
+--       Buttons:                  7
+--       Dynamic Actions:          3
 --     Shared Components:
 --       Logic:
 --         Build Options:          1
 --       Navigation:
 --         Lists:                  2
 --         Breadcrumbs:            1
---           Entries:              1
+--           Entries:              2
 --       Security:
 --         Authentication:         1
+--         Authorization:          6
 --         ACL Roles:              4
 --       User Interface:
 --         Themes:                 1
 --         Templates:
 --       PWA:
 --       Globalization:
+--         Messages:              43
 --       Reports:
 --       E-Mail:
 --     Supporting Objects:  Excluded
@@ -83,9 +87,10 @@ wwv_imp_workspace.create_flow(
 ,p_flow_language=>'en'
 ,p_flow_language_derived_from=>'FLOW_PRIMARY_LANGUAGE'
 ,p_allow_feedback_yn=>'Y'
-,p_date_format=>'DS'
-,p_timestamp_format=>'DS'
-,p_timestamp_tz_format=>'DS'
+,p_date_format=>'DD/MM/YYYY'
+,p_date_time_format=>'DD/MM/YYYY HH24:MI'
+,p_timestamp_format=>'DD/MM/YYYY HH24:MI'
+,p_timestamp_tz_format=>'DD/MM/YYYY HH24:MI'
 ,p_flow_image_prefix => nvl(wwv_flow_application_install.get_image_prefix,'')
 ,p_authentication_id=>wwv_flow_imp.id(54009270784567532)
 ,p_application_tab_set=>0
@@ -102,11 +107,12 @@ wwv_imp_workspace.create_flow(
 ,p_rejoin_existing_sessions=>'N'
 ,p_csv_encoding=>'Y'
 ,p_auto_time_zone=>'N'
+,p_error_handling_function=>'emk_api.emk_apex_error_pkg.handle_error'
 ,p_substitution_string_01=>'APP_NAME'
 ,p_substitution_value_01=>'EuroMarket Claims Manager'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>98036184
+,p_version_scn=>102312130
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -142,7 +148,7 @@ wwv_flow_imp_shared.create_list(
  p_id=>wwv_flow_imp.id(54010014388567539)
 ,p_name=>'Navigation Menu'
 ,p_list_status=>'PUBLIC'
-,p_version_scn=>93267185
+,p_version_scn=>100389750
 );
 wwv_flow_imp_shared.create_list_item(
  p_id=>wwv_flow_imp.id(54021798876567639)
@@ -151,6 +157,16 @@ wwv_flow_imp_shared.create_list_item(
 ,p_list_item_link_target=>'f?p=&APP_ID.:1:&APP_SESSION.::&DEBUG.:::'
 ,p_list_item_icon=>'fa-home'
 ,p_list_item_current_type=>'TARGET_PAGE'
+);
+wwv_flow_imp_shared.create_list_item(
+ p_id=>wwv_flow_imp.id(58606412956218585)
+,p_list_item_display_sequence=>20
+,p_list_item_link_text=>'Companies'
+,p_list_item_link_target=>'f?p=&APP_ID.:10:&SESSION.::&DEBUG.::::'
+,p_list_item_icon=>'fa-building'
+,p_security_scheme=>wwv_flow_imp.id(58219519628163453)
+,p_list_item_current_type=>'COLON_DELIMITED_PAGE_LIST'
+,p_list_item_current_for_pages=>'10'
 );
 end;
 /
@@ -822,14 +838,98 @@ wwv_flow_imp_shared.create_plugin_setting(
 );
 end;
 /
+prompt --application/shared_components/security/authorizations/can_view_parties_shipments
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219519628163453)
+,p_name=>'CAN_VIEW_PARTIES_SHIPMENTS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER,COMPLIANCE_OFFICER,ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>102234441
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_edit_parties_shipments
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219703941168892)
+,p_name=>'CAN_EDIT_PARTIES_SHIPMENTS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944704
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_restore_records
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58219927205173707)
+,p_name=>'CAN_RESTORE_RECORDS'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'CLAIMS_HANDLER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944778
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_view_contact_history
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220158471179807)
+,p_name=>'CAN_VIEW_CONTACT_HISTORY'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'COMPLIANCE_OFFICER'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99944859
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_maintain_master_data
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220372425185392)
+,p_name=>'CAN_MAINTAIN_MASTER_DATA'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99950882
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/can_view_technical_log
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(58220555041190410)
+,p_name=>'CAN_VIEW_TECHNICAL_LOG'
+,p_scheme_type=>'NATIVE_IS_IN_GROUP'
+,p_attribute_01=>'ADMINISTRATOR'
+,p_attribute_02=>'A'
+,p_error_message=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99945134
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
 prompt --application/shared_components/security/app_access_control/claims_handler
 begin
 wwv_flow_imp_shared.create_acl_role(
  p_id=>wwv_flow_imp.id(54025791628652025)
 ,p_static_id=>'CLAIMS_HANDLER'
 ,p_name=>'CLAIMS_HANDLER'
-,p_description=>'Handles CMR claims: creates and edits parties, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims.'
-,p_version_scn=>93273251
+,p_description=>'Handles CMR claims: creates and edits companies, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims. Restores deleted records.'
+,p_version_scn=>99950675
 );
 end;
 /
@@ -861,8 +961,8 @@ wwv_flow_imp_shared.create_acl_role(
  p_id=>wwv_flow_imp.id(54026095751655167)
 ,p_static_id=>'ADMINISTRATOR'
 ,p_name=>'ADMINISTRATOR'
-,p_description=>'Maintains reference data (countries, holidays, rules, rates, templates), imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to claims.'
-,p_version_scn=>93273397
+,p_description=>'Maintains the master data (Master Data menu) and the reference data, reviews the technical log, imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to companies, shipments and claims.'
+,p_version_scn=>99945385
 );
 end;
 /
@@ -892,6 +992,11 @@ wwv_flow_imp_page.create_page_group(
  p_id=>wwv_flow_imp.id(54015082748567606)
 ,p_group_name=>'Administration'
 );
+wwv_flow_imp_page.create_page_group(
+ p_id=>wwv_flow_imp.id(58616457386700031)
+,p_group_name=>'Companies'
+,p_group_desc=>unistr('Companies (senders, consignees, carriers and other roles), their contact persons and change history. Pages 10\201319.')
+);
 end;
 /
 prompt --application/shared_components/navigation/breadcrumbs/breadcrumb
@@ -905,6 +1010,12 @@ wwv_flow_imp_shared.create_menu_option(
 ,p_short_name=>'Home'
 ,p_link=>'f?p=&APP_ID.:1:&APP_SESSION.::&DEBUG.:::'
 ,p_page_id=>1
+);
+wwv_flow_imp_shared.create_menu_option(
+ p_id=>wwv_flow_imp.id(58607315751218603)
+,p_short_name=>'Companies'
+,p_link=>'f?p=&APP_ID.:10:&APP_SESSION.::&DEBUG.:::'
+,p_page_id=>10
 );
 end;
 /
@@ -1007,7 +1118,264 @@ end;
 /
 prompt --application/shared_components/globalization/messages
 begin
-null;
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58205918319995214)
+,p_name=>'EMK_CONTACTS_EMAIL_CK'
+,p_message_text=>'The email address is not valid. Use the form name@example.com.'
+,p_version_scn=>99927518
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206132319995245)
+,p_name=>'EMK_CONTACTS_PHONE_CK'
+,p_message_text=>'The phone number is not valid. Write it in international format, starting with + and the country code (for example +49 30 1234567).'
+,p_version_scn=>99927518
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206405065995245)
+,p_name=>'EMK_DOCUMENT_TYPES_CODE_CK'
+,p_message_text=>'The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58206748433995245)
+,p_name=>'EMK_DOCUMENT_TYPES_VALID_CK'
+,p_message_text=>'The "Valid until" date cannot be before the "Valid from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207007838995245)
+,p_name=>'EMK_ERROR_20001'
+,p_message_text=>'You are not allowed to perform this action. Please contact your administrator.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207308520995245)
+,p_name=>'EMK_ERROR_20002'
+,p_message_text=>'This record no longer exists or was deleted. Reload the page.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207669546995245)
+,p_name=>'EMK_ERROR_20003'
+,p_message_text=>'Some information is missing or not valid. Check the highlighted fields.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58207981376995245)
+,p_name=>'EMK_ERROR_20004'
+,p_message_text=>'Another user changed this record while you were editing it. Reload the page to see the changes, then make yours again.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208275337995245)
+,p_name=>'EMK_ERROR_20005'
+,p_message_text=>'Another user is saving this record right now. Wait a moment and try again.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208558379995245)
+,p_name=>'EMK_ERROR_20101'
+,p_message_text=>'The selected company does not have the required role (sender, carrier or consignee). Choose another company or add the role to it.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58208865921995245)
+,p_name=>'EMK_ERROR_20102'
+,p_message_text=>'This role cannot be removed: the company has it in at least one shipment.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209035120995245)
+,p_name=>'EMK_ERROR_20103'
+,p_message_text=>'The VAT number does not have the format of the company''s country. Type it as in the example under the field. A company outside the EU has no EU VAT number.'
+,p_version_scn=>102180624
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209390624995245)
+,p_name=>'EMK_ERROR_20104'
+,p_message_text=>'Another company already has this VAT number. If that company was deleted, restore it instead of creating a new one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209660288995246)
+,p_name=>'EMK_ERROR_20105'
+,p_message_text=>'This company cannot be deleted: it is used in active shipments.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58209948193995246)
+,p_name=>'EMK_ERROR_20106'
+,p_message_text=>'A company needs at least one role.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(60218180163498598)
+,p_name=>'EMK_ERROR_20107'
+,p_message_text=>'The address of the company is incomplete: enter the street, the city and, except in countries without postcodes, the postcode.'
+,p_version_scn=>102212290
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(60610889117175895)
+,p_name=>'EMK_ERROR_20108'
+,p_message_text=>'The postcode does not have the format of the company''s country. Type it as in the example under the field.'
+,p_version_scn=>102272445
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210299067995246)
+,p_name=>'EMK_ERROR_20201'
+,p_message_text=>'This carrier already has a shipment with this consignment note number.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210503053995246)
+,p_name=>'EMK_ERROR_20202'
+,p_message_text=>'This shipment cannot be deleted: it has active claims.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58210832229995246)
+,p_name=>'EMK_ERROR_20203'
+,p_message_text=>'The CMR Convention does not apply: neither the country of origin nor the country of destination was a party to it on the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211110044995246)
+,p_name=>'EMK_ERROR_20204'
+,p_message_text=>'The carrier must be a different company from the sender and the consignee.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211407003995246)
+,p_name=>'EMK_ERROR_20301'
+,p_message_text=>'The claim cannot move from its current status to the chosen one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58211729470995246)
+,p_name=>'EMK_ERROR_20302'
+,p_message_text=>'Check the amounts: the settled amount cannot exceed the claimed amount, and the recovered amount cannot exceed the settled amount.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212091207995246)
+,p_name=>'EMK_ERROR_20303'
+,p_message_text=>'The file of a document cannot be changed. Upload the corrected file as a new document.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212340533995246)
+,p_name=>'EMK_ERROR_20401'
+,p_message_text=>'The selected value is not valid on this date. Choose another one.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212612350995246)
+,p_name=>'EMK_ERROR_20402'
+,p_message_text=>'This value is used by the rules of the application, so it must stay valid.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58212933754995246)
+,p_name=>'EMK_ERROR_20403'
+,p_message_text=>'This code already exists, but it may no longer be valid. Instead of creating it again, change its validity dates.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213296793995246)
+,p_name=>'EMK_ERROR_ORA_01438'
+,p_message_text=>'A number is too large. Check the highlighted field.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213538274995246)
+,p_name=>'EMK_ERROR_ORA_12899'
+,p_message_text=>'A value is too long. Shorten the highlighted field.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58213866969995246)
+,p_name=>'EMK_ERROR_UNEXPECTED'
+,p_message_text=>'Something went wrong. Please try again; if it happens again, give your administrator this reference: %0.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214160353995248)
+,p_name=>'EMK_FILE_TYPES_VALID_CK'
+,p_message_text=>'The "Allowed until" date cannot be before the "Allowed from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(60611040847177856)
+,p_name=>'EMK_PARTIES_POSTCODE_CK'
+,p_message_text=>'The postcode is not valid: use letters, digits, spaces and hyphens only (2 to 10 characters).'
+,p_version_scn=>102272408
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214491577995248)
+,p_name=>'EMK_PARTIES_VAT_CK'
+,p_message_text=>'The VAT number is not valid: it starts with the two-letter country prefix, followed by 2 to 12 letters, digits or the signs + and * (for example DE123456789).'
+,p_version_scn=>102255997
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58214790989995248)
+,p_name=>'EMK_PARTY_ROLE_TYPES_CODE_CK'
+,p_message_text=>'The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215089321995248)
+,p_name=>'EMK_PARTY_ROLE_TYPES_VALID_CK'
+,p_message_text=>'The "Valid until" date cannot be before the "Valid from" date.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215311835995248)
+,p_name=>'EMK_SHIPMENTS_CHARGES_CK'
+,p_message_text=>'Enter the carriage charges and their currency together; the charges cannot be negative.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215674466995248)
+,p_name=>'EMK_SHIPMENTS_COUNTRIES_CK'
+,p_message_text=>'The country of origin and the country of destination must be different: the CMR applies only to carriage between two countries.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58215947692995248)
+,p_name=>'EMK_SHIPMENTS_DATES_CK'
+,p_message_text=>'The delivery date and the agreed time-limit cannot be before the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216218605995248)
+,p_name=>'EMK_SHIPMENTS_DECLARED_VALUE_CK'
+,p_message_text=>'Enter the declared value and its currency together; the value must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216573367995248)
+,p_name=>'EMK_SHIPMENTS_DISPOSAL_CK'
+,p_message_text=>'The date the goods were placed at the consignee''s disposal cannot be before the date of taking over.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58216839115995248)
+,p_name=>'EMK_SHIPMENTS_PACKAGES_CK'
+,p_message_text=>'The number of packages must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58217199299995250)
+,p_name=>'EMK_SHIPMENTS_SPECIAL_INTEREST_CK'
+,p_message_text=>'Enter the special interest in delivery and its currency together; the amount must be greater than zero.'
+,p_version_scn=>99927520
+);
+wwv_flow_imp_shared.create_message(
+ p_id=>wwv_flow_imp.id(58217464966995250)
+,p_name=>'EMK_SHIPMENTS_WEIGHT_CK'
+,p_message_text=>'The gross weight must be greater than zero.'
+,p_version_scn=>99927520
+);
 end;
 /
 prompt --application/shared_components/globalization/dyntranslations
@@ -1072,6 +1440,1457 @@ wwv_flow_imp_page.create_page_plug(
   'expand_shortcuts', 'N',
   'output_as', 'HTML',
   'show_line_breaks', 'Y')).to_clob
+);
+end;
+/
+prompt --application/pages/page_00010
+begin
+wwv_flow_imp_page.create_page(
+ p_id=>10
+,p_name=>'Companies'
+,p_alias=>'COMPANIES'
+,p_step_title=>'Companies'
+,p_autocomplete_on_off=>'OFF'
+,p_group_id=>wwv_flow_imp.id(58616457386700031)
+,p_page_template_options=>'#DEFAULT#'
+,p_required_role=>wwv_flow_imp.id(58219519628163453)
+,p_protection_level=>'C'
+,p_page_component_map=>'18'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58606810697218595)
+,p_plug_name=>'Breadcrumb'
+,p_region_template_options=>'#DEFAULT#:t-BreadcrumbRegion--useBreadcrumbTitle'
+,p_component_template_options=>'#DEFAULT#'
+,p_plug_template=>2531463326621247859
+,p_plug_display_sequence=>10
+,p_plug_display_point=>'REGION_POSITION_01'
+,p_menu_id=>wwv_flow_imp.id(54009547511567534)
+,p_plug_source_type=>'NATIVE_BREADCRUMB'
+,p_menu_template_id=>4072363345357175094
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58607548591218603)
+,p_plug_name=>'Companies'
+,p_region_template_options=>'#DEFAULT#:t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc'
+,p_plug_template=>2100526641005906379
+,p_plug_display_sequence=>10
+,p_query_type=>'SQL'
+,p_plug_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select p.party_id,',
+'       p.name,',
+'       p.vat_number,',
+'       p.country_name,',
+'       p.postal_code,',
+'       p.city,',
+'       (select listagg(r.role_name, '', '') within group (order by r.role_name)',
+'        from   emk_api.emk_v_party_roles r',
+'        where  r.party_id = p.party_id) as role_names,',
+'       p.language_name',
+'from   emk_api.emk_v_parties p',
+'order  by p.name',
+''))
+,p_plug_source_type=>'NATIVE_IR'
+,p_prn_page_header=>'Companies'
+);
+wwv_flow_imp_page.create_worksheet(
+ p_id=>wwv_flow_imp.id(58607616061218603)
+,p_name=>'Companies'
+,p_max_row_count_message=>'The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.'
+,p_no_data_found_message=>'No data found.'
+,p_max_rows_per_page=>'50'
+,p_pagination_type=>'ROWS_X_TO_Y'
+,p_pagination_display_pos=>'BOTTOM_RIGHT'
+,p_report_list_mode=>'TABS'
+,p_lazy_loading=>false
+,p_show_detail_link=>'C'
+,p_show_rows_per_page=>'N'
+,p_show_flashback=>'N'
+,p_show_download=>'N'
+,p_enable_mail_download=>'Y'
+,p_detail_link=>'f?p=&APP_ID.:11:&SESSION.::&DEBUG.:11:P11_PARTY_ID:#PARTY_ID#'
+,p_detail_link_text=>'<span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>'
+,p_owner=>'EMK_ADMIN'
+,p_internal_uid=>58607616061218603
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58608366896218609)
+,p_db_column_name=>'PARTY_ID'
+,p_display_order=>1
+,p_column_identifier=>'A'
+,p_column_label=>'Party Id'
+,p_column_type=>'NUMBER'
+,p_display_text_as=>'HIDDEN_ESCAPE_SC'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58608716514218610)
+,p_db_column_name=>'NAME'
+,p_display_order=>2
+,p_column_identifier=>'B'
+,p_column_label=>'Company name'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'Y'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609184393218610)
+,p_db_column_name=>'VAT_NUMBER'
+,p_display_order=>3
+,p_column_identifier=>'C'
+,p_column_label=>'VAT number'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609590884218610)
+,p_db_column_name=>'COUNTRY_NAME'
+,p_display_order=>4
+,p_column_identifier=>'D'
+,p_column_label=>'Country'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(59012220192209946)
+,p_db_column_name=>'POSTAL_CODE'
+,p_display_order=>14
+,p_column_identifier=>'H'
+,p_column_label=>'Postcode'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58609901012218610)
+,p_db_column_name=>'CITY'
+,p_display_order=>24
+,p_column_identifier=>'E'
+,p_column_label=>'City'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58610380427218612)
+,p_db_column_name=>'ROLE_NAMES'
+,p_display_order=>34
+,p_column_identifier=>'F'
+,p_column_label=>'Roles'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_column(
+ p_id=>wwv_flow_imp.id(58610731750218612)
+,p_db_column_name=>'LANGUAGE_NAME'
+,p_display_order=>44
+,p_column_identifier=>'G'
+,p_column_label=>'Correspondence language'
+,p_column_type=>'STRING'
+,p_heading_alignment=>'LEFT'
+,p_use_as_row_header=>'N'
+);
+wwv_flow_imp_page.create_worksheet_rpt(
+ p_id=>wwv_flow_imp.id(58614736758502218)
+,p_application_user=>'APXWS_DEFAULT'
+,p_report_seq=>10
+,p_report_alias=>'586148'
+,p_status=>'PUBLIC'
+,p_is_default=>'Y'
+,p_report_columns=>'PARTY_ID:NAME:VAT_NUMBER:COUNTRY_NAME:CITY:ROLE_NAMES:LANGUAGE_NAME'
+,p_sort_column_1=>'NAME'
+,p_sort_direction_1=>'ASC'
+,p_sort_column_2=>'0'
+,p_sort_direction_2=>'ASC'
+,p_sort_column_3=>'0'
+,p_sort_direction_3=>'ASC'
+,p_sort_column_4=>'0'
+,p_sort_direction_4=>'ASC'
+,p_sort_column_5=>'0'
+,p_sort_direction_5=>'ASC'
+,p_sort_column_6=>'0'
+,p_sort_direction_6=>'ASC'
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(59010522220209929)
+,p_button_sequence=>10
+,p_button_plug_id=>wwv_flow_imp.id(58607548591218603)
+,p_button_name=>'CREATE'
+,p_button_action=>'REDIRECT_PAGE'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_is_hot=>'Y'
+,p_button_image_alt=>'Create company'
+,p_button_position=>'RIGHT_OF_IR_SEARCH_BAR'
+,p_button_redirect_url=>'f?p=&APP_ID.:11:&SESSION.::&DEBUG.:11::'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_da_event(
+ p_id=>wwv_flow_imp.id(59010611029209930)
+,p_name=>'Dialog Closed'
+,p_event_sequence=>10
+,p_triggering_element_type=>'REGION'
+,p_triggering_region_id=>wwv_flow_imp.id(58607548591218603)
+,p_bind_type=>'bind'
+,p_execution_type=>'IMMEDIATE'
+,p_bind_event_type=>'apexafterclosedialog'
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59010705077209931)
+,p_event_id=>wwv_flow_imp.id(59010611029209930)
+,p_event_result=>'TRUE'
+,p_action_sequence=>10
+,p_execute_on_page_init=>'N'
+,p_action=>'NATIVE_REFRESH'
+,p_affected_elements_type=>'REGION'
+,p_affected_region_id=>wwv_flow_imp.id(58607548591218603)
+,p_attribute_01=>'N'
+);
+end;
+/
+prompt --application/pages/page_00011
+begin
+wwv_flow_imp_page.create_page(
+ p_id=>11
+,p_name=>'Company'
+,p_alias=>'COMPANY'
+,p_page_mode=>'MODAL'
+,p_step_title=>'Company'
+,p_autocomplete_on_off=>'OFF'
+,p_group_id=>wwv_flow_imp.id(58616457386700031)
+,p_page_template_options=>'#DEFAULT#'
+,p_required_role=>wwv_flow_imp.id(58219519628163453)
+,p_dialog_resizable=>'Y'
+,p_protection_level=>'C'
+,p_page_component_map=>'03'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(43028860484635336)
+,p_plug_name=>'Country no longer valid'
+,p_region_template_options=>'#DEFAULT#:t-Alert--horizontal:t-Alert--defaultIcons:t-Alert--warning'
+,p_plug_template=>2040683448887306517
+,p_plug_display_sequence=>9
+,p_location=>null
+,p_plug_source=>'The country &P11_COUNTRY_NAME!HTML. is no longer valid. Choose another one.'
+,p_plug_display_condition_type=>'VAL_OF_ITEM_IN_COND_EQ_COND2'
+,p_plug_display_when_condition=>'P11_COUNTRY_VALID_YN'
+,p_plug_display_when_cond2=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(43028930444635337)
+,p_plug_name=>'Language no longer valid'
+,p_region_template_options=>'#DEFAULT#:t-Alert--horizontal:t-Alert--defaultIcons:t-Alert--warning'
+,p_plug_template=>2040683448887306517
+,p_plug_display_sequence=>8
+,p_location=>null
+,p_plug_source=>'The correspondence language &P11_LANGUAGE_NAME!HTML. is no longer valid. Choose another one.'
+,p_plug_display_condition_type=>'VAL_OF_ITEM_IN_COND_EQ_COND2'
+,p_plug_display_when_condition=>'P11_LANGUAGE_VALID_YN'
+,p_plug_display_when_cond2=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58806320251905804)
+,p_plug_name=>'Company'
+,p_region_template_options=>'#DEFAULT#'
+,p_plug_template=>4501440665235496320
+,p_plug_display_sequence=>10
+,p_query_type=>'SQL'
+,p_plug_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select p.party_id,',
+'       p.name,',
+'       p.vat_national_number,',
+'       p.country_code,',
+'       p.country_name,',
+'       p.country_valid_yn,',
+'       p.street,',
+'       p.postal_code,',
+'       p.city,',
+'       p.language_code,',
+'       p.language_name,',
+'       p.language_valid_yn,',
+'       p.roles,',
+'       p.roles_in_use,',
+'       (select listagg(t.name, '', '') within group (order by t.name)',
+'        from   emk_api.emk_v_party_role_types t',
+'        where  instr('':'' || p.roles_in_use || '':'', '':'' || t.role_code || '':'') > 0) as roles_in_use_names,',
+'       p.deletable_yn,',
+'       p.row_version',
+'from   emk_api.emk_v_parties p',
+''))
+,p_is_editable=>true
+,p_edit_operations=>'i:u:d'
+,p_lost_update_check_type=>'VALUES'
+,p_plug_source_type=>'NATIVE_FORM'
+,p_plug_read_only_when_type=>'EXPRESSION'
+,p_plug_read_only_when=>'not apex_authorization.is_authorized(''CAN_EDIT_PARTIES_SHIPMENTS'')'
+,p_plug_read_only_when2=>'PLSQL'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(43029090047635338)
+,p_plug_name=>'Roles in use'
+,p_parent_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_region_template_options=>'#DEFAULT#:t-Alert--horizontal:t-Alert--defaultIcons:t-Alert--info'
+,p_plug_template=>2040683448887306517
+,p_plug_display_sequence=>10
+,p_plug_display_point=>'SUB_REGIONS'
+,p_location=>null
+,p_plug_source=>'Roles used in shipments cannot be removed: &P11_ROLES_IN_USE_NAMES!HTML..'
+,p_plug_display_condition_type=>'ITEM_IS_NOT_NULL'
+,p_plug_display_when_condition=>'P11_ROLES_IN_USE'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(43029109138635339)
+,p_plug_name=>'Not deletable'
+,p_parent_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_region_template_options=>'#DEFAULT#:t-Alert--horizontal:t-Alert--defaultIcons:t-Alert--info'
+,p_plug_template=>2040683448887306517
+,p_plug_display_sequence=>20
+,p_plug_display_point=>'SUB_REGIONS'
+,p_location=>null
+,p_plug_source=>'This company is used in active shipments and cannot be deleted.'
+,p_plug_required_role=>wwv_flow_imp.id(58219703941168892)
+,p_plug_display_condition_type=>'EXPRESSION'
+,p_plug_display_when_condition=>':P11_PARTY_ID is not null and :P11_DELETABLE_YN = ''N'''
+,p_plug_display_when_cond2=>'PLSQL'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_report_region(
+ p_id=>wwv_flow_imp.id(43029263439635340)
+,p_name=>'Roles no longer valid'
+,p_parent_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_template=>4072358936313175081
+,p_display_sequence=>15
+,p_region_template_options=>'#DEFAULT#:t-Region--scrollBody'
+,p_component_template_options=>'#DEFAULT#:t-Report--altRowsDefault:t-Report--rowHighlight'
+,p_display_point=>'SUB_REGIONS'
+,p_source_type=>'NATIVE_SQL_REPORT'
+,p_query_type=>'SQL'
+,p_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select role_name, valid_to',
+'from   emk_api.emk_v_party_roles',
+'where  party_id = :P11_PARTY_ID',
+'and    valid_yn = ''N''',
+'order  by role_name',
+''))
+,p_display_when_condition=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select role_name, valid_to',
+'from   emk_api.emk_v_party_roles',
+'where  party_id = :P11_PARTY_ID',
+'and    valid_yn = ''N'''))
+,p_display_condition_type=>'EXISTS'
+,p_ajax_enabled=>'Y'
+,p_lazy_loading=>false
+,p_query_row_template=>2538654340625403440
+,p_query_num_rows=>15
+,p_query_options=>'DERIVED_REPORT_COLUMNS'
+,p_query_num_rows_type=>'NEXT_PREVIOUS_LINKS'
+,p_pagination_display_position=>'BOTTOM_RIGHT'
+,p_csv_output=>'N'
+,p_prn_output=>'N'
+,p_sort_null=>'L'
+,p_plug_query_strip_html=>'N'
+);
+wwv_flow_imp_page.create_report_columns(
+ p_id=>wwv_flow_imp.id(43029303415635341)
+,p_query_column_id=>1
+,p_column_alias=>'ROLE_NAME'
+,p_column_display_sequence=>10
+,p_column_heading=>'Role'
+,p_use_as_row_header=>'Y'
+,p_heading_alignment=>'LEFT'
+,p_derived_column=>'N'
+,p_include_in_export=>'Y'
+);
+wwv_flow_imp_page.create_report_columns(
+ p_id=>wwv_flow_imp.id(43029493672635342)
+,p_query_column_id=>2
+,p_column_alias=>'VALID_TO'
+,p_column_display_sequence=>20
+,p_column_heading=>'Valid until'
+,p_heading_alignment=>'LEFT'
+,p_derived_column=>'N'
+,p_include_in_export=>'Y'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(58818686672905823)
+,p_plug_name=>'Buttons'
+,p_region_template_options=>'#DEFAULT#'
+,p_plug_template=>2126429139436695430
+,p_plug_display_sequence=>20
+,p_plug_display_point=>'REGION_POSITION_03'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'TEXT',
+  'show_line_breaks', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(43029657476635344)
+,p_button_sequence=>20
+,p_button_plug_id=>wwv_flow_imp.id(43029263439635340)
+,p_button_name=>'REMOVE_ROLE'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_image_alt=>'Remove role'
+,p_grid_new_row=>'Y'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(58819069825905823)
+,p_button_sequence=>10
+,p_button_plug_id=>wwv_flow_imp.id(58818686672905823)
+,p_button_name=>'CANCEL'
+,p_button_action=>'DEFINED_BY_DA'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_image_alt=>'Cancel'
+,p_button_position=>'CLOSE'
+,p_button_alignment=>'RIGHT'
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(58820433668905826)
+,p_button_sequence=>20
+,p_button_plug_id=>wwv_flow_imp.id(58818686672905823)
+,p_button_name=>'DELETE'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_image_alt=>'Delete'
+,p_button_position=>'DELETE'
+,p_button_execute_validations=>'N'
+,p_confirm_message=>'<strong>Are you sure</strong> you want to delete the company &P11_NAME!HTML.? You can restore it later from Restore deleted records.'
+,p_confirm_style=>'danger'
+,p_button_condition=>':P11_PARTY_ID is not null and :P11_DELETABLE_YN = ''Y'''
+,p_button_condition2=>'PLSQL'
+,p_button_condition_type=>'EXPRESSION'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(58820849080905826)
+,p_button_sequence=>30
+,p_button_plug_id=>wwv_flow_imp.id(58818686672905823)
+,p_button_name=>'SAVE'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_is_hot=>'Y'
+,p_button_image_alt=>'Save'
+,p_button_position=>'NEXT'
+,p_button_condition=>'P11_PARTY_ID'
+,p_button_condition_type=>'ITEM_IS_NOT_NULL'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(58821206975905826)
+,p_button_sequence=>40
+,p_button_plug_id=>wwv_flow_imp.id(58818686672905823)
+,p_button_name=>'CREATE'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_is_hot=>'Y'
+,p_button_image_alt=>'Create'
+,p_button_position=>'NEXT'
+,p_button_condition=>'P11_PARTY_ID'
+,p_button_condition_type=>'ITEM_IS_NULL'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(43029570813635343)
+,p_name=>'P11_RETIRED_ROLE'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(43029263439635340)
+,p_prompt=>'Role to remove'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select role_name d, role_code r',
+'from   emk_api.emk_v_party_roles',
+'where  party_id = :P11_PARTY_ID',
+'and    valid_yn = ''N''',
+'order  by role_name',
+''))
+,p_lov_display_null=>'YES'
+,p_lov_null_text=>'- Choose a role -'
+,p_cHeight=>1
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_lov_display_extra=>'NO'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58806740141905810)
+,p_name=>'P11_PARTY_ID'
+,p_source_data_type=>'NUMBER'
+,p_is_primary_key=>true
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_use_cache_before_default=>'NO'
+,p_prompt=>'Party Id'
+,p_source=>'PARTY_ID'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_label_alignment=>'RIGHT'
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_protection_level=>'S'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58807134607905815)
+,p_name=>'P11_NAME'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>20
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Company name'
+,p_source=>'NAME'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>60
+,p_cMaxlength=>200
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58807906506905817)
+,p_name=>'P11_COUNTRY_CODE'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>40
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Country'
+,p_source=>'COUNTRY_CODE'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select name d, country_code r',
+'from   emk_api.emk_v_countries',
+'where  valid_from <= trunc(sysdate)',
+'and    (valid_to is null or valid_to >= trunc(sysdate))',
+'order  by name'))
+,p_cHeight=>1
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_lov_display_extra=>'NO'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58808373959905817)
+,p_name=>'P11_COUNTRY_NAME'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>80
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'COUNTRY_NAME'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58808735071905817)
+,p_name=>'P11_COUNTRY_VALID_YN'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>90
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'COUNTRY_VALID_YN'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58809146030905817)
+,p_name=>'P11_STREET'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>100
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Street'
+,p_source=>'STREET'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>60
+,p_cMaxlength=>200
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58809561487905817)
+,p_name=>'P11_POSTAL_CODE'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>110
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Postcode'
+,p_source=>'POSTAL_CODE'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>32
+,p_cMaxlength=>20
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_inline_help_text=>'Required, except in countries without postcodes.'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58809939777905818)
+,p_name=>'P11_CITY'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>130
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'City'
+,p_source=>'CITY'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>60
+,p_cMaxlength=>100
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58810342845905818)
+,p_name=>'P11_LANGUAGE_CODE'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>140
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Correspondence language'
+,p_source=>'LANGUAGE_CODE'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select name d, language_code r',
+'from   emk_api.emk_v_languages',
+'where  valid_yn = ''Y''',
+'order  by name'))
+,p_cHeight=>1
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_lov_display_extra=>'NO'
+,p_help_text=>'Language of the claim letters and other correspondence sent to this company.'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58810716756905818)
+,p_name=>'P11_LANGUAGE_NAME'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>150
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'LANGUAGE_NAME'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58811114438905818)
+,p_name=>'P11_LANGUAGE_VALID_YN'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>160
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'LANGUAGE_VALID_YN'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58811546574905818)
+,p_name=>'P11_ROLES'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>170
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Roles'
+,p_source=>'ROLES'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_CHECKBOX'
+,p_lov=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select name d, role_code r',
+'from   emk_api.emk_v_party_role_types',
+'where  valid_yn = ''Y''',
+'order  by sort_order'))
+,p_field_template=>2526760615038828570
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_lov_display_extra=>'NO'
+,p_help_text=>'What the company does in a shipment: the Sender contracts the carriage and hands over the goods, the Consignee receives them and the Carrier performs the carriage (CMR); a Forwarder, Insurer or Surveyor takes part in claims. A company can have severa'
+||'l roles.'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_of_columns', '3')).to_clob
+,p_multi_value_type=>'SEPARATED'
+,p_multi_value_separator=>':'
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58811965078905818)
+,p_name=>'P11_ROLES_IN_USE'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>180
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'ROLES_IN_USE'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58812364647905818)
+,p_name=>'P11_ROLES_IN_USE_NAMES'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>190
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'ROLES_IN_USE_NAMES'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58812780031905820)
+,p_name=>'P11_DELETABLE_YN'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>200
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'DELETABLE_YN'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(58813160725905820)
+,p_name=>'P11_ROW_VERSION'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>210
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_source=>'ROW_VERSION'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_is_persistent=>'N'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(59010954114209933)
+,p_name=>'P11_VAT_NATIONAL_NUMBER'
+,p_source_data_type=>'VARCHAR2'
+,p_item_sequence=>60
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_item_source_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'VAT identification number'
+,p_source=>'VAT_NATIONAL_NUMBER'
+,p_source_type=>'REGION_SOURCE_COLUMN'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>30
+,p_cMaxlength=>20
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+,p_help_text=>'The EU VAT identification number of the company, as registered in VIES. The prefix of the country is added when you save.'
+,p_inline_help_text=>'Type the number without the VAT prefix. Only for companies in the EU and in Northern Ireland.'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(59011040662209934)
+,p_name=>'P11_VAT_PREFIX'
+,p_item_sequence=>50
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'VAT prefix'
+,p_display_as=>'NATIVE_DISPLAY_ONLY'
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'based_on', 'VALUE',
+  'format', 'PLAIN',
+  'send_on_page_submit', 'N',
+  'show_line_breaks', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(59011177470209935)
+,p_name=>'P11_VAT_EXAMPLE'
+,p_item_sequence=>70
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'VAT number example'
+,p_display_as=>'NATIVE_DISPLAY_ONLY'
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'based_on', 'VALUE',
+  'format', 'PLAIN',
+  'send_on_page_submit', 'N',
+  'show_line_breaks', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(59012071358209944)
+,p_name=>'P11_POSTAL_EXAMPLE'
+,p_item_sequence=>120
+,p_item_plug_id=>wwv_flow_imp.id(58806320251905804)
+,p_prompt=>'Postcode example'
+,p_display_as=>'NATIVE_DISPLAY_ONLY'
+,p_field_template=>2318601014859922299
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'based_on', 'VALUE',
+  'format', 'PLAIN',
+  'send_on_page_submit', 'N',
+  'show_line_breaks', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(43029773715635345)
+,p_validation_name=>'Company name required'
+,p_validation_sequence=>10
+,p_validation=>'P11_NAME'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Enter the company name.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(43029889892635346)
+,p_validation_name=>'Country required'
+,p_validation_sequence=>20
+,p_validation=>'P11_COUNTRY_CODE'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Choose a country.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(43029990930635347)
+,p_validation_name=>'Language required'
+,p_validation_sequence=>30
+,p_validation=>'P11_LANGUAGE_CODE'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Choose a correspondence language.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(43030018662635348)
+,p_validation_name=>'Roles required'
+,p_validation_sequence=>40
+,p_validation=>'P11_ROLES'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Choose at least one role.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(43030107414635349)
+,p_validation_name=>'Role to remove required'
+,p_validation_sequence=>50
+,p_validation=>'P11_RETIRED_ROLE'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Choose the role to remove.'
+,p_validation_condition=>'REMOVE_ROLE'
+,p_validation_condition_type=>'REQUEST_EQUALS_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(59011807792209942)
+,p_validation_name=>'Street required'
+,p_validation_sequence=>60
+,p_validation=>'P11_STREET'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Enter the street.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_validation(
+ p_id=>wwv_flow_imp.id(59011980562209943)
+,p_validation_name=>'City required'
+,p_validation_sequence=>70
+,p_validation=>'P11_CITY'
+,p_validation_type=>'ITEM_NOT_NULL'
+,p_error_message=>'Enter the city.'
+,p_validation_condition=>'CREATE,SAVE'
+,p_validation_condition_type=>'REQUEST_IN_CONDITION'
+,p_error_display_location=>'INLINE_WITH_FIELD_AND_NOTIFICATION'
+);
+wwv_flow_imp_page.create_page_da_event(
+ p_id=>wwv_flow_imp.id(58819191340905823)
+,p_name=>'Cancel Dialog'
+,p_event_sequence=>10
+,p_triggering_element_type=>'BUTTON'
+,p_triggering_button_id=>wwv_flow_imp.id(58819069825905823)
+,p_bind_type=>'bind'
+,p_execution_type=>'IMMEDIATE'
+,p_bind_event_type=>'click'
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(58819950899905826)
+,p_event_id=>wwv_flow_imp.id(58819191340905823)
+,p_event_result=>'TRUE'
+,p_action_sequence=>10
+,p_execute_on_page_init=>'N'
+,p_action=>'NATIVE_DIALOG_CANCEL'
+);
+wwv_flow_imp_page.create_page_da_event(
+ p_id=>wwv_flow_imp.id(59011235006209936)
+,p_name=>'VAT prefix and postcode example of the country'
+,p_event_sequence=>20
+,p_triggering_element_type=>'ITEM'
+,p_triggering_element=>'P11_COUNTRY_CODE'
+,p_bind_type=>'bind'
+,p_execution_type=>'IMMEDIATE'
+,p_bind_event_type=>'change'
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59011324402209937)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>10
+,p_execute_on_page_init=>'Y'
+,p_name=>'Set VAT prefix  and VAT example'
+,p_action=>'NATIVE_SET_VALUE'
+,p_affected_elements_type=>'ITEM'
+,p_affected_elements=>'P11_VAT_PREFIX,P11_VAT_EXAMPLE'
+,p_attribute_01=>'SQL_STATEMENT'
+,p_attribute_03=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'-- Seq 10: prefix and example of the country (the format itself stays in the API)',
+'select vat_prefix, national_example',
+'from   emk_api.emk_v_vat_formats',
+'where  country_code = :P11_COUNTRY_CODE',
+'and    valid_yn = ''Y''',
+''))
+,p_attribute_07=>'P11_COUNTRY_CODE'
+,p_attribute_08=>'Y'
+,p_attribute_09=>'Y'
+,p_wait_for_result=>'Y'
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59012182665209945)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>20
+,p_execute_on_page_init=>'Y'
+,p_name=>'Set the postal code example'
+,p_action=>'NATIVE_SET_VALUE'
+,p_affected_elements_type=>'ITEM'
+,p_affected_elements=>'P11_POSTAL_EXAMPLE'
+,p_attribute_01=>'SQL_STATEMENT'
+,p_attribute_03=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'select postal_code_example',
+'from   emk_api.emk_v_postal_formats',
+'where  country_code = :P11_COUNTRY_CODE',
+'and    valid_yn = ''Y'''))
+,p_attribute_07=>'P11_COUNTRY_CODE'
+,p_attribute_08=>'Y'
+,p_attribute_09=>'Y'
+,p_wait_for_result=>'Y'
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59011454779209938)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>30
+,p_execute_on_page_init=>'Y'
+,p_name=>'Clear VAT national number'
+,p_action=>'NATIVE_CLEAR'
+,p_affected_elements_type=>'ITEM'
+,p_affected_elements=>'P11_VAT_NATIONAL_NUMBER'
+,p_client_condition_type=>'NULL'
+,p_client_condition_element=>'P11_VAT_PREFIX'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59011575898209939)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>40
+,p_execute_on_page_init=>'N'
+,p_action=>'NATIVE_EXECUTE_PLSQL_CODE'
+,p_attribute_01=>'null;'
+,p_attribute_02=>'P11_VAT_NATIONAL_NUMBER'
+,p_attribute_05=>'PLSQL'
+,p_wait_for_result=>'Y'
+,p_client_condition_type=>'NULL'
+,p_client_condition_element=>'P11_VAT_PREFIX'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59011634675209940)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>50
+,p_execute_on_page_init=>'Y'
+,p_name=>'Disable VAT national number'
+,p_action=>'NATIVE_DISABLE'
+,p_affected_elements_type=>'ITEM'
+,p_affected_elements=>'P11_VAT_NATIONAL_NUMBER'
+,p_client_condition_type=>'NULL'
+,p_client_condition_element=>'P11_VAT_PREFIX'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_da_action(
+ p_id=>wwv_flow_imp.id(59011745144209941)
+,p_event_id=>wwv_flow_imp.id(59011235006209936)
+,p_event_result=>'TRUE'
+,p_action_sequence=>60
+,p_execute_on_page_init=>'Y'
+,p_name=>'Enable VAT national number'
+,p_action=>'NATIVE_ENABLE'
+,p_affected_elements_type=>'ITEM'
+,p_affected_elements=>'P11_VAT_NATIONAL_NUMBER'
+,p_client_condition_type=>'NOT_NULL'
+,p_client_condition_element=>'P11_VAT_PREFIX'
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(43030295168635350)
+,p_process_sequence=>10
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_INVOKE_API'
+,p_process_name=>'Create company'
+,p_attribute_01=>'PLSQL_PACKAGE'
+,p_attribute_02=>'EMK_API'
+,p_attribute_03=>'EMK_PARTY_API'
+,p_attribute_04=>'CREATE_PARTY'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(58821206975905826)
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+,p_internal_uid=>43030295168635350
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59007717869209901)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_name'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>10
+,p_value_type=>'ITEM'
+,p_value=>'P11_NAME'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59007865598209902)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_vat_number'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>20
+,p_value_type=>'ITEM'
+,p_value=>'P11_VAT_NATIONAL_NUMBER'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59007997577209903)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_country_code'
+,p_direction=>'IN'
+,p_data_type=>'CHAR'
+,p_has_default=>false
+,p_display_sequence=>30
+,p_value_type=>'ITEM'
+,p_value=>'P11_COUNTRY_CODE'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008075470209904)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_street'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>40
+,p_value_type=>'ITEM'
+,p_value=>'P11_STREET'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008196916209905)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_postal_code'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>50
+,p_value_type=>'ITEM'
+,p_value=>'P11_POSTAL_CODE'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008293375209906)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_city'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>60
+,p_value_type=>'ITEM'
+,p_value=>'P11_CITY'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008333814209907)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_language_code'
+,p_direction=>'IN'
+,p_data_type=>'CHAR'
+,p_has_default=>false
+,p_display_sequence=>70
+,p_value_type=>'ITEM'
+,p_value=>'P11_LANGUAGE_CODE'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008440286209908)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'in_role_codes'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>80
+,p_value_type=>'ITEM'
+,p_value=>'P11_ROLES'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008587110209909)
+,p_page_process_id=>wwv_flow_imp.id(43030295168635350)
+,p_page_id=>11
+,p_name=>'out_party_id'
+,p_direction=>'OUT'
+,p_data_type=>'NUMBER'
+,p_ignore_output=>false
+,p_display_sequence=>90
+,p_value_type=>'ITEM'
+,p_value=>'P11_PARTY_ID'
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(59008677917209910)
+,p_process_sequence=>20
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_INVOKE_API'
+,p_process_name=>'Save company'
+,p_attribute_01=>'PLSQL_PACKAGE'
+,p_attribute_02=>'EMK_API'
+,p_attribute_03=>'EMK_PARTY_API'
+,p_attribute_04=>'UPDATE_PARTY'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(58820849080905826)
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+,p_internal_uid=>59008677917209910
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008727631209911)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_party_id'
+,p_direction=>'IN'
+,p_data_type=>'NUMBER'
+,p_has_default=>false
+,p_display_sequence=>10
+,p_value_type=>'ITEM'
+,p_value=>'P11_PARTY_ID'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008833464209912)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_expected_updated_at'
+,p_direction=>'IN'
+,p_data_type=>'TIMESTAMP WITH TIME ZONE'
+,p_has_default=>false
+,p_display_sequence=>20
+,p_value_type=>'EXPRESSION'
+,p_value_language=>'PLSQL'
+,p_value=>'emk_api.emk_row_version_pkg.parse_row_version(:P11_ROW_VERSION)'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59008984007209913)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_name'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>30
+,p_value_type=>'ITEM'
+,p_value=>'P11_NAME'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009032083209914)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_vat_number'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>40
+,p_value_type=>'ITEM'
+,p_value=>'P11_VAT_NATIONAL_NUMBER'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009114183209915)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_country_code'
+,p_direction=>'IN'
+,p_data_type=>'CHAR'
+,p_has_default=>false
+,p_display_sequence=>50
+,p_value_type=>'ITEM'
+,p_value=>'P11_COUNTRY_CODE'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009282235209916)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_street'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>60
+,p_value_type=>'ITEM'
+,p_value=>'P11_STREET'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009359642209917)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_postal_code'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>70
+,p_value_type=>'ITEM'
+,p_value=>'P11_POSTAL_CODE'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009424760209918)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_city'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>80
+,p_value_type=>'ITEM'
+,p_value=>'P11_CITY'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009557944209919)
+,p_page_process_id=>wwv_flow_imp.id(59008677917209910)
+,p_page_id=>11
+,p_name=>'in_language_code'
+,p_direction=>'IN'
+,p_data_type=>'CHAR'
+,p_has_default=>false
+,p_display_sequence=>90
+,p_value_type=>'ITEM'
+,p_value=>'P11_LANGUAGE_CODE'
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(59009699290209920)
+,p_process_sequence=>30
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_INVOKE_API'
+,p_process_name=>'Save roles'
+,p_attribute_01=>'PLSQL_PACKAGE'
+,p_attribute_02=>'EMK_API'
+,p_attribute_03=>'EMK_PARTY_API'
+,p_attribute_04=>'SET_ROLES'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(58820849080905826)
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+,p_internal_uid=>59009699290209920
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009717410209921)
+,p_page_process_id=>wwv_flow_imp.id(59009699290209920)
+,p_page_id=>11
+,p_name=>'in_party_id'
+,p_direction=>'IN'
+,p_data_type=>'NUMBER'
+,p_has_default=>false
+,p_display_sequence=>10
+,p_value_type=>'ITEM'
+,p_value=>'P11_PARTY_ID'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59009894606209922)
+,p_page_process_id=>wwv_flow_imp.id(59009699290209920)
+,p_page_id=>11
+,p_name=>'in_role_codes'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>20
+,p_value_type=>'ITEM'
+,p_value=>'P11_ROLES'
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(59009914282209923)
+,p_process_sequence=>40
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_INVOKE_API'
+,p_process_name=>'Delete company'
+,p_attribute_01=>'PLSQL_PACKAGE'
+,p_attribute_02=>'EMK_API'
+,p_attribute_03=>'EMK_PARTY_API'
+,p_attribute_04=>'DELETE_PARTY'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(58820433668905826)
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+,p_internal_uid=>59009914282209923
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59010031569209924)
+,p_page_process_id=>wwv_flow_imp.id(59009914282209923)
+,p_page_id=>11
+,p_name=>'in_party_id'
+,p_direction=>'IN'
+,p_data_type=>'NUMBER'
+,p_has_default=>false
+,p_display_sequence=>10
+,p_value_type=>'ITEM'
+,p_value=>'P11_PARTY_ID'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59010188865209925)
+,p_page_process_id=>wwv_flow_imp.id(59009914282209923)
+,p_page_id=>11
+,p_name=>'in_expected_updated_at'
+,p_direction=>'IN'
+,p_data_type=>'TIMESTAMP WITH TIME ZONE'
+,p_has_default=>false
+,p_display_sequence=>20
+,p_value_type=>'EXPRESSION'
+,p_value_language=>'PLSQL'
+,p_value=>'emk_api.emk_row_version_pkg.parse_row_version(:P11_ROW_VERSION)'
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(59010269262209926)
+,p_process_sequence=>50
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_INVOKE_API'
+,p_process_name=>'Remove role'
+,p_attribute_01=>'PLSQL_PACKAGE'
+,p_attribute_02=>'EMK_API'
+,p_attribute_03=>'EMK_PARTY_API'
+,p_attribute_04=>'REMOVE_ROLE'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(43029657476635344)
+,p_security_scheme=>wwv_flow_imp.id(58219703941168892)
+,p_internal_uid=>59010269262209926
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59010369657209927)
+,p_page_process_id=>wwv_flow_imp.id(59010269262209926)
+,p_page_id=>11
+,p_name=>'in_party_id'
+,p_direction=>'IN'
+,p_data_type=>'NUMBER'
+,p_has_default=>false
+,p_display_sequence=>10
+,p_value_type=>'ITEM'
+,p_value=>'P11_PARTY_ID'
+);
+wwv_flow_imp_shared.create_invokeapi_comp_param(
+ p_id=>wwv_flow_imp.id(59010458154209928)
+,p_page_process_id=>wwv_flow_imp.id(59010269262209926)
+,p_page_id=>11
+,p_name=>'in_role_code'
+,p_direction=>'IN'
+,p_data_type=>'VARCHAR2'
+,p_has_default=>false
+,p_display_sequence=>20
+,p_value_type=>'ITEM'
+,p_value=>'P11_RETIRED_ROLE'
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(58822400365905828)
+,p_process_sequence=>60
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_CLOSE_WINDOW'
+,p_process_name=>'Close Dialog'
+,p_attribute_02=>'Y'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when=>'CREATE,SAVE,DELETE'
+,p_process_when_type=>'REQUEST_IN_CONDITION'
+,p_internal_uid=>58822400365905828
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(58821655539905828)
+,p_process_sequence=>10
+,p_process_point=>'BEFORE_HEADER'
+,p_region_id=>wwv_flow_imp.id(58806320251905804)
+,p_process_type=>'NATIVE_FORM_INIT'
+,p_process_name=>'Initialize form Company'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_internal_uid=>58821655539905828
 );
 end;
 /
@@ -1298,4 +3117,4 @@ prompt  ...done
 
 
 
--- sqlcl_snapshot {"hash":"301fc23fe00da24a59b523542804946cd19b92fd","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
+-- sqlcl_snapshot {"hash":"12af9362bca4be2ab2361833567000b4f01e08ef","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}

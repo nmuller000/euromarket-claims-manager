@@ -8,6 +8,8 @@ create or replace editionable trigger emk_data.emk_shipments_jn_aud after
      *
      * @author Natalia Müller
      * @since  2026-10-09
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 declare
     l_operation emk_shipments_jn.jn_operation%type;
@@ -23,21 +25,27 @@ begin
         jn_operation,
         shipment_id,
         cmr_note_no,
-        shipper_id,
+        sender_id,
         carrier_id,
         consignee_id,
-        pickup_place,
+        taking_over_place,
         origin_country,
         delivery_place,
         destination_country,
-        pickup_date,
-        agreed_delivery_date,
+        taking_over_date,
+        agreed_time_limit,
         delivery_date,
         goods_description,
         packages,
         gross_weight_kg,
         carriage_charges,
         currency_code,
+        cmr_note_date,
+        disposal_date,
+        declared_value,
+        declared_value_currency,
+        special_interest,
+        special_interest_currency,
         created_at,
         created_by,
         updated_at,
@@ -48,21 +56,27 @@ begin
     ) values ( l_operation,
                :old.shipment_id,
                :old.cmr_note_no,
-               :old.shipper_id,
+               :old.sender_id,
                :old.carrier_id,
                :old.consignee_id,
-               :old.pickup_place,
+               :old.taking_over_place,
                :old.origin_country,
                :old.delivery_place,
                :old.destination_country,
-               :old.pickup_date,
-               :old.agreed_delivery_date,
+               :old.taking_over_date,
+               :old.agreed_time_limit,
                :old.delivery_date,
                :old.goods_description,
                :old.packages,
                :old.gross_weight_kg,
                :old.carriage_charges,
                :old.currency_code,
+               :old.cmr_note_date,
+               :old.disposal_date,
+               :old.declared_value,
+               :old.declared_value_currency,
+               :old.special_interest,
+               :old.special_interest_currency,
                :old.created_at,
                :old.created_by,
                :old.updated_at,
@@ -77,4 +91,4 @@ end;
 alter trigger emk_data.emk_shipments_jn_aud enable;
 
 
--- sqlcl_snapshot {"hash":"8039dd512c8f64b45066cab0d403a2c2911b130c","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"c993935ecb9898422e0321bb80009515ead645bb","type":"TRIGGER","name":"EMK_SHIPMENTS_JN_AUD","schemaName":"EMK_DATA","sxml":""}

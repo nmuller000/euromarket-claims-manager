@@ -1,0 +1,127 @@
+---
+- # ====== Authorization: CAN_VIEW_PARTIES_SHIPMENTS ===========
+  id: 58219519628163453
+  identification: 
+    name: CAN_VIEW_PARTIES_SHIPMENTS
+
+  subscription: 
+    version-number: 102234441
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): CLAIMS_HANDLER,COMPLIANCE_OFFICER,ADMINISTRATOR
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+
+- # ====== Authorization: CAN_EDIT_PARTIES_SHIPMENTS ===========
+  id: 58219703941168892
+  identification: 
+    name: CAN_EDIT_PARTIES_SHIPMENTS
+
+  subscription: 
+    version-number: 99944704
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): CLAIMS_HANDLER
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+
+- # ====== Authorization: CAN_RESTORE_RECORDS ==================
+  id: 58219927205173707
+  identification: 
+    name: CAN_RESTORE_RECORDS
+
+  subscription: 
+    version-number: 99944778
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): CLAIMS_HANDLER
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+
+- # ====== Authorization: CAN_VIEW_CONTACT_HISTORY =============
+  id: 58220158471179807
+  identification: 
+    name: CAN_VIEW_CONTACT_HISTORY
+
+  subscription: 
+    version-number: 99944859
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): COMPLIANCE_OFFICER
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+
+- # ====== Authorization: CAN_MAINTAIN_MASTER_DATA =============
+  id: 58220372425185392
+  identification: 
+    name: CAN_MAINTAIN_MASTER_DATA
+
+  subscription: 
+    version-number: 99950882
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): ADMINISTRATOR
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+
+- # ====== Authorization: CAN_VIEW_TECHNICAL_LOG ===============
+  id: 58220555041190410
+  identification: 
+    name: CAN_VIEW_TECHNICAL_LOG
+
+  subscription: 
+    version-number: 99945134
+
+  authorization-scheme: 
+    type: Is In Role or Group
+
+  settings: 
+    type: Application Role
+    name(s): ADMINISTRATOR
+
+  server-cache: 
+    evaluation-point: Once per Session
+
+  error: 
+    error-message: You are not allowed to perform this action. Please contact your administrator.
+

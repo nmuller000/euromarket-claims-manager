@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_shipments_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-09
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_shipments_bu enable;
 
 
--- sqlcl_snapshot {"hash":"788194f0258e7183cac33caf9eb1f91bd347df0b","type":"TRIGGER","name":"EMK_SHIPMENTS_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"4fc79856e5bc9f81048638275591d7f4383ae07f","type":"TRIGGER","name":"EMK_SHIPMENTS_BU","schemaName":"EMK_DATA","sxml":""}

@@ -11,3 +11,10 @@
 @@test_emk_log_pkg.sql
 @@test_emk_security_pkg.sql
 @@test_emk_errors_pkg.sql
+@@test_emk_utilities_pkg.sql
+@@test_emk_row_version_pkg.sql
+@@test_emk_codes_pkg.sql
+@@test_emk_party_api.sql
+@@test_emk_shipment_api.sql
+@@test_emk_views.sql
+@@test_emk_master_data_api.sql

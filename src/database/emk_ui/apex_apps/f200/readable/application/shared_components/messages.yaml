@@ -1,0 +1,646 @@
+---
+- # ====== Text Message: EMK_CONTACTS_EMAIL_CK =================
+  id: 58205918319995214
+  identification: 
+    name: EMK_CONTACTS_EMAIL_CK
+
+  message: 
+    text: The email address is not valid. Use the form name@example.com.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927518
+
+- # ====== Text Message: EMK_CONTACTS_PHONE_CK =================
+  id: 58206132319995245
+  identification: 
+    name: EMK_CONTACTS_PHONE_CK
+
+  message: 
+    text: The phone number is not valid. Write it in international format, starting with + and the country code (for example +49 30 1234567).
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927518
+
+- # ====== Text Message: EMK_DOCUMENT_TYPES_CODE_CK ============
+  id: 58206405065995245
+  identification: 
+    name: EMK_DOCUMENT_TYPES_CODE_CK
+
+  message: 
+    text: The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_DOCUMENT_TYPES_VALID_CK ===========
+  id: 58206748433995245
+  identification: 
+    name: EMK_DOCUMENT_TYPES_VALID_CK
+
+  message: 
+    text: The "Valid until" date cannot be before the "Valid from" date.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20001 =======================
+  id: 58207007838995245
+  identification: 
+    name: EMK_ERROR_20001
+
+  message: 
+    text: You are not allowed to perform this action. Please contact your administrator.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20002 =======================
+  id: 58207308520995245
+  identification: 
+    name: EMK_ERROR_20002
+
+  message: 
+    text: This record no longer exists or was deleted. Reload the page.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20003 =======================
+  id: 58207669546995245
+  identification: 
+    name: EMK_ERROR_20003
+
+  message: 
+    text: Some information is missing or not valid. Check the highlighted fields.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20004 =======================
+  id: 58207981376995245
+  identification: 
+    name: EMK_ERROR_20004
+
+  message: 
+    text: Another user changed this record while you were editing it. Reload the page to see the changes, then make yours again.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20005 =======================
+  id: 58208275337995245
+  identification: 
+    name: EMK_ERROR_20005
+
+  message: 
+    text: Another user is saving this record right now. Wait a moment and try again.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20101 =======================
+  id: 58208558379995245
+  identification: 
+    name: EMK_ERROR_20101
+
+  message: 
+    text: The selected company does not have the required role (sender, carrier or consignee). Choose another company or add the role to it.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20102 =======================
+  id: 58208865921995245
+  identification: 
+    name: EMK_ERROR_20102
+
+  message: 
+    text: 'This role cannot be removed: the company has it in at least one shipment.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20103 =======================
+  id: 58209035120995245
+  identification: 
+    name: EMK_ERROR_20103
+
+  message: 
+    text: The VAT number does not have the format of the company's country. Type it as in the example under the field. A company outside the EU has no EU VAT number.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102180624
+
+- # ====== Text Message: EMK_ERROR_20104 =======================
+  id: 58209390624995245
+  identification: 
+    name: EMK_ERROR_20104
+
+  message: 
+    text: Another company already has this VAT number. If that company was deleted, restore it instead of creating a new one.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20105 =======================
+  id: 58209660288995246
+  identification: 
+    name: EMK_ERROR_20105
+
+  message: 
+    text: 'This company cannot be deleted: it is used in active shipments.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20106 =======================
+  id: 58209948193995246
+  identification: 
+    name: EMK_ERROR_20106
+
+  message: 
+    text: A company needs at least one role.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20201 =======================
+  id: 58210299067995246
+  identification: 
+    name: EMK_ERROR_20201
+
+  message: 
+    text: This carrier already has a shipment with this consignment note number.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20202 =======================
+  id: 58210503053995246
+  identification: 
+    name: EMK_ERROR_20202
+
+  message: 
+    text: 'This shipment cannot be deleted: it has active claims.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20203 =======================
+  id: 58210832229995246
+  identification: 
+    name: EMK_ERROR_20203
+
+  message: 
+    text: 'The CMR Convention does not apply: neither the country of origin nor the country of destination was a party to it on the date of taking over.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20204 =======================
+  id: 58211110044995246
+  identification: 
+    name: EMK_ERROR_20204
+
+  message: 
+    text: The carrier must be a different company from the sender and the consignee.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20301 =======================
+  id: 58211407003995246
+  identification: 
+    name: EMK_ERROR_20301
+
+  message: 
+    text: The claim cannot move from its current status to the chosen one.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20302 =======================
+  id: 58211729470995246
+  identification: 
+    name: EMK_ERROR_20302
+
+  message: 
+    text: 'Check the amounts: the settled amount cannot exceed the claimed amount, and the recovered amount cannot exceed the settled amount.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20303 =======================
+  id: 58212091207995246
+  identification: 
+    name: EMK_ERROR_20303
+
+  message: 
+    text: The file of a document cannot be changed. Upload the corrected file as a new document.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20401 =======================
+  id: 58212340533995246
+  identification: 
+    name: EMK_ERROR_20401
+
+  message: 
+    text: The selected value is not valid on this date. Choose another one.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20402 =======================
+  id: 58212612350995246
+  identification: 
+    name: EMK_ERROR_20402
+
+  message: 
+    text: This value is used by the rules of the application, so it must stay valid.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20403 =======================
+  id: 58212933754995246
+  identification: 
+    name: EMK_ERROR_20403
+
+  message: 
+    text: This code already exists, but it may no longer be valid. Instead of creating it again, change its validity dates.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_ORA_01438 ===================
+  id: 58213296793995246
+  identification: 
+    name: EMK_ERROR_ORA_01438
+
+  message: 
+    text: A number is too large. Check the highlighted field.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_ORA_12899 ===================
+  id: 58213538274995246
+  identification: 
+    name: EMK_ERROR_ORA_12899
+
+  message: 
+    text: A value is too long. Shorten the highlighted field.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_UNEXPECTED ==================
+  id: 58213866969995246
+  identification: 
+    name: EMK_ERROR_UNEXPECTED
+
+  message: 
+    text: 'Something went wrong. Please try again; if it happens again, give your administrator this reference: %0.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_FILE_TYPES_VALID_CK ===============
+  id: 58214160353995248
+  identification: 
+    name: EMK_FILE_TYPES_VALID_CK
+
+  message: 
+    text: The "Allowed until" date cannot be before the "Allowed from" date.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_PARTIES_VAT_CK ====================
+  id: 58214491577995248
+  identification: 
+    name: EMK_PARTIES_VAT_CK
+
+  message: 
+    text: 'The VAT number is not valid: it starts with the two-letter country prefix, followed by 2 to 12 letters, digits or the signs + and * (for example DE123456789).'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102255997
+
+- # ====== Text Message: EMK_PARTY_ROLE_TYPES_CODE_CK ==========
+  id: 58214790989995248
+  identification: 
+    name: EMK_PARTY_ROLE_TYPES_CODE_CK
+
+  message: 
+    text: The code may contain only capital letters and underscores, for example CUSTOMS_AGENT.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_PARTY_ROLE_TYPES_VALID_CK =========
+  id: 58215089321995248
+  identification: 
+    name: EMK_PARTY_ROLE_TYPES_VALID_CK
+
+  message: 
+    text: The "Valid until" date cannot be before the "Valid from" date.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_CHARGES_CK ==============
+  id: 58215311835995248
+  identification: 
+    name: EMK_SHIPMENTS_CHARGES_CK
+
+  message: 
+    text: Enter the carriage charges and their currency together; the charges cannot be negative.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_COUNTRIES_CK ============
+  id: 58215674466995248
+  identification: 
+    name: EMK_SHIPMENTS_COUNTRIES_CK
+
+  message: 
+    text: 'The country of origin and the country of destination must be different: the CMR applies only to carriage between two countries.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_DATES_CK ================
+  id: 58215947692995248
+  identification: 
+    name: EMK_SHIPMENTS_DATES_CK
+
+  message: 
+    text: The delivery date and the agreed time-limit cannot be before the date of taking over.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_DECLARED_VALUE_CK =======
+  id: 58216218605995248
+  identification: 
+    name: EMK_SHIPMENTS_DECLARED_VALUE_CK
+
+  message: 
+    text: Enter the declared value and its currency together; the value must be greater than zero.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_DISPOSAL_CK =============
+  id: 58216573367995248
+  identification: 
+    name: EMK_SHIPMENTS_DISPOSAL_CK
+
+  message: 
+    text: The date the goods were placed at the consignee's disposal cannot be before the date of taking over.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_PACKAGES_CK =============
+  id: 58216839115995248
+  identification: 
+    name: EMK_SHIPMENTS_PACKAGES_CK
+
+  message: 
+    text: The number of packages must be greater than zero.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_SPECIAL_INTEREST_CK =====
+  id: 58217199299995250
+  identification: 
+    name: EMK_SHIPMENTS_SPECIAL_INTEREST_CK
+
+  message: 
+    text: Enter the special interest in delivery and its currency together; the amount must be greater than zero.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_SHIPMENTS_WEIGHT_CK ===============
+  id: 58217464966995250
+  identification: 
+    name: EMK_SHIPMENTS_WEIGHT_CK
+
+  message: 
+    text: The gross weight must be greater than zero.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20107 =======================
+  id: 60218180163498598
+  identification: 
+    name: EMK_ERROR_20107
+
+  message: 
+    text: 'The address of the company is incomplete: enter the street, the city and, except in countries without postcodes, the postcode.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102212290
+
+- # ====== Text Message: EMK_ERROR_20108 =======================
+  id: 60610889117175895
+  identification: 
+    name: EMK_ERROR_20108
+
+  message: 
+    text: The postcode does not have the format of the company's country. Type it as in the example under the field.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102272445
+
+- # ====== Text Message: EMK_PARTIES_POSTCODE_CK ===============
+  id: 60611040847177856
+  identification: 
+    name: EMK_PARTIES_POSTCODE_CK
+
+  message: 
+    text: 'The postcode is not valid: use letters, digits, spaces and hyphens only (2 to 10 characters).'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102272408
+

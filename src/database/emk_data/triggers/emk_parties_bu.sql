@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_parties_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_parties_bu enable;
 
 
--- sqlcl_snapshot {"hash":"9c0777ae4c544b3c93cc3bd69adcad81b73e8a35","type":"TRIGGER","name":"EMK_PARTIES_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"aa3bdce9694e7659b43078cfd01806aaf2f7cb7c","type":"TRIGGER","name":"EMK_PARTIES_BU","schemaName":"EMK_DATA","sxml":""}

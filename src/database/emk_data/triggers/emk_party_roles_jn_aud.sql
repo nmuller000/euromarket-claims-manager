@@ -8,6 +8,8 @@ create or replace editionable trigger emk_data.emk_party_roles_jn_aud after
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 declare
     l_operation emk_party_roles_jn.jn_operation%type;
@@ -37,4 +39,4 @@ end;
 alter trigger emk_data.emk_party_roles_jn_aud enable;
 
 
--- sqlcl_snapshot {"hash":"e59c10a642a31e6103854266ca55d46bce621ddc","type":"TRIGGER","name":"EMK_PARTY_ROLES_JN_AUD","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"d5c97d11da755f916bf9a08c75af90ca814b61ca","type":"TRIGGER","name":"EMK_PARTY_ROLES_JN_AUD","schemaName":"EMK_DATA","sxml":""}

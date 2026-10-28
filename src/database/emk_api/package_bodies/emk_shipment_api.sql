@@ -1,0 +1,519 @@
+create or replace package body emk_api.emk_shipment_api as
+    /**
+     * Implementation of EMK_SHIPMENT_API; its specification documents the
+     * public subprograms.
+     *
+     * @author Natalia Müller
+     * @since  2026-10-17
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
+
+    -- Private helpers -----------------------------------------------------------
+
+    -- Rejects a request and records it as WARN with ids only (D-64)
+    procedure reject (
+        in_error_code in pls_integer,
+        in_message    in varchar2,
+        in_context    in varchar2
+    ) is
+    begin
+        emk_log_pkg.log_warn('Shipment rejected: ' || in_message, in_context);
+        raise_application_error(in_error_code, in_message);
+    end reject;
+
+    -- CMR Art. 1(1) and BR-16: a third-party carrier; every company active with its role
+    procedure check_parties (
+        in_shipment_id  in emk_data.emk_shipments.shipment_id%type,
+        in_sender_id    in emk_data.emk_shipments.sender_id%type,
+        in_carrier_id   in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id in emk_data.emk_shipments.consignee_id%type
+    ) is
+
+        l_context varchar2(4000 char) :=
+            json_object(
+                'shipment_id' value in_shipment_id,
+                'sender_id' value in_sender_id,
+                'carrier_id' value in_carrier_id,
+                'consignee_id' value in_consignee_id
+            );
+    begin
+        if in_carrier_id = in_sender_id
+        or in_carrier_id = in_consignee_id then
+            raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'The carrier must be another company than the sender and the consignee ' || '(CMR: carriage for reward, not on own account)'
+            );
+        end if;
+
+        -- D-73: hold the three role rows until the end of the transaction, so that nobody removes a
+        -- role or deletes a company between this check and the commit (always in this order)
+        emk_party_api.lock_role(in_sender_id, emk_codes_pkg.c_role_sender);
+        emk_party_api.lock_role(in_carrier_id, emk_codes_pkg.c_role_carrier);
+        emk_party_api.lock_role(in_consignee_id, emk_codes_pkg.c_role_consignee);
+        if not emk_party_api.has_role(in_sender_id, emk_codes_pkg.c_role_sender) then
+            reject(emk_errors_pkg.c_party_role_missing, 'The sender is not an active company with the role SENDER', l_context);
+        end if;
+
+        if not emk_party_api.has_role(in_carrier_id, emk_codes_pkg.c_role_carrier) then
+            reject(emk_errors_pkg.c_party_role_missing, 'The carrier is not an active company with the role CARRIER', l_context);
+        end if;
+
+        if not emk_party_api.has_role(in_consignee_id, emk_codes_pkg.c_role_consignee) then
+            reject(emk_errors_pkg.c_party_role_missing, 'The consignee is not an active company with the role CONSIGNEE', l_context);
+        end if;
+
+    end check_parties;
+
+    -- A country exists and is valid on a date (D-64)
+    procedure check_country (
+        in_country_code in emk_data.emk_countries.country_code%type,
+        in_on_date      in date
+    ) is
+        l_valid_from emk_data.emk_countries.valid_from%type;
+        l_valid_to   emk_data.emk_countries.valid_to%type;
+    begin
+        select
+            valid_from,
+            valid_to
+        into
+            l_valid_from,
+            l_valid_to
+        from
+            emk_data.emk_countries
+        where
+            country_code = in_country_code;
+
+        if not emk_utilities_pkg.is_valid_on(l_valid_from, l_valid_to, in_on_date) then
+            raise no_data_found;   -- same message as an unknown country
+        end if;
+
+    exception
+        when no_data_found then
+            raise_application_error(emk_errors_pkg.c_reference_not_valid,
+                                    'Country '
+                                    || in_country_code
+                                    || ' is unknown or not valid on '
+                                    || to_char(in_on_date, 'YYYY-MM-DD'));
+    end check_country;
+
+    -- The currency is EUR or has an ECB rate, and is valid on a date (BR-12, D-64)
+    procedure check_currency (
+        in_currency_code in emk_data.emk_currencies.currency_code%type,
+        in_on_date       in date
+    ) is
+
+        l_ecb_rate_yn emk_data.emk_currencies.ecb_rate_yn%type;
+        l_valid_from  emk_data.emk_currencies.valid_from%type;
+        l_valid_to    emk_data.emk_currencies.valid_to%type;
+    begin
+        if in_currency_code is null then
+            return;   -- no carriage charges; the table checks that both are empty together
+        end if;
+        select
+            ecb_rate_yn,
+            valid_from,
+            valid_to
+        into
+            l_ecb_rate_yn,
+            l_valid_from,
+            l_valid_to
+        from
+            emk_data.emk_currencies
+        where
+            currency_code = in_currency_code;
+
+        if not (
+            ( in_currency_code = emk_codes_pkg.c_currency_euro
+            or l_ecb_rate_yn = 'Y' )
+            and emk_utilities_pkg.is_valid_on(l_valid_from, l_valid_to, in_on_date)
+        ) then
+            raise no_data_found;   -- same message as an unknown currency
+        end if;
+
+    exception
+        when no_data_found then
+            raise_application_error(emk_errors_pkg.c_reference_not_valid,
+                                    'Currency '
+                                    || in_currency_code
+                                    || ' is unknown, has no ECB rate or is not valid on '
+                                    || to_char(in_on_date, 'YYYY-MM-DD'));
+    end check_currency;
+
+    -- BR-17: the origin or the destination is a CMR party on the date of taking over
+    procedure check_cmr (
+        in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
+        in_origin_country      in emk_data.emk_shipments.origin_country%type,
+        in_destination_country in emk_data.emk_shipments.destination_country%type,
+        in_taking_over_date    in emk_data.emk_shipments.taking_over_date%type
+    ) is
+        l_count pls_integer;
+    begin
+        select
+            count(*)
+        into l_count
+        from
+            emk_data.emk_countries
+        where
+            country_code in ( in_origin_country, in_destination_country )
+            and cmr_party_since <= in_taking_over_date;
+
+        if l_count = 0 then
+            reject(emk_errors_pkg.c_cmr_not_applicable,
+                   'Neither '
+                   || in_origin_country
+                   || ' nor '
+                   || in_destination_country
+                   || ' is a CMR party on '
+                   || to_char(in_taking_over_date, 'YYYY-MM-DD'),
+                   json_object(
+                    'shipment_id' value in_shipment_id,
+                               'origin_country' value in_origin_country,
+                               'destination_country' value in_destination_country,
+                               'taking_over_date' value to_char(in_taking_over_date, 'YYYY-MM-DD')
+                )
+            );
+
+        end if;
+
+    end check_cmr;
+
+    -- Every rule across tables, in the order of the specification
+    procedure check_shipment (
+        in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
+        in_sender_id           in emk_data.emk_shipments.sender_id%type,
+        in_carrier_id          in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id        in emk_data.emk_shipments.consignee_id%type,
+        in_origin_country      in emk_data.emk_shipments.origin_country%type,
+        in_destination_country in emk_data.emk_shipments.destination_country%type,
+        in_taking_over_date    in emk_data.emk_shipments.taking_over_date%type,
+        in_currency_code       in emk_data.emk_shipments.currency_code%type
+    ) is
+    begin
+        if in_taking_over_date is null then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of taking over is required');
+        end if;
+        check_parties(in_shipment_id, in_sender_id, in_carrier_id, in_consignee_id);
+        check_country(in_origin_country, in_taking_over_date);
+        check_country(in_destination_country, in_taking_over_date);
+        check_currency(in_currency_code, in_taking_over_date);
+        check_cmr(in_shipment_id, in_origin_country, in_destination_country, in_taking_over_date);
+    end check_shipment;
+
+    -- Locks a shipment (NOWAIT), checks that it is active and, if asked, its version
+    procedure lock_shipment (
+        in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
+        in_expected_updated_at in emk_data.emk_shipments.updated_at%type,
+        in_check_version       in boolean,
+        out_shipment           out emk_data.emk_shipments%rowtype
+    ) is
+    begin
+        if
+            in_check_version
+            and in_expected_updated_at is null
+        then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The version read (row_version) is required');
+        end if;
+
+        select
+            *
+        into out_shipment
+        from
+            emk_data.emk_shipments
+        where
+            shipment_id = in_shipment_id
+        for update nowait;
+
+        if in_check_version then
+            if out_shipment.deleted_yn = 'Y' then
+                raise_application_error(emk_errors_pkg.c_not_found, 'Shipment '
+                                                                    || in_shipment_id
+                                                                    || ' is deleted');
+            end if;
+
+            if nvl(out_shipment.updated_at, out_shipment.created_at) <> in_expected_updated_at then
+                raise_application_error(emk_errors_pkg.c_record_changed, 'The shipment was changed by another user: reload it');
+            end if;
+
+        end if;
+
+    exception
+        when no_data_found then
+            raise_application_error(emk_errors_pkg.c_not_found, 'Shipment '
+                                                                || in_shipment_id
+                                                                || ' does not exist');
+        when emk_utilities_pkg.e_resource_busy then
+            raise_application_error(emk_errors_pkg.c_record_locked, 'The shipment is being changed by another user: try again');
+    end lock_shipment;
+
+    -- Public subprograms -----------------------------------------------------------
+
+    procedure create_shipment (
+        in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
+        in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
+        in_sender_id                 in emk_data.emk_shipments.sender_id%type,
+        in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
+        in_taking_over_place         in emk_data.emk_shipments.taking_over_place%type,
+        in_origin_country            in emk_data.emk_shipments.origin_country%type,
+        in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
+        in_destination_country       in emk_data.emk_shipments.destination_country%type,
+        in_taking_over_date          in emk_data.emk_shipments.taking_over_date%type,
+        in_agreed_time_limit         in emk_data.emk_shipments.agreed_time_limit%type,
+        in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
+        in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
+        in_goods_description         in emk_data.emk_shipments.goods_description%type,
+        in_packages                  in emk_data.emk_shipments.packages%type,
+        in_gross_weight_kg           in emk_data.emk_shipments.gross_weight_kg%type,
+        in_carriage_charges          in emk_data.emk_shipments.carriage_charges%type,
+        in_currency_code             in emk_data.emk_shipments.currency_code%type,
+        in_declared_value            in emk_data.emk_shipments.declared_value%type,
+        in_declared_value_currency   in emk_data.emk_shipments.declared_value_currency%type,
+        in_special_interest          in emk_data.emk_shipments.special_interest%type,
+        in_special_interest_currency in emk_data.emk_shipments.special_interest_currency%type,
+        out_shipment_id              out emk_data.emk_shipments.shipment_id%type
+    ) is
+
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_origin           varchar2(4000 char) := upper(trim(in_origin_country));
+        l_destination      varchar2(4000 char) := upper(trim(in_destination_country));
+        l_currency         varchar2(4000 char) := upper(trim(in_currency_code));
+        l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
+        l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
+        l_value_cur        varchar2(4000 char) := upper(trim(in_declared_value_currency));
+        l_interest_cur     varchar2(4000 char) := upper(trim(in_special_interest_currency));
+    begin
+        check_shipment(null, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
+                       l_destination, l_taking_over_date, l_currency);
+
+        if l_note_date is null then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of the consignment note is required (CMR Art. 6(1)(a))'
+            );
+        end if;
+        check_currency(l_value_cur, l_taking_over_date);      -- D-78: as the carriage charges
+        check_currency(l_interest_cur, l_taking_over_date);
+        insert into emk_data.emk_shipments (
+            cmr_note_no,
+            cmr_note_date,
+            sender_id,
+            carrier_id,
+            consignee_id,
+            taking_over_place,
+            origin_country,
+            delivery_place,
+            destination_country,
+            taking_over_date,
+            agreed_time_limit,
+            delivery_date,
+            disposal_date,
+            goods_description,
+            packages,
+            gross_weight_kg,
+            carriage_charges,
+            currency_code,
+            declared_value,
+            declared_value_currency,
+            special_interest,
+            special_interest_currency
+        ) values ( upper(trim(in_cmr_note_no)),
+                   l_note_date,
+                   in_sender_id,
+                   in_carrier_id,
+                   in_consignee_id,
+                   trim(in_taking_over_place),
+                   l_origin,
+                   trim(in_delivery_place),
+                   l_destination,
+                   l_taking_over_date,
+                   trunc(in_agreed_time_limit),
+                   trunc(in_delivery_date),
+                   trunc(in_disposal_date),
+                   trim(in_goods_description),
+                   in_packages,
+                   in_gross_weight_kg,
+                   in_carriage_charges,
+                   l_currency,
+                   in_declared_value,
+                   l_value_cur,
+                   in_special_interest,
+                   l_interest_cur ) returning shipment_id into out_shipment_id;
+
+    exception
+        when dup_val_on_index then   -- the only unique key besides the identity: (carrier_id, cmr_note_no)
+            raise_application_error(emk_errors_pkg.c_duplicate_cmr_note,
+                                    'The carrier already used CMR note number ' || upper(trim(in_cmr_note_no)));
+    end create_shipment;
+
+    procedure update_shipment (
+        in_shipment_id               in emk_data.emk_shipments.shipment_id%type,
+        in_expected_updated_at       in emk_data.emk_shipments.updated_at%type,
+        in_cmr_note_no               in emk_data.emk_shipments.cmr_note_no%type,
+        in_cmr_note_date             in emk_data.emk_shipments.cmr_note_date%type,
+        in_sender_id                 in emk_data.emk_shipments.sender_id%type,
+        in_carrier_id                in emk_data.emk_shipments.carrier_id%type,
+        in_consignee_id              in emk_data.emk_shipments.consignee_id%type,
+        in_taking_over_place         in emk_data.emk_shipments.taking_over_place%type,
+        in_origin_country            in emk_data.emk_shipments.origin_country%type,
+        in_delivery_place            in emk_data.emk_shipments.delivery_place%type,
+        in_destination_country       in emk_data.emk_shipments.destination_country%type,
+        in_taking_over_date          in emk_data.emk_shipments.taking_over_date%type,
+        in_agreed_time_limit         in emk_data.emk_shipments.agreed_time_limit%type,
+        in_delivery_date             in emk_data.emk_shipments.delivery_date%type,
+        in_disposal_date             in emk_data.emk_shipments.disposal_date%type,
+        in_goods_description         in emk_data.emk_shipments.goods_description%type,
+        in_packages                  in emk_data.emk_shipments.packages%type,
+        in_gross_weight_kg           in emk_data.emk_shipments.gross_weight_kg%type,
+        in_carriage_charges          in emk_data.emk_shipments.carriage_charges%type,
+        in_currency_code             in emk_data.emk_shipments.currency_code%type,
+        in_declared_value            in emk_data.emk_shipments.declared_value%type,
+        in_declared_value_currency   in emk_data.emk_shipments.declared_value_currency%type,
+        in_special_interest          in emk_data.emk_shipments.special_interest%type,
+        in_special_interest_currency in emk_data.emk_shipments.special_interest_currency%type
+    ) is
+
+        l_old              emk_data.emk_shipments%rowtype;
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_note             varchar2(4000 char) := upper(trim(in_cmr_note_no));
+        l_origin           varchar2(4000 char) := upper(trim(in_origin_country));
+        l_destination      varchar2(4000 char) := upper(trim(in_destination_country));
+        l_currency         varchar2(4000 char) := upper(trim(in_currency_code));
+        l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
+        l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
+        l_value_cur        varchar2(4000 char) := upper(trim(in_declared_value_currency));
+        l_interest_cur     varchar2(4000 char) := upper(trim(in_special_interest_currency));
+    begin
+        lock_shipment(in_shipment_id, in_expected_updated_at, true, l_old);
+        check_shipment(in_shipment_id, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
+                       l_destination, l_taking_over_date, l_currency);
+
+        if l_note_date is null then
+            raise_application_error(emk_errors_pkg.c_invalid_argument, 'The date of the consignment note is required (CMR Art. 6(1)(a))'
+            );
+        end if;
+        check_currency(l_value_cur, l_taking_over_date);      -- D-78: as the carriage charges
+        check_currency(l_interest_cur, l_taking_over_date);
+        if not ( emk_utilities_pkg.is_changed(l_old.cmr_note_no, l_note)
+        or emk_utilities_pkg.is_changed(l_old.cmr_note_date, l_note_date)
+        or emk_utilities_pkg.is_changed(l_old.disposal_date,
+                                        trunc(in_disposal_date))
+        or emk_utilities_pkg.is_changed(l_old.sender_id, in_sender_id)
+        or emk_utilities_pkg.is_changed(l_old.carrier_id, in_carrier_id)
+        or emk_utilities_pkg.is_changed(l_old.consignee_id, in_consignee_id)
+        or emk_utilities_pkg.is_changed(l_old.taking_over_place,
+                                        trim(in_taking_over_place))
+        or emk_utilities_pkg.is_changed(l_old.origin_country, l_origin)
+        or emk_utilities_pkg.is_changed(l_old.delivery_place,
+                                        trim(in_delivery_place))
+        or emk_utilities_pkg.is_changed(l_old.destination_country, l_destination)
+        or emk_utilities_pkg.is_changed(l_old.taking_over_date, l_taking_over_date)
+        or emk_utilities_pkg.is_changed(l_old.agreed_time_limit,
+                                        trunc(in_agreed_time_limit))
+        or emk_utilities_pkg.is_changed(l_old.delivery_date,
+                                        trunc(in_delivery_date))
+        or emk_utilities_pkg.is_changed(l_old.goods_description,
+                                        trim(in_goods_description))
+        or emk_utilities_pkg.is_changed(l_old.packages, in_packages)
+        or emk_utilities_pkg.is_changed(l_old.gross_weight_kg, in_gross_weight_kg)
+        or emk_utilities_pkg.is_changed(l_old.carriage_charges, in_carriage_charges)
+        or emk_utilities_pkg.is_changed(l_old.currency_code, l_currency)
+        or emk_utilities_pkg.is_changed(l_old.declared_value, in_declared_value)
+        or emk_utilities_pkg.is_changed(l_old.declared_value_currency, l_value_cur)
+        or emk_utilities_pkg.is_changed(l_old.special_interest, in_special_interest)
+        or emk_utilities_pkg.is_changed(l_old.special_interest_currency, l_interest_cur) ) then
+            return;   -- nothing changed: no update, no journal row
+        end if;
+
+        update emk_data.emk_shipments
+        set
+            cmr_note_no = l_note,
+            cmr_note_date = l_note_date,
+            sender_id = in_sender_id,
+            carrier_id = in_carrier_id,
+            consignee_id = in_consignee_id,
+            taking_over_place = trim(in_taking_over_place),
+            origin_country = l_origin,
+            delivery_place = trim(in_delivery_place),
+            destination_country = l_destination,
+            taking_over_date = l_taking_over_date,
+            agreed_time_limit = trunc(in_agreed_time_limit),
+            delivery_date = trunc(in_delivery_date),
+            disposal_date = trunc(in_disposal_date),
+            goods_description = trim(in_goods_description),
+            packages = in_packages,
+            gross_weight_kg = in_gross_weight_kg,
+            carriage_charges = in_carriage_charges,
+            currency_code = l_currency,
+            declared_value = in_declared_value,
+            declared_value_currency = l_value_cur,
+            special_interest = in_special_interest,
+            special_interest_currency = l_interest_cur
+        where
+            shipment_id = in_shipment_id;
+
+    exception
+        when dup_val_on_index then
+            raise_application_error(emk_errors_pkg.c_duplicate_cmr_note, 'The carrier already used CMR note number ' || l_note);
+    end update_shipment;
+
+    procedure delete_shipment (
+        in_shipment_id         in emk_data.emk_shipments.shipment_id%type,
+        in_expected_updated_at in emk_data.emk_shipments.updated_at%type
+    ) is
+
+        l_old   emk_data.emk_shipments%rowtype;
+        l_count pls_integer;
+        l_user  emk_data.emk_shipments.deleted_by%type := emk_utilities_pkg.get_current_user;   -- read once, before the statement
+    begin
+        lock_shipment(in_shipment_id, in_expected_updated_at, true, l_old);
+        select
+            count(*)
+        into l_count
+        from
+            emk_data.emk_claims
+        where
+                shipment_id = in_shipment_id
+            and deleted_yn = 'N';
+
+        if l_count > 0 then
+            raise_application_error(emk_errors_pkg.c_shipment_in_use, 'The shipment has '
+                                                                      || l_count
+                                                                      || ' active claim(s)');
+        end if;
+
+        update emk_data.emk_shipments
+        set
+            deleted_yn = 'Y',
+            deleted_by = l_user,
+            deleted_at = systimestamp
+        where
+            shipment_id = in_shipment_id;
+
+    end delete_shipment;
+
+    procedure restore_shipment (
+        in_shipment_id in emk_data.emk_shipments.shipment_id%type
+    ) is
+        l_old emk_data.emk_shipments%rowtype;
+    begin
+        lock_shipment(in_shipment_id, null, false, l_old);
+        if l_old.deleted_yn = 'N' then
+            return;
+        end if;
+
+        -- A company may have been deleted or lost its role while the shipment was deleted
+        check_parties(in_shipment_id, l_old.sender_id, l_old.carrier_id, l_old.consignee_id);
+        update emk_data.emk_shipments
+        set
+            deleted_yn = 'N',
+            deleted_by = null,
+            deleted_at = null
+        where
+            shipment_id = in_shipment_id;
+
+    end restore_shipment;
+
+end emk_shipment_api;
+/
+
+
+-- sqlcl_snapshot {"hash":"935fb0f12bb834a39913d240876d2800787e5d1f","type":"PACKAGE_BODY","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}

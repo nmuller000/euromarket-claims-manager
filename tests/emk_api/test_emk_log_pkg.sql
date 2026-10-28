@@ -37,6 +37,9 @@ create or replace package test_emk_log_pkg as
     --%throws(emk_errors_pkg.c_invalid_argument)
     procedure rejects_retention_below_one_day;
 
+    --%test(log_error with a given error stack returns the number of its committed ERROR entry)
+    procedure returns_id_of_error_entry;
+
     procedure reset_level;
 end test_emk_log_pkg;
 /
@@ -89,6 +92,24 @@ create or replace package body test_emk_log_pkg as
         emk_log_pkg.log_debug(c_message);
         ut.expect(get_committed_count(c_message)).to_equal(1);
     end writes_debug_after_set_level;
+
+    procedure returns_id_of_error_entry is
+        c_message constant varchar2(100 char) := c_marker || 'error with a given stack';
+        l_log_id  emk_log.log_id%type;
+        l_level   emk_log.log_level%type;
+        l_stack   varchar2(4000 char);
+    begin
+        l_log_id := emk_log_pkg.log_error(in_message     => c_message,
+                                          in_context     => null,
+                                          in_error_stack => 'ORA-20999: test stack');
+        select log_level, dbms_lob.substr(error_stack, 4000, 1)
+        into   l_level, l_stack
+        from   emk_log
+        where  log_id = l_log_id;
+        ut.expect(l_level).to_equal(emk_log_pkg.c_error);
+        ut.expect(l_stack).to_equal('ORA-20999: test stack');
+        ut.expect(get_committed_count(c_message)).to_equal(1);
+    end returns_id_of_error_entry;
 
     procedure rejects_unknown_level is
     begin

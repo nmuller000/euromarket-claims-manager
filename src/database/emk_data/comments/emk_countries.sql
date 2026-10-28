@@ -13,9 +13,6 @@ comment on column emk_data.emk_countries.eea_member_yn is
 comment on column emk_data.emk_countries.eu_member_yn is
     'Y = EU member';
 
-comment on column emk_data.emk_countries.eu_vat_prefix is
-    'EU VAT (VIES) prefix; EL for Greece; NULL outside the EU';
-
 comment on column emk_data.emk_countries.iso_name is
     'English short name of ISO 3166-1 (traceability to the standard)';
 
@@ -29,4 +26,4 @@ comment on column emk_data.emk_countries.valid_to is
     'End of validity; NULL = still valid';
 
 
--- sqlcl_snapshot {"hash":"f66d64eb3113d0f9bf42649ce3c67d32416e5a15","type":"COMMENT","name":"emk_countries","schemaName":"emk_data","sxml":""}
+-- sqlcl_snapshot {"hash":"0684a7d6bb8b4649c867a089e14503a603efff3d","type":"COMMENT","name":"emk_countries","schemaName":"emk_data","sxml":""}

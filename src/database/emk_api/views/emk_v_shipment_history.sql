@@ -1,0 +1,93 @@
+create or replace force editionable view emk_api.emk_v_shipment_history (
+    history_id,
+    shipment_id,
+    changed_at,
+    changed_by,
+    action,
+    previous_cmr_note_no,
+    previous_cmr_note_date,
+    previous_sender_id,
+    previous_carrier_id,
+    previous_consignee_id,
+    previous_taking_over_place,
+    previous_origin_country,
+    previous_delivery_place,
+    previous_destination_country,
+    previous_taking_over_date,
+    previous_agreed_time_limit,
+    previous_delivery_date,
+    previous_disposal_date,
+    previous_goods_description,
+    previous_packages,
+    previous_gross_weight_kg,
+    previous_carriage_charges,
+    previous_currency_code,
+    previous_declared_value,
+    previous_declared_value_currency,
+    previous_special_interest,
+    previous_special_interest_currency
+) as
+    select
+    /**
+     * Change history of shipments (FR-09, D-67): when, who, the action and the
+     * values before the change. Shown in the shipment form to the claims
+     * handler, the compliance officer and the administrator.
+     *
+     * @author Natalia Müller
+     * @since  2026-10-18
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
+        j.jn_id                     as history_id,
+        j.shipment_id,
+        j.jn_at                     as changed_at,
+        j.jn_by                     as changed_by,
+        case
+            when j.deleted_yn = 'N'
+                 and j.next_deleted_yn = 'Y' then
+                'DELETED'
+            when j.deleted_yn = 'Y'
+                 and j.next_deleted_yn = 'N' then
+                'RESTORED'
+            else
+                'UPDATED'
+        end                         as action,
+        j.cmr_note_no               as previous_cmr_note_no,
+        j.cmr_note_date             as previous_cmr_note_date,
+        j.sender_id                 as previous_sender_id,
+        j.carrier_id                as previous_carrier_id,
+        j.consignee_id              as previous_consignee_id,
+        j.taking_over_place         as previous_taking_over_place,
+        j.origin_country            as previous_origin_country,
+        j.delivery_place            as previous_delivery_place,
+        j.destination_country       as previous_destination_country,
+        j.taking_over_date          as previous_taking_over_date,
+        j.agreed_time_limit         as previous_agreed_time_limit,
+        j.delivery_date             as previous_delivery_date,
+        j.disposal_date             as previous_disposal_date,
+        j.goods_description         as previous_goods_description,
+        j.packages                  as previous_packages,
+        j.gross_weight_kg           as previous_gross_weight_kg,
+        j.carriage_charges          as previous_carriage_charges,
+        j.currency_code             as previous_currency_code,
+        j.declared_value            as previous_declared_value,
+        j.declared_value_currency   as previous_declared_value_currency,
+        j.special_interest          as previous_special_interest,
+        j.special_interest_currency as previous_special_interest_currency
+    from
+        (
+            select
+                jn.*,
+                coalesce(lead(jn.deleted_yn)
+                         over(partition by jn.shipment_id
+                              order by
+                                  jn.jn_at, jn.jn_id
+                ),
+                         s.deleted_yn) as next_deleted_yn
+            from
+                     emk_data.emk_shipments_jn jn
+                join emk_data.emk_shipments s on s.shipment_id = jn.shipment_id
+        ) j;
+
+
+-- sqlcl_snapshot {"hash":"43c1d770a8f01ec8e354dc6f7cbf8e4873bcaca7","type":"VIEW","name":"EMK_V_SHIPMENT_HISTORY","schemaName":"EMK_API","sxml":""}

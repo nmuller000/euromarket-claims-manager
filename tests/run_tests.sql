@@ -31,7 +31,8 @@ SET TERMOUT ON
 SPOOL &emk_log_file
 PROMPT Log of this run: &emk_log_file
 
-ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST, ACC, PROD): '
+-- PROD is not offered (tests never run there); the check below still refuses it.
+ACCEPT emk_env CHAR PROMPT 'Environment (DEV, TEST or ACC): '
 @@../scripts/admin/00_config.sql
 
 BEGIN

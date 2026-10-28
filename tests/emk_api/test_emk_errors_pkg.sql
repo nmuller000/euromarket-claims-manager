@@ -16,7 +16,7 @@ create or replace package test_emk_errors_pkg as
     --%suite(Error codes shared with EMK_DATA (EMK_API))
     --%suitepath(emk_api)
 
-    --%test(Every error constant matches its named exception (PRAGMA EXCEPTION_INIT uses literals))
+    --%test(Every error constant matches its named exception (PRAGMA EXCEPTION_INIT uses literals), and every constant is checked)
     procedure matches_constants_to_exceptions;
 
     --%test(The document trigger raises exactly emk_errors_pkg.c_document_immutable)
@@ -28,7 +28,8 @@ end test_emk_errors_pkg;
 create or replace package body test_emk_errors_pkg as
 
     procedure matches_constants_to_exceptions is
-        l_matched pls_integer := 0;
+        l_matched   pls_integer := 0;
+        l_constants pls_integer;
     begin
         -- Raise each constant and catch it only by its named exception
         begin raise_application_error(emk_errors_pkg.c_not_authorized, 'test');
@@ -51,26 +52,61 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_document_immutable then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_reference_not_valid, 'test');
         exception when emk_errors_pkg.e_reference_not_valid then l_matched := l_matched + 1; end;
-        ut.expect(l_matched).to_equal(10);
+        -- Step 7: party and shipment APIs
+        begin raise_application_error(emk_errors_pkg.c_record_changed, 'test');
+        exception when emk_errors_pkg.e_record_changed then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_record_locked, 'test');
+        exception when emk_errors_pkg.e_record_locked then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'test');
+        exception when emk_errors_pkg.e_vat_country_mismatch then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_duplicate_vat, 'test');
+        exception when emk_errors_pkg.e_duplicate_vat then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_in_use, 'test');
+        exception when emk_errors_pkg.e_party_in_use then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_role_required, 'test');
+        exception when emk_errors_pkg.e_party_role_required then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_address_required, 'test');   -- D-89
+        exception when emk_errors_pkg.e_party_address_required then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_postal_code_format, 'test');   -- D-90
+        exception when emk_errors_pkg.e_postal_code_format then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_shipment_in_use, 'test');
+        exception when emk_errors_pkg.e_shipment_in_use then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_cmr_not_applicable, 'test');
+        exception when emk_errors_pkg.e_cmr_not_applicable then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_carrier_not_third_party, 'test');
+        exception when emk_errors_pkg.e_carrier_not_third_party then l_matched := l_matched + 1; end;
+        -- Step 7.7: master data API (D-82)
+        begin raise_application_error(emk_errors_pkg.c_code_protected, 'test');
+        exception when emk_errors_pkg.e_code_protected then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_code_exists, 'test');
+        exception when emk_errors_pkg.e_code_exists then l_matched := l_matched + 1; end;
+        ut.expect(l_matched).to_equal(23);
+        -- Every constant of the package is checked above: a new code needs its line here
+        select count(*)
+        into   l_constants
+        from   user_source
+        where  name = 'EMK_ERRORS_PKG' and type = 'PACKAGE'
+        and    regexp_like(text, '^\s*c_[a-z_]+\s+constant\s+pls_integer', 'i');
+        ut.expect(l_constants).to_equal(l_matched);
     end matches_constants_to_exceptions;
 
     procedure raises_document_immutable is
-        l_shipper   emk_data.emk_parties.party_id%type;
+        l_sender    emk_data.emk_parties.party_id%type;
         l_carrier   emk_data.emk_parties.party_id%type;
         l_consignee emk_data.emk_parties.party_id%type;
         l_shipment  emk_data.emk_shipments.shipment_id%type;
         l_claim     emk_data.emk_claims.claim_id%type;
         l_document  emk_data.emk_claim_documents.document_id%type;
     begin
-        insert into emk_data.emk_parties (name, country_code) values ('Test Shipper', 'DE') returning party_id into l_shipper;
-        insert into emk_data.emk_parties (name, country_code) values ('Test Carrier', 'PL') returning party_id into l_carrier;
-        insert into emk_data.emk_parties (name, country_code) values ('Test Consignee', 'FR') returning party_id into l_consignee;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Sender', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into l_sender;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Carrier', 'Test Street 1', 'Test City', 'PL', 'en') returning party_id into l_carrier;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Consignee', 'Test Street 1', 'Test City', 'FR', 'en') returning party_id into l_consignee;
 
-        insert into emk_data.emk_shipments (cmr_note_no, shipper_id, carrier_id, consignee_id, pickup_place,
-                                            origin_country, delivery_place, destination_country, pickup_date,
-                                            goods_description, gross_weight_kg)
-        values ('CMR-TEST-ERRORS', l_shipper, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
-                date '2026-09-01', 'Goods', 10)
+        insert into emk_data.emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place,
+                                            origin_country, delivery_place, destination_country, taking_over_date,
+                                            goods_description, gross_weight_kg, cmr_note_date)
+        values ('CMR-TEST-ERRORS', l_sender, l_carrier, l_consignee, 'Berlin', 'DE', 'Paris', 'FR',
+                date '2026-09-01', 'Goods', 10, date '2026-09-01')
         returning shipment_id into l_shipment;
 
         insert into emk_data.emk_claims (claim_no, shipment_id, claim_type, damage_apparent_yn, handler,

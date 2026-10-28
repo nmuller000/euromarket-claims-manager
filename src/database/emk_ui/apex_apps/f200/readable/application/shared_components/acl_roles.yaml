@@ -8,10 +8,10 @@
     static-id: CLAIMS_HANDLER
 
   description: 
-    description: 'Handles CMR claims: creates and edits parties, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims.'
+    description: 'Handles CMR claims: creates and edits companies, shipments and claims, imports shipments, changes claim status (only role allowed, BR-02), writes claim letters and receives alerts for own claims. Restores deleted records.'
 
   subscription: 
-    version-number: 93273251
+    version-number: 99950675
 
 - # ====== Role: COMPLIANCE_OFFICER ============================
   id: 54025877019652756
@@ -50,8 +50,8 @@
     static-id: ADMINISTRATOR
 
   description: 
-    description: Maintains reference data (countries, holidays, rules, rates, templates), imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to claims.
+    description: Maintains the master data (Master Data menu) and the reference data, reviews the technical log, imports shipments, ingests the regulatory corpus and reviews the AI audit log [EXT]. Read-only access to companies, shipments and claims.
 
   subscription: 
-    version-number: 93273397
+    version-number: 99945385
 

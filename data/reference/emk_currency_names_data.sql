@@ -2,11 +2,14 @@
 -- emk_currency_names_data.sql
 -- EMK_CURRENCY_NAMES: German names of the 32 currencies (D-37).
 -- Source: EU authority table Currencies (German labels).
--- Idempotent MERGE: inserts missing rows, updates only rows whose values
--- changed (no needless updated_* changes), never deletes (a reference row is
--- closed with valid_to). Schema-qualified (ADR-008): runs in a session of
--- EMK_DATA or of the deployment account. Loaded by load_reference_data.sql;
--- added to the first release with `project stage add-custom` and runOnChange
+-- Insert-only MERGE (D-72): inserts the rows that are missing and never
+-- changes or deletes an existing row, so that running it again (DEV, a
+-- release) never overwrites production data. A change to an existing row
+-- is a separate change script, run once, that cites the authorized change
+-- request (ITIL change enablement; Liquibase: roll forward).
+-- Schema-qualified (ADR-008): runs in a session of EMK_DATA or of the
+-- deployment account. Loaded by load_reference_data.sql;
+-- added to the first release with `project stage add-custom`, run once
 -- (M1 plan, open point 6; first release in M5).
 --
 -- Author: Natalia Müller
@@ -50,8 +53,6 @@ USING (VALUES
         ('ZAR', 'de', 'Rand')
       ) s (currency_code, language_code, name)
 ON (t.currency_code = s.currency_code AND t.language_code = s.language_code)
-WHEN MATCHED THEN UPDATE SET t.name = s.name
-  WHERE t.name <> s.name
 WHEN NOT MATCHED THEN INSERT (currency_code, language_code, name)
 VALUES (s.currency_code, s.language_code, s.name);
 

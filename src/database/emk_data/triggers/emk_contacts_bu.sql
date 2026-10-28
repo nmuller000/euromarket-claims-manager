@@ -6,6 +6,8 @@ create or replace editionable trigger emk_data.emk_contacts_bu before
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 begin
     :new.updated_at := systimestamp;
@@ -21,4 +23,4 @@ end;
 alter trigger emk_data.emk_contacts_bu enable;
 
 
--- sqlcl_snapshot {"hash":"3c00507bc8b68b86f216890c9f15e2681c4d1e27","type":"TRIGGER","name":"EMK_CONTACTS_BU","schemaName":"EMK_DATA","sxml":""}
+-- sqlcl_snapshot {"hash":"baf9300dfdcc810e59491f3724f744ea14bb7e04","type":"TRIGGER","name":"EMK_CONTACTS_BU","schemaName":"EMK_DATA","sxml":""}

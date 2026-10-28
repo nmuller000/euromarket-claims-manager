@@ -10,6 +10,8 @@ create or replace package emk_api.emk_log_pkg as
      *
      * @author Natalia Müller
      * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
      */
 
     c_debug constant varchar2(10 char) := 'DEBUG';
@@ -63,6 +65,23 @@ create or replace package emk_api.emk_log_pkg as
     );
 
     /**
+     * Writes an ERROR entry for an error that is not the current exception,
+     * e.g. an error APEX hands to its error handling function, and returns the
+     * number of the entry, which the user can give as reference.
+     *
+     * @param  in_message     short message (truncated to 1000 characters)
+     * @param  in_context     optional JSON text
+     * @param  in_error_stack error text and backtrace of that error
+     * @return log_id of the new entry
+     * @usage  EMK_APEX_ERROR_PKG.handle_error
+     */
+    function log_error (
+        in_message     in varchar2,
+        in_context     in varchar2,
+        in_error_stack in clob
+    ) return emk_log.log_id%type;
+
+    /**
      * Sets the minimum level written in this database session.
      *
      * @param  in_level DEBUG, INFO, WARN or ERROR
@@ -96,4 +115,4 @@ end emk_log_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"de4110797e5ffebf783cef46380b80e509be26c2","type":"PACKAGE_SPEC","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"846fa87d8df41f121c24de1e460decc354cd8d64","type":"PACKAGE_SPEC","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}

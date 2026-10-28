@@ -4,3 +4,11 @@
   identification: 
     name: Administration
 
+- # ====== Page Group: Companies ===============================
+  id: 58616457386700031
+  identification: 
+    name: Companies
+
+  description: 
+    description: Companies (senders, consignees, carriers and other roles), their contact persons and change history. Pages 10–19.
+

@@ -1,4 +1,13 @@
 create or replace package body emk_api.emk_log_pkg as
+    /**
+     * Implementation of EMK_LOG_PKG; its specification documents the
+     * public subprograms.
+     *
+     * @author Natalia Müller
+     * @since  2026-10-08
+     *
+     * Copyright (c) 2026 Natalia Müller. All rights reserved.
+     */
 
     g_level varchar2(10 char) := c_info;   -- minimum level of this session
 
@@ -32,16 +41,17 @@ create or replace package body emk_api.emk_log_pkg as
         );
     end is_enabled;
 
-    -- Inserts one entry and commits it independently of the caller.
+    -- Inserts one entry, commits it independently of the caller and returns its log_id.
     -- Call stack: 1 = write_entry, 2 = log_<level>, 3 = the caller.
-    procedure write_entry (
+    function write_entry (
         in_level       in varchar2,
         in_message     in varchar2,
         in_context     in varchar2,
         in_error_stack in clob
-    ) is
+    ) return emk_log.log_id%type is
         pragma autonomous_transaction;
         l_module emk_log.module%type;
+        l_log_id emk_log.log_id%type;
     begin
         if utl_call_stack.dynamic_depth >= 3 then
             l_module := substr(
@@ -65,9 +75,10 @@ create or replace package body emk_api.emk_log_pkg as
                        1000
                    ),
                    json(in_context),
-                   in_error_stack );
+                   in_error_stack ) returning log_id into l_log_id;
 
         commit;
+        return l_log_id;
     exception
         when others then
             rollback;   -- end the autonomous transaction (avoids ORA-06519), then propagate (D-33)
@@ -78,9 +89,10 @@ create or replace package body emk_api.emk_log_pkg as
         in_message in varchar2,
         in_context in varchar2 default null
     ) is
+        l_log_id emk_log.log_id%type;   -- not needed by the caller
     begin
         if is_enabled(c_debug) then
-            write_entry(c_debug, in_message, in_context, null);
+            l_log_id := write_entry(c_debug, in_message, in_context, null);
         end if;
     end log_debug;
 
@@ -88,9 +100,10 @@ create or replace package body emk_api.emk_log_pkg as
         in_message in varchar2,
         in_context in varchar2 default null
     ) is
+        l_log_id emk_log.log_id%type;   -- not needed by the caller
     begin
         if is_enabled(c_info) then
-            write_entry(c_info, in_message, in_context, null);
+            l_log_id := write_entry(c_info, in_message, in_context, null);
         end if;
     end log_info;
 
@@ -98,9 +111,10 @@ create or replace package body emk_api.emk_log_pkg as
         in_message in varchar2,
         in_context in varchar2 default null
     ) is
+        l_log_id emk_log.log_id%type;   -- not needed by the caller
     begin
         if is_enabled(c_warn) then
-            write_entry(c_warn, in_message, in_context, null);
+            l_log_id := write_entry(c_warn, in_message, in_context, null);
         end if;
     end log_warn;
 
@@ -108,8 +122,19 @@ create or replace package body emk_api.emk_log_pkg as
         in_message in varchar2,
         in_context in varchar2 default null
     ) is
+        l_log_id emk_log.log_id%type;   -- not needed by the caller
     begin
-        write_entry(c_error, in_message, in_context, dbms_utility.format_error_stack || dbms_utility.format_error_backtrace);
+        l_log_id := write_entry(c_error, in_message, in_context, dbms_utility.format_error_stack || dbms_utility.format_error_backtrace
+        );
+    end log_error;
+
+    function log_error (
+        in_message     in varchar2,
+        in_context     in varchar2,
+        in_error_stack in clob
+    ) return emk_log.log_id%type is
+    begin
+        return write_entry(c_error, in_message, in_context, in_error_stack);
     end log_error;
 
     procedure set_level (
@@ -179,4 +204,4 @@ end emk_log_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"a29e189ab5b9aaa93b2ffe3ed1a87fc4e52923ff","type":"PACKAGE_BODY","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"33772f2b05ac131c456a6b1c1fbe34f7d54bad62","type":"PACKAGE_BODY","name":"EMK_LOG_PKG","schemaName":"EMK_API","sxml":""}

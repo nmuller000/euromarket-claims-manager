@@ -14,8 +14,8 @@ create or replace package test_emk_journals as
     --%suite(Journals (EMK_DATA))
     --%suitepath(emk_data)
 
-    --%test(The six operational tables have a journal)
-    procedure counts_six_journals;
+    --%test(The six operational tables and the five code lists maintained in the application have a journal (D-72))
+    procedure counts_journals;
 
     --%test(D-39: every journal keeps every column of its base table)
     procedure keeps_every_base_column;
@@ -27,14 +27,14 @@ end test_emk_journals;
 
 create or replace package body test_emk_journals as
 
-    procedure counts_six_journals is
+    procedure counts_journals is
         l_count pls_integer;
     begin
         select count(*) into l_count
         from   user_tables j
         join   user_tables b on j.table_name = b.table_name || '_JN';
-        ut.expect(l_count).to_equal(6);
-    end counts_six_journals;
+        ut.expect(l_count).to_equal(11);
+    end counts_journals;
 
     procedure keeps_every_base_column is
         l_missing sys_refcursor;
@@ -56,7 +56,7 @@ create or replace package body test_emk_journals as
         l_party emk_parties.party_id%type;
         l_count pls_integer;
     begin
-        insert into emk_parties (name, country_code) values ('Test Party', 'DE') returning party_id into l_party;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Party', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into l_party;
         insert into emk_party_roles (party_id, role_code) values (l_party, 'CARRIER');
         delete from emk_party_roles where party_id = l_party and role_code = 'CARRIER';
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.19 (2026-10-16) |
+| **Status** | Accepted v1.26 (2026-10-28); v1.25 (2026-10-22) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -33,7 +33,7 @@ flowchart LR
     ords --> apex
     subgraph db["Oracle AI Database 26ai Free · FREEPDB1"]
         apex["APEX 24.2 application"]
-        api["PL/SQL APIs<br/>EMK_CLAIM_API · EMK_DEADLINE_API · EMK_ALERT_API · EMK_SEARCH_API"]
+        api["PL/SQL APIs in EMK_API<br/>EMK_PARTY_API (M1)<br/>EMK_SHIPMENT_API (M1)<br/>EMK_CLAIM_API (M1)<br/>EMK_DEADLINE_API (M2)<br/>EMK_ALERT_API (M2)<br/>EMK_SEARCH_API (M3)"]
         data[("Claims data<br/>parties · shipments · claims · documents")]
         corpus[("Legal corpus<br/>EMK_REG_CHUNKS + HNSW index")]
         onnx["ONNX embedding model"]
@@ -54,13 +54,13 @@ flowchart LR
     gw -.-> llm["LLM provider<br/>EU/EEA [EXT]"]
 ```
 
-Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in detail: [docs/design/api-design.md](design/api-design.md).
+Solid lines = MVP. Dashed lines = extensions. The APIs are PL/SQL packages in the schema `EMK_API`, built in the milestone shown; APEX page processes, the import jobs of `EMK_INT` and the daily job call them through `EXECUTE` grants. Packages, callers and flows in detail: [docs/design/api-design.md](design/api-design.md).
 
 ### 1.3 Cross-Cutting Conventions
 
 | Topic | Convention |
 |-------|------------|
-| **Business dates** | `DATE` without time (pickup, delivery, reservation, written claim). Deadlines are calendar dates. |
+| **Business dates** | `DATE` without time (taking over, delivery, reservation, written claim). Deadlines are calendar dates. |
 | **Technical timestamps** | `TIMESTAMP WITH TIME ZONE`, stored in UTC (audit, logs, alerts). |
 | **Time zone for deadlines** | Calendar days in the country of delivery; public holidays from `EMK_PUBLIC_HOLIDAYS` of that country (Q4 decision, §5). |
 | **Data formats** | International standards only: countries ISO 3166-1 alpha-2; currencies ISO 4217 (with minor units); dates and timestamps ISO 8601 (`YYYY-MM-DD`, UTC offset) in files and interfaces; languages ISO 639 alpha-2; phone numbers ITU-T E.164; email syntax RFC 5322; EU VAT numbers in VIES format; weights in kg (SI); CSV files RFC 4180 in UTF-8; database character set AL32UTF8. Values are stored neutrally (`DATE`, `NUMBER`) and displayed in the user's language format (F-15). Codes from other systems (EU `EL`, `UK`; VAT prefix `XI`) are never used as keys. |
@@ -72,13 +72,14 @@ Solid lines = MVP. Dashed lines = extensions. Packages, callers and flows in det
 | **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`; local variables `l_`, package variables `g_`, constants `c_`, named exceptions `e_`, explicit parameter mode. The [Trivadis PL/SQL & SQL Coding Guidelines](https://trivadis.github.io/plsql-and-sql-coding-guidelines/v4.2/) present prefixes as one possible set and require consistency; there `c_` often means a cursor, here cursors are declared in `for` loops without a prefix. |
 | **Code documentation** | Every package, type, trigger and view starts with a `/** … */` header **inside** the object (after `AS`/`IS`), because text before `CREATE` is not stored in the database and is lost on export: purpose, `@author`, the copyright line `Copyright (c) 2026 Natalia Müller. All rights reserved.`, `@since`. Every public subprogram is documented in the package specification: description, `@param`, `@return`, `@throws`; `@usage` only for entry points (APEX page, job). History is kept in Git, not in headers. Tables and columns are documented with `COMMENT ON`. Scripts in `scripts/` (files, not stored objects) keep a `--` header: purpose, how to run, `Author`, the copyright line, `Since`. The repository is "all rights reserved" ([LICENSE](../LICENSE)). |
 | **Keys** | Operational, log and history tables: surrogate key `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; natural but mutable values (CMR note number, VAT number, email) are unique keys or attributes, never the primary key. Reference tables based on standards use the **ISO code** as primary key (`country_code` ISO 3166-1 alpha-2, `currency_code` ISO 4217). |
-| **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems are separate columns (e.g., `eu_vat_prefix`: `EL` for Greece; empty outside the EU — the `XI` prefix of Northern Ireland traders belongs to their VAT number, not to a country). Reference rows are not soft-deleted. |
+| **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems have their own reference table (e.g., `EMK_VAT_FORMATS`, keyed by the EU VAT prefix: `EL` for Greece, `XI` for traders in Northern Ireland with country `GB` — a VAT prefix is not a country code; D-88). Reference rows are not soft-deleted. |
+| **Code lists** | Business value lists (languages, party roles, claim statuses and types, document types, file types) are reference tables with a validity period, referenced by a foreign key, never `CHECK (col IN (...))`: a value is retired with `valid_to` while old rows keep it. The APIs accept a **new** value only if it is valid on the date of the change. Check constraints remain for technical values that only programs set (`Y`/`N` flags, journal operation, log level). One table per list, never a generic code table; values used by the program are retired only with a code change, and the administrator maintains the lists in the Master Data menu, never deleting or re-coding a value (§7.1, D-82) ([design](design/data-model-reference.md#6-code-lists-d-68)). Data scripts only insert missing rows: a release never overwrites production data; a change to existing rows is a separate change script with an authorized change request (D-72). |
 | **Soft delete** | Operational tables (parties, contacts, shipments, claims, documents) are never physically deleted: `deleted_yn CHAR(1) DEFAULT ON NULL 'N' NOT NULL` (`Y`/`N`), plus `deleted_at` and `deleted_by`. Views and APEX pages show only `deleted_yn = 'N'`. Logs, history and inbound tables are append-only and never deleted (retention by dropping monthly partitions). Soft delete is not GDPR erasure (FR-41). |
 | **External data (ELT)** | All inbound data (file imports, ECB rates, REST [EXT]) enters the **integration schema `EMK_INT`** (ADR-007): each record is stored **as received** (JSON) in `EMK_INBOUND_RECORDS` with status `PENDING`; a **`DBMS_SCHEDULER` job per batch** reads it through a versioned source view (`EMK_V_IN_<SOURCE>_V<n>`), applies **technical** validation, and passes valid rows in batches to the `EMK_API` APIs, which apply the **business** rules and `MERGE` into operational tables; each record is marked `LOADED` or `REJECTED` with a reason. Batches can be reprocessed without duplicates. |
 | **Schemas and references** | Separated schemas (ADR-008): `EMK_DATA` owns tables, journals and their triggers; `EMK_API` owns business code, views and the log; `EMK_UI` is the APEX parsing schema and owns nothing; `EMK_INT` owns inbound data and only calls `EMK_API` through direct `EXECUTE` grants (one direction; ADR-007). Another schema's objects are referenced with **schema-qualified names** (`emk_data.emk_claims`); no synonyms (except tools such as utPLSQL); privileges are object grants from the owner, never schema-wide grants. |
-| **Partitioning** | Interval partitioning **by month** only for append-only, ever-growing tables: `EMK_INBOUND_RECORDS`, `EMK_LOG`, journal tables `<TABLE>_JN`, `EMK_ALERT_LOG`. Old data is purged with `DROP PARTITION`. Operational tables are not partitioned at the design volume (§12.1) but keep date columns so they can be. Partitioning is included in the Free edition. The key is a virtual column `created_on DATE` = UTC date-time of `created_at` (journals: `jn_on` of `jn_at`), because interval partitioning does not accept `TIMESTAMP WITH TIME ZONE`. |
+| **Partitioning** | Only where an analysis justifies it (growth and purge by period; never for small tables such as code lists and their journals, D-72). Interval partitioning **by month** only for append-only, ever-growing tables: `EMK_INBOUND_RECORDS`, `EMK_LOG`, journal tables `<TABLE>_JN`, `EMK_ALERT_LOG`. Old data is purged with `DROP PARTITION`. Operational tables are not partitioned at the design volume (§12.1) but keep date columns so they can be. Partitioning is included in the Free edition. The key is a virtual column `created_on DATE` = UTC date-time of `created_at` (journals: `jn_on` of `jn_at`), because interval partitioning does not accept `TIMESTAMP WITH TIME ZONE`. |
 | **Audit columns** | All tables carry `created_at` and `created_by`; tables that are updated also carry `updated_at` and `updated_by`. Timestamps are `TIMESTAMP WITH TIME ZONE DEFAULT ON NULL SYSTIMESTAMP`. The user is the APEX user, otherwise the proxy user (`EMK_DEV`), otherwise the session user: `COALESCE(SYS_CONTEXT('APEX$SESSION','APP_USER'), SYS_CONTEXT('USERENV','PROXY_USER'), SYS_CONTEXT('USERENV','SESSION_USER'))`. `updated_*` is set by a technical `BEFORE UPDATE` trigger, so it is also set when APEX updates a table directly. |
-| **Change history** | Each operational table has a journal table `<TABLE>_JN`, filled by an `AFTER UPDATE OR DELETE` trigger with the **previous row**, the operation, the user and the timestamp (FR-09). `EMK_CLAIM_STATUS_HISTORY` remains the business history of status changes (§4). Triggers are used only for audit columns and journals, never for business rules. |
+| **Change history** | Each operational table has a journal table `<TABLE>_JN`, filled by an `AFTER UPDATE OR DELETE` trigger with the **previous row**, the operation, the user and the timestamp (FR-09). `EMK_CLAIM_STATUS_HISTORY` remains the business history of status changes (§4). Triggers are used only for audit columns and journals, never for business rules. The code lists the administrator maintains in the application also have a journal, not partitioned (D-72). |
 | **Secrets** | No file in the repository contains secrets or personal data; passwords and API keys are entered at run time or stored in Web Credentials / the ORDS wallet. |
 | **UI language** | English by default; German as a translated application; users switch with a language selector (F-15). |
 
@@ -113,7 +114,7 @@ What each feature solves and how. Detailed requirements follow in §2.1–2.6; b
 | ID | Requirement | Scope |
 |----|-------------|-------|
 | FR-01 | Manage parties (companies) and their contact persons. | MVP |
-| FR-02 | Register shipments: CMR note number, shipper, carrier, consignee, origin/destination country, pickup/delivery dates, goods, packages, gross weight. | MVP |
+| FR-02 | Register shipments: CMR note number, sender, carrier, consignee, origin/destination country, dates of taking over and delivery, goods, packages, gross weight; date of the consignment note and, if known, the date the goods were placed at the consignee's disposal; when entered in the consignment note, the declared value and the special interest in delivery (CMR Art. 6, 24, 26, 30(3)). | MVP |
 | FR-03 | Import shipments from CSV or Excel through the ELT pattern (§1.3): landing table, validation, error report per row, `MERGE` without duplicates. | MVP |
 | FR-04 | Register claims linked to a shipment: type (loss, damage, delay), apparent/non-apparent damage, joint check date, reservation date, written claim date, carrier rejection date, claimed / settled / recovered amounts, currency, documents. | MVP |
 | FR-05 | Enforce the claim state machine (§4) in PL/SQL. | MVP |
@@ -186,20 +187,24 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 | BR-01 | A claim changes status only through the transitions of §4. | Design | `EMK_CLAIM_API` | SC-QA-03 |
 | BR-02 | Only the `CLAIMS_HANDLER` role changes a claim's status. | Design (§7.1) | APEX authorization + `EMK_CLAIM_API` | Unit |
 | BR-03 | The CMR note number is unique **per carrier**, including soft-deleted shipments; a carrier never reuses it (the CMR defines no numbering scheme, so different carriers may use the same number). | Business | Unique constraint | Unit |
-| BR-04 | A claim belongs to exactly one shipment. Damage, partial loss and delay claims require the delivery date; total loss requires the agreed delivery date or the pickup date. | CMR Art. 30, 32 | `EMK_CLAIM_API` | Unit |
+| BR-04 | A claim belongs to exactly one shipment. Damage, partial loss and delay claims require the delivery date; total loss requires the agreed time-limit or the date of taking over. | CMR Art. 30, 32 | `EMK_CLAIM_API` | Unit |
 | BR-05 | Reservation deadlines follow §5 (`RES_*` rules). | CMR Art. 30 | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-06 | Limitation deadlines follow §5 (`LIM_*` rules); a written claim suspends the period until the carrier's written rejection. | CMR Art. 32 | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-07 | The start day of a period is not counted. | CMR Art. 30(4), 32(1) | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-08 | Public holidays are those of the country of delivery; alerts use the earlier *act-by* date (§5, Q4 decision). | Q4 decision | `EMK_DEADLINE_API` | SC-QA-04 |
 | BR-09 | Each handler receives at most one alert email per day; an alert for the same claim, rule and due date is sent once. | Design | `EMK_ALERT_API` + `EMK_ALERT_LOG` | SC-QA-05 |
-| BR-10 | Liability cap: loss or damage ≤ 8.33 SDR per kg of gross weight short (affected part); delay ≤ carriage charges. Shown as indicative. | CMR Art. 23(3) as amended by the 1978 Protocol, Art. 23(5), Art. 25 | `EMK_CLAIM_API` | Unit |
-| BR-11 | Settled amount ≤ claimed amount; recovered amount ≤ settled amount; amounts ≥ 0. | Business | Check constraints + API | Unit |
+| BR-10 | Liability cap: loss or damage ≤ 8.33 SDR per kg of gross weight short (affected part); delay ≤ carriage charges. A declared value replaces the 8.33 SDR limit; a declared special interest in delivery allows the additional loss or damage proved, up to its amount; with alleged wilful misconduct the limits may not apply (spec §5.3). Shown as indicative. | CMR Art. 23(3) as amended by the 1978 Protocol, Art. 23(5), 23(6), 24, 25, 26, 29 | `EMK_CLAIM_API` | Unit |
+| BR-11 | Admitted amount ≤ claimed amount; settled amount ≤ claimed amount; recovered amount (sum of the recovery payments, in the claim currency) ≤ settled amount; amounts ≥ 0. A recovery payment is never changed or deleted: a mistake is corrected by a negative entry that refers to it, with a reason (D-77). | Business; CMR Art. 27(2) for the conversion | Check constraints + API | Unit |
 | BR-12 | KPIs are converted to EUR at the ECB rate of the claim's registration date; without a rate on that date (weekend, TARGET holiday), the latest earlier rate is used. Claims and shipments use only EUR or currencies with an ECB rate. | Design (§1.3) | Views + APIs | Unit |
 | BR-13 | Operational records are soft-deleted only; deleted records are hidden but kept. | Design (§1.3) | APIs + views | Unit |
 | BR-14 | Imported rows that fail validation are rejected with a reason; valid rows are loaded; the import never creates duplicates. | Design (§1.3) | `EMK_INBOUND_PKG` (`EMK_INT`) + `EMK_SHIPMENT_API` | SC-QA-06 |
 | BR-15 | Erasure of personal data is done by pseudonymisation, never by soft delete. [EXT] | GDPR Art. 17 | Erasure procedure (FR-41) | SC-SEC-07 |
-| BR-16 | The shipper, carrier and consignee of a shipment have the role `SHIPPER`, `CARRIER` and `CONSIGNEE`; a company may have several roles; a role still used by a shipment cannot be removed. | Design | `EMK_SHIPMENT_API`, `EMK_PARTY_API` | Unit |
-| BR-17 | A shipment falls under the CMR: origin and destination are different countries (check constraint) and at least one of them is a CMR party on the pickup date (`cmr_party_since <= pickup_date`); otherwise it is rejected. | CMR Art. 1 | `EMK_SHIPMENT_API`, import (`EMK_INBOUND_PKG`) | Unit |
+| BR-16 | The sender, carrier and consignee of a shipment have the role `SENDER`, `CARRIER` and `CONSIGNEE`; a company has at least one role and may have several; a role still used by a shipment cannot be removed. | Design | `EMK_SHIPMENT_API`, `EMK_PARTY_API` | Unit |
+| BR-17 | A shipment falls under the CMR: origin and destination are different countries (check constraint) and at least one of them is a CMR party on the date of taking over (`cmr_party_since <= taking_over_date`); otherwise it is rejected. | CMR Art. 1 | `EMK_SHIPMENT_API`, import (`EMK_INBOUND_PKG`) | Unit |
+| BR-18 | A claim document is stored only if its file name extension is in the allowlist of file types (`EMK_FILE_EXTENSIONS`, `EMK_FILE_TYPES`) and valid on the upload date, its content starts with the signature of that type, and its size is at most 10 MB. The checks run in the database; the media type sent by the browser is ignored and the stored type is the one the server determined. | OWASP ASVS 5.0 V5.1.1, V5.2.2; CWE-434 | `EMK_CLAIM_API` | Unit |
+| BR-19 | A claim names its **claimant**, who is the sender or the consignee of its shipment, and is addressed to the shipment's carrier. | CMR Art. 12, 13(1), 17 | `EMK_CLAIM_API` | Unit |
+| BR-20 | A company has a postal address: street and city, and the postcode where its country uses one, in the format of the country (`EMK_POSTAL_FORMATS`); the API adds the prefix of the official form (e.g. `LV-1050`). Whether a postcode exists is not checked. | CMR Art. 6(1)(b), (c), (e) (name and address of the parties); UPU Universal POST*CODE DataBase (use and format of postcodes per country) | `EMK_PARTY_API`; street and city `NOT NULL`; general form of the postcode (check constraint) | Unit |
+| BR-21 | A VAT number is an EU VAT number in VIES format whose national part follows the format of the VAT prefix of the company's country (`EMK_VAT_FORMATS`); the API adds the prefix to a national part. | BZSt (structure of the VAT number per member state), HMRC (`XI`), VIES | `EMK_PARTY_API`; check constraint of the general form | Unit |
 
 ---
 
@@ -211,30 +216,47 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 erDiagram
     EMK_PARTIES ||--o{ EMK_PARTY_ROLES : "plays"
     EMK_PARTIES ||--o{ EMK_CONTACTS : "has"
-    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is shipper"
+    EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is sender"
     EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is carrier"
     EMK_PARTIES ||--o{ EMK_SHIPMENTS : "is consignee"
+    EMK_PARTIES ||--o{ EMK_CLAIMS : "is claimant"
     EMK_COUNTRIES ||--o{ EMK_PARTIES : "registered in"
     EMK_COUNTRIES ||--o{ EMK_SHIPMENTS : "origin / destination"
     EMK_COUNTRIES ||--o{ EMK_PUBLIC_HOLIDAYS : "has"
+    EMK_COUNTRIES ||--o{ EMK_VAT_FORMATS : "VAT prefix"
+    EMK_COUNTRIES ||--|| EMK_POSTAL_FORMATS : "postcode rule"
     EMK_CURRENCIES ||--o{ EMK_SHIPMENTS : "charges in"
     EMK_CURRENCIES ||--o{ EMK_CLAIMS : "amounts in"
     EMK_CURRENCIES ||--o{ EMK_EXCHANGE_RATES : "rates"
     EMK_SHIPMENTS ||--o{ EMK_CLAIMS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_DOCUMENTS : "has"
     EMK_CLAIMS ||--o{ EMK_CLAIM_STATUS_HISTORY : "logs"
+    EMK_CLAIMS ||--o{ EMK_CLAIM_RECOVERIES : "recovered by"
+    EMK_PARTIES ||--o{ EMK_CLAIM_RECOVERIES : "pays"
     EMK_CLAIMS ||--o{ EMK_ALERT_LOG : "triggers"
     EMK_REGULATIONS ||--o{ EMK_REG_CHUNKS : "split into"
+    EMK_LANGUAGES ||--o{ EMK_PARTIES : "language of letters"
+    EMK_PARTY_ROLE_TYPES ||--o{ EMK_PARTY_ROLES : "type of"
+    EMK_CLAIM_TYPES ||--o{ EMK_CLAIMS : "type of"
+    EMK_CLAIM_STATUSES ||--o{ EMK_CLAIMS : "status of"
+    EMK_CLAIM_STATUSES ||--o{ EMK_CLAIM_STATUS_HISTORY : "from / to"
+    EMK_DOCUMENT_TYPES ||--o{ EMK_CLAIM_DOCUMENTS : "type of"
+    EMK_FILE_TYPES ||--o{ EMK_CLAIM_DOCUMENTS : "file type of"
+    EMK_FILE_TYPES ||--o{ EMK_FILE_EXTENSIONS : "identified by"
 
     EMK_PARTIES {
         NUMBER party_id PK
         VARCHAR2 name
-        VARCHAR2 vat_number
+        VARCHAR2 vat_number "VIES format, BR-21"
         CHAR country_code FK
+        VARCHAR2 street "required, BR-20"
+        VARCHAR2 postal_code
+        VARCHAR2 city "required, BR-20"
+        CHAR language_code FK
     }
     EMK_PARTY_ROLES {
         NUMBER party_id PK
-        VARCHAR2 role_code PK "SHIPPER CONSIGNEE CARRIER FORWARDER INSURER SURVEYOR"
+        VARCHAR2 role_code PK, FK "EMK_PARTY_ROLE_TYPES"
     }
     EMK_CONTACTS {
         NUMBER contact_id PK
@@ -246,9 +268,25 @@ erDiagram
     EMK_COUNTRIES {
         CHAR country_code PK "ISO 3166-1 alpha-2"
         VARCHAR2 name
-        CHAR eu_vat_prefix "EL for GR"
         CHAR eu_member_yn
         DATE cmr_party_since
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_VAT_FORMATS {
+        CHAR vat_prefix PK "EL for GR, XI for GB"
+        CHAR country_code FK
+        VARCHAR2 national_format "pattern"
+        VARCHAR2 national_example
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_POSTAL_FORMATS {
+        CHAR country_code PK, FK
+        CHAR postal_code_required_yn "UPU"
+        VARCHAR2 postal_code_prefix "LV-, L-"
+        VARCHAR2 postal_code_format "pattern"
+        VARCHAR2 postal_code_example
         DATE valid_from
         DATE valid_to
     }
@@ -272,25 +310,32 @@ erDiagram
     EMK_SHIPMENTS {
         NUMBER shipment_id PK
         VARCHAR2 cmr_note_no "UK with carrier_id"
-        NUMBER shipper_id FK
+        DATE cmr_note_date "Art. 6(1)(a)"
+        NUMBER sender_id FK
         NUMBER carrier_id FK
         NUMBER consignee_id FK
-        VARCHAR2 pickup_place
+        VARCHAR2 taking_over_place
         CHAR origin_country FK
         VARCHAR2 delivery_place
         CHAR destination_country FK
-        DATE pickup_date
-        DATE agreed_delivery_date
+        DATE taking_over_date
+        DATE agreed_time_limit
         DATE delivery_date
+        DATE disposal_date "Art. 30(3)"
         NUMBER gross_weight_kg
         NUMBER carriage_charges
         CHAR currency_code
+        NUMBER declared_value "Art. 24"
+        CHAR declared_value_currency FK
+        NUMBER special_interest "Art. 26"
+        CHAR special_interest_currency FK
     }
     EMK_CLAIMS {
         NUMBER claim_id PK
         VARCHAR2 claim_no UK
         NUMBER shipment_id FK
-        VARCHAR2 claim_type "TOTAL_LOSS PARTIAL_LOSS DAMAGE DELAY"
+        NUMBER claimant_id FK "sender or consignee (BR-19)"
+        VARCHAR2 claim_type FK "EMK_CLAIM_TYPES"
         CHAR damage_apparent_yn
         DATE registration_date
         DATE joint_check_date
@@ -300,17 +345,30 @@ erDiagram
         NUMBER weight_short_kg
         NUMBER claimed_amount
         NUMBER settled_amount
-        NUMBER recovered_amount
+        NUMBER admitted_amount "partial admission (Art. 32(2))"
+        DATE admission_date
+        DATE settlement_date
         CHAR currency_code
-        VARCHAR2 status
+        VARCHAR2 status FK "EMK_CLAIM_STATUSES"
         VARCHAR2 handler
     }
     EMK_CLAIM_DOCUMENTS {
         NUMBER document_id PK
         NUMBER claim_id FK
-        VARCHAR2 doc_type
+        VARCHAR2 doc_type FK "EMK_DOCUMENT_TYPES"
+        VARCHAR2 mime_type FK "EMK_FILE_TYPES (BR-18)"
         BLOB content
         CLOB extracted_text
+    }
+    EMK_CLAIM_RECOVERIES {
+        NUMBER recovery_id PK
+        NUMBER claim_id FK
+        DATE payment_date
+        NUMBER amount
+        CHAR currency_code FK
+        NUMBER claim_currency_amount "ECB rate of the payment day"
+        NUMBER payer_id FK "carrier or its insurer"
+        NUMBER corrects_recovery_id FK "correction entry"
     }
     EMK_CLAIM_STATUS_HISTORY {
         NUMBER history_id PK
@@ -342,6 +400,47 @@ erDiagram
         CLOB chunk_text
         VECTOR embedding
     }
+    EMK_LANGUAGES {
+        CHAR language_code PK "ISO 639-1"
+        VARCHAR2 name
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_PARTY_ROLE_TYPES {
+        VARCHAR2 role_code PK "SENDER CONSIGNEE CARRIER FORWARDER INSURER SURVEYOR"
+        VARCHAR2 name
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_CLAIM_TYPES {
+        VARCHAR2 claim_type PK "TOTAL_LOSS PARTIAL_LOSS DAMAGE DELAY"
+        VARCHAR2 name
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_CLAIM_STATUSES {
+        VARCHAR2 status_code PK "state machine, section 4"
+        VARCHAR2 name
+        CHAR final_yn
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_DOCUMENT_TYPES {
+        VARCHAR2 doc_type PK
+        VARCHAR2 name
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_FILE_TYPES {
+        VARCHAR2 mime_type PK "IANA media type"
+        RAW signature "first bytes of the file"
+        DATE valid_from "allowed from; empty = not allowed"
+        DATE valid_to
+    }
+    EMK_FILE_EXTENSIONS {
+        VARCHAR2 file_extension PK
+        VARCHAR2 mime_type FK
+    }
 ```
 
 ### 3.2 Reference and Technical Tables
@@ -350,6 +449,10 @@ erDiagram
 |-------|---------|-------|
 | `EMK_CURRENCIES` | ISO 4217 currencies with validity period (e.g., HRK until 2022-12-31) | MVP |
 | `EMK_COUNTRY_NAMES`, `EMK_CURRENCY_NAMES` | Names in other languages (ISO 639; German in Release 1) for UI and letters; English stays in the base table ([design](design/data-model-reference.md)) | MVP |
+| `EMK_LANGUAGES`, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_CLAIM_TYPES`, `EMK_DOCUMENT_TYPES` | Code lists with validity (§1.3 *Code lists*): languages (ISO 639), company roles, claim statuses (§4), claim types, document types | MVP |
+| `EMK_FILE_TYPES`, `EMK_FILE_EXTENSIONS` | Allowlist of file types for claim documents, with the signature of each type and its extensions (BR-18); changed only by a reviewed data script | MVP |
+| `EMK_VAT_FORMATS` | EU VAT prefix per country and the format of the national part of a VAT number (BR-21; BZSt, HMRC): the 27 member states, `EL` for Greece, `XI` for Northern Ireland (country `GB`); changed only by a reviewed data script (D-88) | MVP |
+| `EMK_POSTAL_FORMATS` | Postcode rule per country (BR-20; UPU): required or not, prefix of the official form, pattern and example; Syria uses no postcodes; changed only by a reviewed data script (D-90) | MVP |
 | `EMK_DEADLINE_RULES` | CMR deadline rules (§5) and alert thresholds | MVP |
 | `EMK_EXCHANGE_RATES` | Daily EUR rates per currency (ECB reference rates: units of the currency per 1 EUR) | MVP |
 | `<TABLE>_JN` | Journal of each operational table: previous row, operation (`U`/`D`), user, timestamp (§1.3) | MVP |
@@ -364,12 +467,13 @@ erDiagram
 
 ### 3.3 Design Notes
 
-- **Personal data is isolated** in `EMK_CONTACTS`, which simplifies redaction and erasure.
+- **Direct personal data of contact persons is isolated** in `EMK_CONTACTS`, which simplifies redaction and erasure. Other places hold user names (audit columns), sole traders' data (parties) or may hold personal data in free text and documents: all are listed in the [personal data inventory](design/personal-data.md) (D-80).
 - **Deadlines are calculated, not stored.** `EMK_DEADLINE_API` derives them and exposes them through the view `EMK_V_CLAIM_DEADLINES`.
 - **`EMK_ALERT_LOG`** prevents the same alert from being emailed twice.
 - **Successive carriers** (CMR Art. 34) are out of the MVP: one carrier per shipment.
+- **Code lists** (`EMK_LANGUAGES` … `EMK_FILE_EXTENSIONS`, §1.3 *Code lists*) are shown with their main columns; their journals and the name tables of countries and currencies are not.
 - **Not shown in the diagram, for readability:** soft-delete columns (`deleted_yn`, `deleted_at`, `deleted_by`) on operational tables, audit columns (`created_*`, `updated_*`) on all tables, and the journal tables `<TABLE>_JN` (§1.3).
-- **Reference tables** (countries, currencies, holidays, rules, rates) use natural ISO or composite keys and validity periods instead of soft delete (§1.3).
+- **Reference tables** (countries, currencies, holidays, rules, rates, code lists) use natural ISO, code or composite keys and validity periods instead of soft delete (§1.3).
 - **`carriage_charges`** on shipments is needed for the delay compensation limit (BR-10, CMR Art. 23(5)).
 
 ---
@@ -415,8 +519,24 @@ Verified against the [official CMR text](https://unece.org/DAM/trans/conventn/cm
 **Calculation rules**
 
 - The start day is **not included** in any period (Art. 30(4), Art. 32(1)).
+- Only **Sundays and public holidays** are excepted (Art. 30(1), 30(2)); Saturdays count. The 21 days of `RES_DELAY` and the limitation periods count every day.
 - A **written claim suspends** the limitation period until the carrier rejects it in writing and returns the documents (Art. 32(2)). The suspended days are added to the limitation deadline.
 - Total loss: goods not delivered within 30 days after the agreed time-limit (or 60 days after taking over) are conclusive evidence of loss (Art. 20(1)).
+
+**Key dates and where they are stored**
+
+| Date | CMR | Stored in | Used by |
+|------|-----|-----------|---------|
+| Date of the consignment note | Art. 6(1)(a), 4 | `EMK_SHIPMENTS.cmr_note_date` (required) | `LIM_OTHER`: 3 months after the making of the contract of carriage (spec §5.3 L11) |
+| Taking over of the goods | Art. 6(1)(d) | `EMK_SHIPMENTS.taking_over_date` | `LIM_TOTAL` without an agreed time-limit; value of the goods (Art. 23(1)) |
+| Agreed time-limit | Art. 19 | `EMK_SHIPMENTS.agreed_time_limit` | Delay; `LIM_TOTAL` |
+| Delivery | Art. 30(1) | `EMK_SHIPMENTS.delivery_date` | `RES_APPARENT`, `RES_NON_APPARENT`, `LIM_PARTIAL` |
+| Goods placed at the consignee's disposal | Art. 30(3) | `EMK_SHIPMENTS.disposal_date` (optional) | `RES_DELAY` (without it: the delivery date, L12) |
+| Joint check | Art. 30(2) | `EMK_CLAIMS.joint_check_date` | `RES_AFTER_CHECK` |
+| Reservation sent | Art. 30 | `EMK_CLAIMS.reservation_date` | Reservation in time or late |
+| Written claim; carrier's written rejection | Art. 32(2) | `EMK_CLAIMS.written_claim_date`, `carrier_rejection_date` | Suspension of the limitation period |
+
+**Decided (2026-10-21, D-79):** both dates are stored in `EMK_SHIPMENTS`; the date of the consignment note is required (Art. 6(1)(a) lists it among the particulars every note contains).
 
 ### 5.1 Q4 Decision: Public Holidays of the Country of Delivery
 
@@ -441,6 +561,29 @@ The deadlines are informational, not legal advice (intent §5).
 ### 5.2 Liability Limit (verified)
 
 The 1956 text sets 25 gold francs per kilogram (Art. 23(3)). The **1978 Protocol** (Art. 2) replaces it with **8.33 units of account per kilogram of gross weight short** and defines the unit of account as the **SDR** of the International Monetary Fund. The amount is converted into national currency at the date of the judgment or a date agreed by the parties. The application therefore shows the cap as **indicative**, using the SDR rate of the calculation date (BR-10). Verified against the official Protocol text (UNECE, ECE/TRANS/34) on 2026-10-04.
+
+### 5.3 Legal Assumptions (no legal review)
+
+The deadlines follow the official text of the CMR (§5; text checked on 2026-10-21 in the reproduction of the Convention in the UK Carriage of Goods by Road Act 1965, Schedule, [legislation.gov.uk](https://www.legislation.gov.uk/ukpga/1965/37/schedule)). **No lawyer specialised in transport law has reviewed them**, so they rest on the assumptions below (intent §4: results are informational, not legal advice).
+
+| # | Assumption |
+|---|------------|
+| L1 | No legal review: the dates are **informational**. The deadline region of the application shows "Informational dates under the CMR; not legal advice" (M2) |
+| L2 | **Wilful misconduct** (Art. 29, 32(1)) changes only the **duration** of the limitation period, from 1 to 3 years; the start date and the suspension are the same |
+| L3 | Alerts always use the **1-year** period; the 3-year date is shown only as information when wilful misconduct is alleged |
+| L4 | The flag `wilful_misconduct_yn` records what the **claimant alleges**; a person sets it, the claim journal keeps who and when (FR-09), and the system never infers it. Only a court can recognise it, which also removes the liability limits (Art. 29; shown with the cap, M4) |
+| L5 | One written claim per object suspends once: further claims with the same object do not suspend again (Art. 32(2)); a partial admission restarts the period for the part still in dispute |
+| L6 | Not calculated, because the law of the court decides: the extension and interruption of the period (Art. 32(3)) and which default counts as equivalent to wilful misconduct (Art. 29). For Germany, § 435 HGB (intent or recklessness with awareness that damage would probably result; [official text](https://www.gesetze-im-internet.de/hgb/__435.html)) may be treated as equivalent; **to be confirmed with a specialist** before a real case |
+| L7 | Day counting and public holidays as in §5 and the Q4 decision (§5.1) |
+| L8 | **Who may claim** (Art. 12, 13(1)): the sender until the consignee takes over the rights, the consignee after the goods arrived or were lost. The Convention does not always say which of the two holds the right in a given case (the applicable law decides), so the application does **not** decide it: the handler chooses the claimant among the sender and the consignee of the shipment (BR-19). Subrogation of an insurer who paid the claimant is governed by national law and is out of scope |
+| L9 | **Interest** (Art. 27(1)): 5 % per year on each amount paid, from the date the claim was sent in writing to the carrier until the payment date; **simple interest**, actual days over a 365-day year, not compounded. Shown as information only (view), never stored or claimed automatically. The Convention does not fix the day count: **to be confirmed with a specialist** |
+| L10 | **Conversion** (Art. 27(2)): a payment in another currency is converted into the claim currency at the ECB reference rate of the payment day (the latest earlier rate on days without one, as BR-12) |
+| L11 | **Date of the contract** (Art. 32(1)(c)): the date of the consignment note is taken as the making of the contract of carriage; the note confirms the contract (Art. 4), which may be older. **To be confirmed with a specialist** |
+| L12 | **Goods placed at the disposal of the consignee** (Art. 30(3)): when the date is not entered, the deadline calculation uses the delivery date and says so |
+| L13 | **Personal data** (GDPR Art. 4(1), 30): the [inventory](design/personal-data.md) lists every column that holds or may hold personal data; it is a technical inventory, not the record of processing activities of Art. 30 (purposes, legal bases), which a data protection specialist should review |
+| L14 | **Order of the shipment dates — a business decision, not CMR text.** The Convention lists the dates of the consignment note (Art. 6(1)(a)) but does not fix their order. The application therefore **accepts a consignment note dated before, on or after the taking over** (a note may be made out after loading). It **rejects** dates that are physically impossible for the same goods: delivery, agreed time-limit and placing at the consignee's disposal before the taking over. These checks are logic, not law; the client confirms them (D-81) |
+
+**Tests for M2** (`EMK_DEADLINE_API`): the excluded start day; leap years; total loss with and without an agreed time-limit; wilful misconduct (3 years, same start); a repeated written claim that does not suspend again; a partial admission.
 
 ---
 
@@ -509,13 +652,16 @@ See [ADR-002](adr/ADR-002-nl-to-sql-via-ai-gateway.md): question + allow-listed 
 | Capability | CLAIMS_HANDLER | COMPLIANCE_OFFICER | ANALYST | ADMINISTRATOR |
 |------------|:-:|:-:|:-:|:-:|
 | Parties, shipments, claims (create/edit) | ✔ | read | – | read |
+| Change history of parties and shipments (FR-09) | ✔ | ✔ | – | ✔ |
+| Change history of contacts (former personal data; GDPR Art. 5(1)(c), data minimisation) | – | ✔ | – | – |
 | Shipment import (CSV/Excel) | ✔ | – | – | ✔ |
 | Claim status transitions | ✔ | – | – | – |
 | Claim letters | ✔ | – | – | – |
 | Alerts (home page and email) | own claims | – | – | – |
 | Regulatory search | ✔ | ✔ | ✔ | ✔ |
 | Dashboards | ✔ | ✔ | ✔ | ✔ |
-| Reference data (countries, holidays, rules, rates, templates) | read | read | – | ✔ |
+| Reference data (countries, holidays, rules, rates, templates; changed through reviewed data scripts) | read | read | – | ✔ |
+| Master Data menu: code lists (party roles, claim statuses and types, document types, allowed file types) and their change history; checked in the pages and in the API (D-82) | – | – | – | ✔ |
 | Corpus ingestion | – | – | – | ✔ |
 | AI audit log [EXT] | – | ✔ | – | ✔ |
 | Erasure requests [EXT] | – | ✔ | – | – |
@@ -537,6 +683,7 @@ Applied before each release (M5, then each extension):
 - Authorization scheme on every page and on sensitive components (§7.1).
 - Session state protection enabled; items checksummed where they carry keys.
 - Output escaping kept on by default; no raw HTML from user data.
+- File uploads checked in the database, not only by the browser filter of the upload item (BR-18).
 - The parsing schema holds no privileges beyond what the application needs.
 - **APEX Advisor** run with no open security findings.
 
@@ -564,7 +711,7 @@ Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII 
 - **Admin layer:** `scripts/install_admin.sql` asks for the environment and runs idempotent scripts as `SYS` in its PDB (DEV `FREEPDB1`, TEST `EMKTEST`; ADR-009).
 - **Application layer:** SQLcl `project` (Liquibase); `project deploy` by `EMK_DEPLOY` applies each change once.
 - **Scripts:** a script run from the command line ends with `EXIT`, so that it returns to the shell and the next one can start (unattended runs also need its prompts as arguments, with CI); a script called by another (`@@`) never does.
-- **Reference data:** idempotent `MERGE` scripts in `data/reference/`, loaded in DEV with `load_reference_data.sql` and added to a release with `project stage add-custom`.
+- **Reference data:** insert-only `MERGE` scripts in `data/reference/` (a release never overwrites production data; changes to existing rows are change scripts with an authorized request, D-72), loaded in DEV with `load_reference_data.sql` and added to a release with `project stage add-custom`.
 
 ---
 
@@ -627,6 +774,7 @@ Single gateway, network ACL allow-list, EU/EEA provider with DPA (ADR-003), PII 
 | Level | What is tested | Tool | Written in | Run in |
 |-------|----------------|------|------------|--------|
 | **Unit** | Each business rule (§2.7) and each public PL/SQL API procedure, including negative cases | utPLSQL | Stage 3 — Build, together with the code | Stage 4 — Test, and on every change |
+| **Application context** | The APIs and views as APEX uses them: connect user `EMK_UI` without table privileges, an APEX session, audit user, error codes, `row_version`; concurrency between users (a held lock, then the action in the browser); checks that need an application role, with a test user whose role the script gives and removes (master data, T-M1-44) | SQLcl scripts in `tests/emk_ui/`; their log entries are deleted afterwards by the owner of the log | Stage 3 | Stage 4, before the browser test |
 | **Integration** | End-to-end flows: import (STG → `MERGE`), daily alert job and email, legal search | SQLcl scripts + utPLSQL | Stage 3 | Stage 4 |
 | **Acceptance** | The success criteria of §8 for the milestone | Checklist with evidence (logs, screenshots, reports) | Milestone plan (`docs/plans/`) | Stage 4, before the pull request |
 | **AI evaluation** | Recall@5 per language on the golden set | Evaluation script | M3 | Stage 4 (M3) and after any model or chunking change |
@@ -668,7 +816,7 @@ ia_apex_project/
 ├── README.md               # Entry point, EN + DE (M5)
 ├── package.json · eslint.config.js
 ├── .dbtools/ · src/ · dist/  # SQLcl project: application objects, APEX app 200, releases (ADR-005; replaces db/ and apex/)
-├── data/reference/         # Reference data: idempotent MERGE scripts and their loader
+├── data/reference/         # Reference data: insert-only MERGE scripts and their loader
 ├── data/sources/           # Third-party source documents (CMR text…), not committed
 ├── docs/
 │   ├── sdlc.md · intent.md · spec.md · glossary.md · setup.md
@@ -679,7 +827,7 @@ ia_apex_project/
 │   ├── admin/              # 00_config, tablespaces, roles, schemas, accounts, audit, workspace, utilities
 │   └── operations/         # 00_config, ARCHIVELOG, keystore, RMAN, restore drills (ADR-010, ADR-011)
 ├── static/                 # APEX static files (css, img, js)
-├── tests/                  # utPLSQL suites; admin/ checks of the admin layer
+├── tests/                  # utPLSQL suites per schema (emk_data/, emk_api/); emk_ui/ application-context scripts; admin/ checks of the admin layer
 └── logs/                   # Local logs, not committed
 ```
 
@@ -790,3 +938,10 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.17 | 2026-10-16 | Focus on the MVP components of the intent: M5 takes the deferred M1 phase M.5 (TEST environment, deployment by `EMK_DEPLOY`, flashback, restore drill) if time allows; ADR-009 status (MVP in DEV only). Accepted by the owner. |
 | v1.18 | 2026-10-16 | §1.3 *Error handling*: package `EMK_ERRORS_PKG` (renamed to follow the naming rule `EMK_<NAME>_PKG`); §7.5 unit tests in the schema of the tested objects, utPLSQL access for `EMK_DATA` and `EMK_API`; §1.3 *Naming*: all identifier prefixes written down (`l_`, `g_`, `c_`, `e_`), as the code already uses them. |
 | v1.19 | 2026-10-16 | Phase M.4 done: §7.5 developer proxy to `EMK_UI` for the APEX export, first schema of the workspace, script rule (`EXIT` only in scripts run from the command line), reference data in `data/reference/`; transition note removed (`EMK_APP` retired); §10 `data/reference/`; §13 ADR-008 status. |
+| v1.20 | 2026-10-17 | §1.2 component diagram: every API of Release 1 on its own line with its milestone (`EMK_PARTY_API`, `EMK_SHIPMENT_API` added), callers explained; §5 Saturdays count (only Sundays and public holidays are excepted), key dates of a CMR claim with the column that stores each, open point for M2 (consignment note date, date placed at the consignee's disposal). Accepted by the owner. |
+| v1.21 | 2026-10-18 | §7.1: who sees the change history in the application: parties and shipments for the claims handler, the compliance officer and the administrator; contacts (former personal data) for the compliance officer only (D-67). Accepted by the owner. |
+| v1.22 | 2026-10-18/21 | §1.3 *Code lists*: business value lists as reference tables with validity and foreign keys, check constraints only for technical values (D-68); §2.7 BR-18 (file checks of claim documents: allowlist, extension and content signature, server side); §3.1 the code lists as entities of the diagram, with their foreign keys; §3.2 code list tables; §7.1 code lists as reference data; §7.3 upload checks; BR-16: at least one role per company (D-71); §8.4 test level *Application context*; §10 `tests/emk_ui/`; §5.3 legal assumptions without legal review, wilful misconduct (D-75); BR-19 claimant (D-76); BR-11 with partial admission, settlement date and recovery payments, L9 interest, L10 conversion (D-77); FR-02 and BR-10 declared value and special interest (D-78); §5 dates of the consignment note and of disposal stored, L11–L12 (D-79); §3.3 and L13 personal data inventory (D-80); L14 order of the shipment dates (D-81). Accepted by the owner. |
+| v1.23 | 2026-10-21 | §1.3 *Code lists* and §7.1: the administrator maintains the code lists in the Master Data menu, with their change history, checked in the pages and in the API; code lists removed from the row of reference data changed by scripts (D-82). Accepted by the owner. |
+| v1.24 | 2026-10-21 | §8.4 *Application context*: checks that need an application role, with a test role given and removed by the script; the owner of the log deletes their log entries (master data, step 7.7). Accepted by the owner. |
+| v1.25 | 2026-10-22 | CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); FR-02, BR-04, BR-16, BR-17, BR-19, §3.1 diagram, §5 key dates. Accepted by the owner. |
+| v1.26 | 2026-10-28 | Company data in step 7.8: BR-20 postal address (street and city required, postcode where the country uses one and in the format of the country; CMR Art. 6(1), UPU; D-89, D-90) and BR-21 EU VAT number in the format of the VAT prefix of the country, the API adds the prefix (BZSt, HMRC; D-88); §1.3 *Reference data*: VAT prefixes in their own table `EMK_VAT_FORMATS` (`eu_vat_prefix` removed from `EMK_COUNTRIES`) and the postcode rules in `EMK_POSTAL_FORMATS`; §3.1 diagram and §3.2 updated. Accepted by the owner. |
