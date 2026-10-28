@@ -272,13 +272,15 @@ create or replace package body emk_api.emk_shipment_api as
         out_shipment_id              out emk_data.emk_shipments.shipment_id%type
     ) is
 
-        l_origin           emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
-        l_destination      emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
-        l_currency         emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_origin           varchar2(4000 char) := upper(trim(in_origin_country));
+        l_destination      varchar2(4000 char) := upper(trim(in_destination_country));
+        l_currency         varchar2(4000 char) := upper(trim(in_currency_code));
         l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
         l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
-        l_value_cur        emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
-        l_interest_cur     emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
+        l_value_cur        varchar2(4000 char) := upper(trim(in_declared_value_currency));
+        l_interest_cur     varchar2(4000 char) := upper(trim(in_special_interest_currency));
     begin
         check_shipment(null, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
                        l_destination, l_taking_over_date, l_currency);
@@ -369,14 +371,16 @@ create or replace package body emk_api.emk_shipment_api as
     ) is
 
         l_old              emk_data.emk_shipments%rowtype;
-        l_note             emk_data.emk_shipments.cmr_note_no%type := upper(trim(in_cmr_note_no));
-        l_origin           emk_data.emk_shipments.origin_country%type := upper(trim(in_origin_country));
-        l_destination      emk_data.emk_shipments.destination_country%type := upper(trim(in_destination_country));
-        l_currency         emk_data.emk_shipments.currency_code%type := upper(trim(in_currency_code));
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_note             varchar2(4000 char) := upper(trim(in_cmr_note_no));
+        l_origin           varchar2(4000 char) := upper(trim(in_origin_country));
+        l_destination      varchar2(4000 char) := upper(trim(in_destination_country));
+        l_currency         varchar2(4000 char) := upper(trim(in_currency_code));
         l_taking_over_date emk_data.emk_shipments.taking_over_date%type := trunc(in_taking_over_date);
         l_note_date        emk_data.emk_shipments.cmr_note_date%type := trunc(in_cmr_note_date);
-        l_value_cur        emk_data.emk_shipments.declared_value_currency%type := upper(trim(in_declared_value_currency));
-        l_interest_cur     emk_data.emk_shipments.special_interest_currency%type := upper(trim(in_special_interest_currency));
+        l_value_cur        varchar2(4000 char) := upper(trim(in_declared_value_currency));
+        l_interest_cur     varchar2(4000 char) := upper(trim(in_special_interest_currency));
     begin
         lock_shipment(in_shipment_id, in_expected_updated_at, true, l_old);
         check_shipment(in_shipment_id, in_sender_id, in_carrier_id, in_consignee_id, l_origin,
@@ -512,4 +516,4 @@ end emk_shipment_api;
 /
 
 
--- sqlcl_snapshot {"hash":"52c7077e7e49b5b81842fd5ed839efdc0fe59c26","type":"PACKAGE_BODY","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"935fb0f12bb834a39913d240876d2800787e5d1f","type":"PACKAGE_BODY","name":"EMK_SHIPMENT_API","schemaName":"EMK_API","sxml":""}

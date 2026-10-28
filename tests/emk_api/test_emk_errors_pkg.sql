@@ -65,6 +65,10 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_party_in_use then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_party_role_required, 'test');
         exception when emk_errors_pkg.e_party_role_required then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_party_address_required, 'test');   -- D-89
+        exception when emk_errors_pkg.e_party_address_required then l_matched := l_matched + 1; end;
+        begin raise_application_error(emk_errors_pkg.c_postal_code_format, 'test');   -- D-90
+        exception when emk_errors_pkg.e_postal_code_format then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_shipment_in_use, 'test');
         exception when emk_errors_pkg.e_shipment_in_use then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_cmr_not_applicable, 'test');
@@ -76,7 +80,7 @@ create or replace package body test_emk_errors_pkg as
         exception when emk_errors_pkg.e_code_protected then l_matched := l_matched + 1; end;
         begin raise_application_error(emk_errors_pkg.c_code_exists, 'test');
         exception when emk_errors_pkg.e_code_exists then l_matched := l_matched + 1; end;
-        ut.expect(l_matched).to_equal(21);
+        ut.expect(l_matched).to_equal(23);
         -- Every constant of the package is checked above: a new code needs its line here
         select count(*)
         into   l_constants
@@ -94,9 +98,9 @@ create or replace package body test_emk_errors_pkg as
         l_claim     emk_data.emk_claims.claim_id%type;
         l_document  emk_data.emk_claim_documents.document_id%type;
     begin
-        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Sender', 'DE', 'en') returning party_id into l_sender;
-        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into l_carrier;
-        insert into emk_data.emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into l_consignee;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Sender', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into l_sender;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Carrier', 'Test Street 1', 'Test City', 'PL', 'en') returning party_id into l_carrier;
+        insert into emk_data.emk_parties (name, street, city, country_code, language_code) values ('Test Consignee', 'Test Street 1', 'Test City', 'FR', 'en') returning party_id into l_consignee;
 
         insert into emk_data.emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place,
                                             origin_country, delivery_place, destination_country, taking_over_date,

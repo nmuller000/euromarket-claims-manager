@@ -96,11 +96,19 @@ DECLARE
         RETURN &emk_api_schema..emk_row_version_pkg.parse_row_version(l_row_version);   -- as an APEX page does
     END version_of;
 
+    -- The example postcode of the country (D-90): it follows the format of the country
+    FUNCTION postal_code_of (in_country IN VARCHAR2) RETURN VARCHAR2 IS
+        l_example VARCHAR2(10 CHAR);
+    BEGIN
+        SELECT MAX(postal_code_example) INTO l_example FROM &emk_api_schema..emk_v_postal_formats WHERE country_code = in_country;
+        RETURN l_example;
+    END postal_code_of;
+
     FUNCTION new_party (in_name IN VARCHAR2, in_country IN VARCHAR2, in_roles IN VARCHAR2) RETURN NUMBER IS
         l_id NUMBER;
     BEGIN
         &emk_api_schema..emk_party_api.create_party(in_name => in_name, in_vat_number => NULL,
-            in_country_code => in_country, in_street => NULL, in_postal_code => NULL, in_city => NULL,
+            in_country_code => in_country, in_street => 'Test Street 1', in_postal_code => postal_code_of(in_country), in_city => 'Test City',
             in_language_code => 'en', in_role_codes => in_roles, out_party_id => l_id);
         RETURN l_id;
     END new_party;
@@ -130,7 +138,7 @@ BEGIN
     check_result(l_text = c_app_user, 'create_party records the APEX user in created_by (' || l_text || ')');
 
     &emk_api_schema..emk_party_api.update_party(l_carrier, version_of('emk_v_parties', 'party_id', l_carrier),
-        'App Context Test Carrier Renamed', NULL, 'PL', NULL, NULL, NULL, 'en');
+        'App Context Test Carrier Renamed', NULL, 'PL', 'Test Street 1', '00-950', 'Test City', 'en');
     SELECT updated_by INTO l_text FROM &emk_api_schema..emk_v_parties WHERE party_id = l_carrier;
     check_result(l_text = c_app_user, 'update_party with row_version from the view: updated_by is the APEX user');
     SELECT MAX(changed_by) INTO l_text FROM &emk_api_schema..emk_v_party_history WHERE party_id = l_carrier AND action = 'UPDATED';
@@ -183,7 +191,7 @@ BEGIN
 
     BEGIN
         &emk_api_schema..emk_party_api.update_party(l_sender, SYSTIMESTAMP - INTERVAL '1' DAY,
-            'App Context Test Sender 2', NULL, 'DE', NULL, NULL, NULL, 'en');
+            'App Context Test Sender 2', NULL, 'DE', 'Test Street 1', '10115', 'Test City', 'en');
         check_result(FALSE, 'An update with an old version was accepted');
     EXCEPTION
         WHEN OTHERS THEN

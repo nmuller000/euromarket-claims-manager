@@ -30,10 +30,6 @@ create or replace package emk_api.emk_codes_pkg as
     -- Currency: the ECB publishes every reference rate against the euro (BR-12) ---
     c_currency_euro constant emk_data.emk_currencies.currency_code%type := 'EUR';
 
-    -- EU VAT: traders in Northern Ireland use the prefix XI with country GB --------
-    c_country_gb constant emk_data.emk_countries.country_code%type := 'GB';
-    c_vat_prefix_northern_ireland constant emk_data.emk_countries.eu_vat_prefix%type := 'XI';
-
     /**
      * Tells whether a party role is named by a rule, so the master data
      * cannot retire it (D-82). A role constant added above is added here too,
@@ -50,4 +46,4 @@ end emk_codes_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"b1578deea93c3d48f03a1667eda815d88b3fe894","type":"PACKAGE_SPEC","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"654028372b205adba92a3c544ab22769b230f609","type":"PACKAGE_SPEC","name":"EMK_CODES_PKG","schemaName":"EMK_API","sxml":""}

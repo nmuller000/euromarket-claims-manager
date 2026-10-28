@@ -170,14 +170,14 @@
     name: EMK_ERROR_20103
 
   message: 
-    text: "The VAT number does not match the company's country: it must start with the country's VAT prefix (for example DE for Germany)."
+    text: The VAT number does not have the format of the company's country. Type it as in the example under the field. A company outside the EU has no EU VAT number.
 
   attributes: 
     language: English (en)
     used-in-javascript: false
 
   subscription: 
-    version-number: 99927520
+    version-number: 102180624
 
 - # ====== Text Message: EMK_ERROR_20104 =======================
   id: 58209390624995245
@@ -440,14 +440,14 @@
     name: EMK_PARTIES_VAT_CK
 
   message: 
-    text: 'The VAT number is not valid: it starts with the two-letter country prefix, followed by 2 to 12 letters or digits (for example DE123456789).'
+    text: 'The VAT number is not valid: it starts with the two-letter country prefix, followed by 2 to 12 letters, digits or the signs + and * (for example DE123456789).'
 
   attributes: 
     language: English (en)
     used-in-javascript: false
 
   subscription: 
-    version-number: 99927520
+    version-number: 102255997
 
 - # ====== Text Message: EMK_PARTY_ROLE_TYPES_CODE_CK ==========
   id: 58214790989995248
@@ -598,4 +598,49 @@
 
   subscription: 
     version-number: 99927520
+
+- # ====== Text Message: EMK_ERROR_20107 =======================
+  id: 60218180163498598
+  identification: 
+    name: EMK_ERROR_20107
+
+  message: 
+    text: 'The address of the company is incomplete: enter the street, the city and, except in countries without postcodes, the postcode.'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102212290
+
+- # ====== Text Message: EMK_ERROR_20108 =======================
+  id: 60610889117175895
+  identification: 
+    name: EMK_ERROR_20108
+
+  message: 
+    text: The postcode does not have the format of the company's country. Type it as in the example under the field.
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102272445
+
+- # ====== Text Message: EMK_PARTIES_POSTCODE_CK ===============
+  id: 60611040847177856
+  identification: 
+    name: EMK_PARTIES_POSTCODE_CK
+
+  message: 
+    text: 'The postcode is not valid: use letters, digits, spaces and hyphens only (2 to 10 characters).'
+
+  attributes: 
+    language: English (en)
+    used-in-javascript: false
+
+  subscription: 
+    version-number: 102272408
 

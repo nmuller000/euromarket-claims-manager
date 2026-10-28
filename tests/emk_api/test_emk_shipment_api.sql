@@ -131,6 +131,16 @@ create or replace package body test_emk_shipment_api as
 
     -- Test data helpers --------------------------------------------------------------
 
+    -- The example postcode of the country (D-90): it follows the format of the country
+    function postal_code_of (
+        in_country in varchar2
+    ) return varchar2 is
+        l_example emk_data.emk_postal_formats.postal_code_example%type;
+    begin
+        select max(postal_code_example) into l_example from emk_data.emk_postal_formats where country_code = upper(in_country);
+        return l_example;
+    end postal_code_of;
+
     function new_party (
         in_name    in varchar2,
         in_country in varchar2,
@@ -141,9 +151,9 @@ create or replace package body test_emk_shipment_api as
         emk_party_api.create_party(in_name          => in_name,
                                    in_vat_number    => null,
                                    in_country_code  => in_country,
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => postal_code_of(in_country),   -- the format of the country (D-90)
+                                   in_city          => 'Test City',
                                    in_language_code => 'en',
                                    in_role_codes    => in_roles,
                                    out_party_id     => l_id);

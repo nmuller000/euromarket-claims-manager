@@ -43,7 +43,7 @@ create or replace package emk_api.emk_errors_pkg as
     c_party_role_in_use constant pls_integer := -20102;  -- BR-16, role used by a shipment
     e_party_role_in_use exception;
     pragma exception_init ( e_party_role_in_use, -20102 );
-    c_vat_country_mismatch constant pls_integer := -20103;  -- VAT prefix does not match the party's country
+    c_vat_country_mismatch constant pls_integer := -20103;  -- VAT number does not follow the format of the party's country (D-88)
     e_vat_country_mismatch exception;
     pragma exception_init ( e_vat_country_mismatch, -20103 );
     c_duplicate_vat constant pls_integer := -20104;  -- VAT number already used, also by a soft-deleted party (D-39)
@@ -55,6 +55,12 @@ create or replace package emk_api.emk_errors_pkg as
     c_party_role_required constant pls_integer := -20106;  -- a company needs at least one role (D-71)
     e_party_role_required exception;
     pragma exception_init ( e_party_role_required, -20106 );
+    c_party_address_required constant pls_integer := -20107;  -- D-89, street and city; postcode where the country uses one (CMR Art. 6(1))
+    e_party_address_required exception;
+    pragma exception_init ( e_party_address_required, -20107 );
+    c_postal_code_format constant pls_integer := -20108;  -- D-90, postcode not in the format of the party's country (UPU)
+    e_postal_code_format exception;
+    pragma exception_init ( e_postal_code_format, -20108 );
 
     -- Shipments --------------------------------------------------------------
     c_duplicate_cmr_note constant pls_integer := -20201;  -- BR-03, CMR note number reused by a carrier
@@ -95,4 +101,4 @@ end emk_errors_pkg;
 /
 
 
--- sqlcl_snapshot {"hash":"87d6a6c40a76d7e03a3e23f914516c30281fb981","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"9bda092cbf5535f58f86456850b99574896b8f8b","type":"PACKAGE_SPEC","name":"EMK_ERRORS_PKG","schemaName":"EMK_API","sxml":""}

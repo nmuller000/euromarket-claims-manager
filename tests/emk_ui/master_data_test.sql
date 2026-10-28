@@ -159,7 +159,7 @@ BEGIN
 
     -- 3. Retiring: a retired value stays where it is used and is no longer offered
     &emk_api_schema..emk_party_api.create_party(in_name => 'Master Data Test Company', in_vat_number => NULL,
-        in_country_code => 'DE', in_street => NULL, in_postal_code => NULL, in_city => NULL,
+        in_country_code => 'DE', in_street => 'Test Street 1', in_postal_code => '10115', in_city => 'Test City',
         in_language_code => 'en', in_role_codes => 'SENDER:' || c_test_role, out_party_id => l_company);
     &emk_api_schema..emk_master_data_api.update_role_type(in_role_code => c_test_role,
         in_expected_updated_at => version_of('emk_v_party_role_types', 'role_code', c_test_role),

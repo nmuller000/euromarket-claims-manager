@@ -71,10 +71,10 @@ create or replace package body test_emk_shipments as
 
     procedure create_test_shipment is
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Sender', 'DE', 'en') returning party_id into g_sender;
-        insert into emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into g_carrier;
-        insert into emk_parties (name, country_code, language_code) values ('Test Carrier 2', 'CZ', 'en') returning party_id into g_carrier2;
-        insert into emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into g_consignee;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Sender', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into g_sender;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Carrier', 'Test Street 1', 'Test City', 'PL', 'en') returning party_id into g_carrier;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Carrier 2', 'Test Street 1', 'Test City', 'CZ', 'en') returning party_id into g_carrier2;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Consignee', 'Test Street 1', 'Test City', 'FR', 'en') returning party_id into g_consignee;
         insert_shipment(c_note_number, g_carrier);
     end create_test_shipment;
 

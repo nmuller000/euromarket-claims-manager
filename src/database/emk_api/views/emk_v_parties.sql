@@ -2,6 +2,7 @@ create or replace force editionable view emk_api.emk_v_parties (
     party_id,
     name,
     vat_number,
+    vat_national_number,
     country_code,
     country_name,
     street,
@@ -29,6 +30,9 @@ create or replace force editionable view emk_api.emk_v_parties (
      * country_valid_yn and language_valid_yn = 'N' when the value of the
      * company is no longer valid today: the form offers valid values only and
      * asks the user to choose another one (D-86).
+     * vat_national_number is the VAT number without its two-letter prefix
+     * (VIES format): the form shows the prefix of the country apart and the
+     * user edits the national part only (D-88).
      * The company page shows the rules before the user saves (step 7.8):
      * roles_in_use, the roles a shipment uses (they cannot be removed), and
      * deletable_yn = 'Y' if no active shipment uses the company; both come
@@ -43,6 +47,7 @@ create or replace force editionable view emk_api.emk_v_parties (
         p.party_id,
         p.name,
         p.vat_number,
+        substr(p.vat_number, 3)                                                         as vat_national_number,
         p.country_code,
         c.name                                                                          as country_name,
         p.street,
@@ -97,4 +102,4 @@ create or replace force editionable view emk_api.emk_v_parties (
         p.deleted_yn = 'N';
 
 
--- sqlcl_snapshot {"hash":"9fc1a18264db0d5f651749ec0990da59787d1a52","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"9df7fd6f5fe2bd7039e877e820ed8f4c44b9272a","type":"VIEW","name":"EMK_V_PARTIES","schemaName":"EMK_API","sxml":""}

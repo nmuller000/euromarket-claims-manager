@@ -5,14 +5,14 @@
     name: CAN_VIEW_PARTIES_SHIPMENTS
 
   subscription: 
-    version-number: 99944634
+    version-number: 102234441
 
   authorization-scheme: 
     type: Is In Role or Group
 
   settings: 
     type: Application Role
-    name(s): CLAIMS_HANDLER, COMPLIANCE_OFFICER, ADMINISTRATOR
+    name(s): CLAIMS_HANDLER,COMPLIANCE_OFFICER,ADMINISTRATOR
 
   server-cache: 
     evaluation-point: Once per Session

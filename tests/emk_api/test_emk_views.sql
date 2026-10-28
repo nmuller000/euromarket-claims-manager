@@ -40,12 +40,22 @@ create or replace package test_emk_views as
     --%test(FR-09: the shipment and contact histories show a change with the previous value)
     procedure shows_shipment_and_contact_history;
 
-    --%test(D-68: the code list views offer the values valid today: 2 languages, 6 roles, 7 statuses (4 open), 4 claim types, 6 document types)
+    --%test(D-68: the code list views offer the values valid today: 2 languages, 6 roles, 7 statuses (4 open), 4 claim types, 6 document types, 28 VAT prefixes, 60 postcode rules)
     procedure offers_valid_code_list_values;
 end test_emk_views;
 /
 
 create or replace package body test_emk_views as
+
+    -- The example postcode of the country (D-90): it follows the format of the country
+    function postal_code_of (
+        in_country in varchar2
+    ) return varchar2 is
+        l_example emk_data.emk_postal_formats.postal_code_example%type;
+    begin
+        select max(postal_code_example) into l_example from emk_data.emk_postal_formats where country_code = upper(in_country);
+        return l_example;
+    end postal_code_of;
 
     function new_party (
         in_name    in varchar2,
@@ -57,9 +67,9 @@ create or replace package body test_emk_views as
         emk_party_api.create_party(in_name          => in_name,
                                    in_vat_number    => null,
                                    in_country_code  => in_country,
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => postal_code_of(in_country),   -- the format of the country (D-90)
+                                   in_city          => 'Test City',
                                    in_language_code => 'en',
                                    in_role_codes    => in_roles,
                                    out_party_id     => l_id);
@@ -127,7 +137,7 @@ create or replace package body test_emk_views as
         into   l_views, l_undocumented
         from   user_views
         where  view_name like 'EMK\_V\_%' escape '\';
-        ut.expect(l_views).to_equal(18);   -- 7.7: EMK_V_FILE_TYPES, EMK_V_CODE_LIST_HISTORY (D-82)
+        ut.expect(l_views).to_equal(20);   -- 7.7: EMK_V_FILE_TYPES, EMK_V_CODE_LIST_HISTORY (D-82); 7.8: EMK_V_VAT_FORMATS (D-88), EMK_V_POSTAL_FORMATS (D-90)
         ut.expect(l_undocumented).to_equal(0);
     end documents_every_view;
 
@@ -170,8 +180,8 @@ create or replace package body test_emk_views as
         l_name emk_data.emk_parties.name%type;
     begin
         -- Twice: after the update the version comes from updated_at, before from created_at
-        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 2', null, 'DE', null, null, null, 'en');
-        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 3', null, 'DE', null, null, null, 'en');
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 2', null, 'DE', 'Test Street 1', '10115', 'Test City', 'en');
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company 3', null, 'DE', 'Test Street 1', '10115', 'Test City', 'en');
         select name into l_name from emk_v_parties where party_id = l_id;
         ut.expect(l_name).to_equal('Test Company 3');
     end round_trips_row_version;
@@ -215,7 +225,7 @@ create or replace package body test_emk_views as
         l_first   emk_v_party_history.previous_name%type;
         l_by      emk_v_party_history.changed_by%type;
     begin
-        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company Renamed', null, 'DE', null, null, null, 'en');
+        emk_party_api.update_party(l_id, party_version(l_id), 'Test Company Renamed', null, 'DE', 'Test Street 1', '10115', 'Test City', 'en');
         emk_party_api.delete_party(l_id, party_version(l_id));
         emk_party_api.restore_party(l_id);
 
@@ -296,6 +306,10 @@ create or replace package body test_emk_views as
         ut.expect(l_count, 'claim types').to_equal(4);
         select count(*) into l_count from emk_v_document_types where valid_yn = 'Y';
         ut.expect(l_count, 'document types').to_equal(6);
+        select count(*) into l_count from emk_v_vat_formats where valid_yn = 'Y';
+        ut.expect(l_count, 'VAT prefixes (D-88)').to_equal(28);
+        select count(*) into l_count from emk_v_postal_formats where valid_yn = 'Y';
+        ut.expect(l_count, 'postcode rules (D-90)').to_equal(60);
     end offers_valid_code_list_values;
 
 end test_emk_views;

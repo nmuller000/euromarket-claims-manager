@@ -1,0 +1,2653 @@
+---
+# ====== Page: Company =======================================
+id: 11
+identification: 
+  name: Company
+  alias: COMPANY
+  title: Company
+  page-group: Companies # 58616457386700031
+
+appearance: 
+  page-mode: Modal Dialog
+  dialog-template: Theme Default
+  template-options: 
+  - '#DEFAULT#'
+
+dialog: 
+  chained: true
+  resizable: true
+
+navigation-menu: 
+  override-user-interface-level: false
+
+navigation: 
+  cursor-focus: Do not focus cursor
+  warn-on-unsaved-changes: true
+
+security: 
+  authorization-scheme: CAN_VIEW_PARTIES_SHIPMENTS # 58219519628163453
+  authentication: Page Requires Authentication
+  deep-linking: Application Default
+  page-access-protection: Arguments Must Have Checksum
+  form-auto-complete: Off
+  browser-cache: Application Default
+
+session-management: 
+  rejoin-sessions: Application Default
+
+advanced: 
+  enable-duplicate-page-submissions: Yes - Enable page to be re-posted
+  reload-on-submit: Only for Success
+
+server-cache: 
+  caching: Disabled
+
+regions: 
+- # ====== Region: Country no longer valid =====================
+  id: 43028860484635336
+  identification: 
+    name: Country no longer valid
+    type: Static Content
+
+  source: 
+    html-code: The country &P11_COUNTRY_NAME!HTML. is no longer valid. Choose another one.
+
+  layout: 
+    sequence: 9
+    parent-region: No Parent
+    slot: BODY
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Alert
+    template-options: 
+    - '#DEFAULT#'
+    - t-Alert--horizontal
+    - t-Alert--defaultIcons
+    - t-Alert--warning
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  server-side-condition: 
+    type: Item = Value
+    item: P11_COUNTRY_VALID_YN
+    value: N
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    settings: 
+      output-as: HTML
+      expand-shortcuts: false
+
+- # ====== Region: Language no longer valid ====================
+  id: 43028930444635337
+  identification: 
+    name: Language no longer valid
+    type: Static Content
+
+  source: 
+    html-code: The correspondence language &P11_LANGUAGE_NAME!HTML. is no longer valid. Choose another one.
+
+  layout: 
+    sequence: 8
+    parent-region: No Parent
+    slot: BODY
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Alert
+    template-options: 
+    - '#DEFAULT#'
+    - t-Alert--horizontal
+    - t-Alert--defaultIcons
+    - t-Alert--warning
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  server-side-condition: 
+    type: Item = Value
+    item: P11_LANGUAGE_VALID_YN
+    value: N
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    settings: 
+      output-as: HTML
+      expand-shortcuts: false
+
+- # ====== Region: Roles in use ================================
+  id: 43029090047635338
+  identification: 
+    name: Roles in use
+    type: Static Content
+
+  source: 
+    html-code: 'Roles used in shipments cannot be removed: &P11_ROLES_IN_USE_NAMES!HTML..'
+
+  layout: 
+    sequence: 10
+    parent-region: Company # 58806320251905804
+    slot: SUB_REGIONS
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Alert
+    template-options: 
+    - '#DEFAULT#'
+    - t-Alert--horizontal
+    - t-Alert--defaultIcons
+    - t-Alert--info
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  server-side-condition: 
+    type: Item is NOT NULL
+    item: P11_ROLES_IN_USE
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    settings: 
+      output-as: HTML
+      expand-shortcuts: false
+
+- # ====== Region: Not deletable ===============================
+  id: 43029109138635339
+  identification: 
+    name: Not deletable
+    type: Static Content
+
+  source: 
+    html-code: This company is used in active shipments and cannot be deleted.
+
+  layout: 
+    sequence: 20
+    parent-region: Company # 58806320251905804
+    slot: SUB_REGIONS
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Alert
+    template-options: 
+    - '#DEFAULT#'
+    - t-Alert--horizontal
+    - t-Alert--defaultIcons
+    - t-Alert--info
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  server-side-condition: 
+    type: Expression
+    language: PL/SQL
+    pl/sql-expression: ":P11_PARTY_ID is not null and :P11_DELETABLE_YN = 'N'"
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    settings: 
+      output-as: HTML
+      expand-shortcuts: false
+
+- # ====== Region: Roles no longer valid =======================
+  id: 43029263439635340
+  identification: 
+    name: Roles no longer valid
+    type: Classic Report
+
+  source: 
+    location: Local Database
+    type: SQL Query
+    sql-query: |
+      select role_name, valid_to
+      from   emk_api.emk_v_party_roles
+      where  party_id = :P11_PARTY_ID
+      and    valid_yn = 'N'
+      order  by role_name
+      
+
+  order-by: 
+    type: None
+
+  layout: 
+    sequence: 15
+    parent-region: Company # 58806320251905804
+    slot: SUB_REGIONS
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Standard
+    template-options: 
+    - '#DEFAULT#'
+    - t-Region--scrollBody
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  server-side-condition: 
+    type: Rows returned
+    sql-query: |
+      select role_name, valid_to
+      from   emk_api.emk_v_party_roles
+      where  party_id = :P11_PARTY_ID
+      and    valid_yn = 'N'
+
+  server-cache: 
+    caching: Disabled
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    layout: 
+      number-of-rows-type: Static Value
+      number-of-rows: 15
+
+    appearance: 
+      template-type: Theme
+      template: Standard
+      template-options: 
+      - '#DEFAULT#'
+      - t-Report--altRowsDefault
+      - t-Report--rowHighlight
+
+    pagination: 
+      type: Row Ranges X to Y (with next and previous links)
+      display-position: Bottom - Right
+      partial-page-refresh: true
+
+    performance: 
+      lazy-loading: false
+
+    break-formatting: 
+      break-columns: No Break
+
+    advanced: 
+      strip-html: false
+      sort-nulls: Last
+
+    heading: 
+      type: Custom Headings
+
+    download: 
+      csv-export-enabled: false
+
+    printing: 
+      enabled: false
+
+  columns: 
+  - # ====== Column: ROLE_NAME ===================================
+    id: 43029303415635341
+    identification: 
+      column-name: ROLE_NAME
+      type: Plain Text
+
+    heading: 
+      heading: Role
+      alignment: start
+
+    layout: 
+      sequence: 10
+      column-alignment: start
+
+    accessibility: 
+      value-identifies-row: true
+
+    sorting: 
+      sortable: false
+
+    export-/-printing: 
+      include-in-export-/-print: true
+
+    advanced: 
+      compute-sum: false
+
+    ui-defaults-reference: 
+      table-owner: Parsing Schema
+
+    security: 
+      escape-special-characters: true
+
+  - # ====== Column: VALID_TO ====================================
+    id: 43029493672635342
+    identification: 
+      column-name: VALID_TO
+      type: Plain Text
+
+    heading: 
+      heading: Valid until
+      alignment: start
+
+    layout: 
+      sequence: 20
+      column-alignment: start
+
+    accessibility: 
+      value-identifies-row: false
+
+    sorting: 
+      sortable: false
+
+    export-/-printing: 
+      include-in-export-/-print: true
+
+    advanced: 
+      compute-sum: false
+
+    ui-defaults-reference: 
+      table-owner: Parsing Schema
+
+    security: 
+      escape-special-characters: true
+
+- # ====== Region: Company =====================================
+  id: 58806320251905804
+  identification: 
+    name: Company
+    type: Form
+
+  source: 
+    location: Local Database
+    type: SQL Query
+    sql-query: |
+      select p.party_id,
+             p.name,
+             p.vat_national_number,
+             p.country_code,
+             p.country_name,
+             p.country_valid_yn,
+             p.street,
+             p.postal_code,
+             p.city,
+             p.language_code,
+             p.language_name,
+             p.language_valid_yn,
+             p.roles,
+             p.roles_in_use,
+             (select listagg(t.name, ', ') within group (order by t.name)
+              from   emk_api.emk_v_party_role_types t
+              where  instr(':' || p.roles_in_use || ':', ':' || t.role_code || ':') > 0) as roles_in_use_names,
+             p.deletable_yn,
+             p.row_version
+      from   emk_api.emk_v_parties p
+      
+
+  layout: 
+    sequence: 10
+    parent-region: No Parent
+    slot: BODY
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Blank with Attributes
+    template-options: 
+    - '#DEFAULT#'
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  read-only: 
+    type: Expression
+    language: PL/SQL
+    pl/sql-expression: not apex_authorization.is_authorized('CAN_EDIT_PARTIES_SHIPMENTS')
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    edit: 
+      enabled: true
+      allowed-operations: 
+      - Add Row
+      - Update Row
+      - Delete Row
+      lost-update-type: Row Values
+
+- # ====== Region: Buttons =====================================
+  id: 58818686672905823
+  identification: 
+    name: Buttons
+    type: Static Content
+
+  layout: 
+    sequence: 20
+    parent-region: No Parent
+    slot: REGION_POSITION_03
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    template: Buttons Container
+    template-options: 
+    - '#DEFAULT#'
+    render-components: Above Content
+
+  accessibility: 
+    use-landmark: true
+    landmark-type: Template Default
+
+  advanced: 
+    region-display-selector: false
+    exclude-title-from-translation: false
+
+  customization: 
+    customizable: Not Customizable By End Users
+
+  attributes: 
+    settings: 
+      output-as: Text (escape special characters)
+      show-line-breaks: true
+
+page-items: 
+- # ====== Page Item: P11_RETIRED_ROLE =========================
+  id: 43029570813635343
+  identification: 
+    name: P11_RETIRED_ROLE
+    type: Select List
+
+  label: 
+    label: Role to remove
+    alignment: Left
+
+  settings: 
+    page-action-on-selection: None
+
+  multiple-values: 
+    type: No
+
+  layout: 
+    sequence: 10
+    region: Roles no longer valid # 43029263439635340
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+    height: 1
+
+  validation: 
+    value-required: false
+
+  list-of-values: 
+    type: SQL Query
+    sql-query: |
+      select role_name d, role_code r
+      from   emk_api.emk_v_party_roles
+      where  party_id = :P11_PARTY_ID
+      and    valid_yn = 'N'
+      order  by role_name
+      
+    display-extra-values: false
+    display-null-value: true
+    null-display-value: '- Choose a role -'
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    type: Null
+    used: Only when current value in session state is null
+
+  session-state: 
+    storage: Per Session (Persistent)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_PARTY_ID =============================
+  id: 58806740141905810
+  identification: 
+    name: P11_PARTY_ID
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 10
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: PARTY_ID
+    data-type: NUMBER
+    query-only: false
+    primary-key: true
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Checksum Required - Session Level
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_NAME =================================
+  id: 58807134607905815
+  identification: 
+    name: P11_NAME
+    type: Text Field
+
+  label: 
+    label: Company name
+    alignment: Left
+
+  settings: 
+    subtype: Text
+    trim-spaces: Leading and Trailing
+    text-case: NO CHANGE
+    submit-when-enter-pressed: false
+    disabled: false
+
+  layout: 
+    sequence: 20
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+    width: 60
+
+  validation: 
+    value-required: false
+    maximum-length: 200
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: NAME
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_COUNTRY_CODE =========================
+  id: 58807906506905817
+  identification: 
+    name: P11_COUNTRY_CODE
+    type: Select List
+
+  label: 
+    label: Country
+    alignment: Left
+
+  settings: 
+    page-action-on-selection: None
+
+  multiple-values: 
+    type: No
+
+  layout: 
+    sequence: 40
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+    height: 1
+
+  validation: 
+    value-required: false
+
+  list-of-values: 
+    type: SQL Query
+    sql-query: |
+      select name d, country_code r
+      from   emk_api.emk_v_countries
+      where  valid_from <= trunc(sysdate)
+      and    (valid_to is null or valid_to >= trunc(sysdate))
+      order  by name
+    display-extra-values: false
+    display-null-value: false
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: COUNTRY_CODE
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_COUNTRY_NAME =========================
+  id: 58808373959905817
+  identification: 
+    name: P11_COUNTRY_NAME
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 80
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: COUNTRY_NAME
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_COUNTRY_VALID_YN =====================
+  id: 58808735071905817
+  identification: 
+    name: P11_COUNTRY_VALID_YN
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 90
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: COUNTRY_VALID_YN
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_STREET ===============================
+  id: 58809146030905817
+  identification: 
+    name: P11_STREET
+    type: Text Field
+
+  label: 
+    label: Street
+    alignment: Left
+
+  settings: 
+    subtype: Text
+    trim-spaces: Leading and Trailing
+    text-case: NO CHANGE
+    submit-when-enter-pressed: false
+    disabled: false
+
+  layout: 
+    sequence: 100
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+    width: 60
+
+  validation: 
+    value-required: false
+    maximum-length: 200
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: STREET
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_POSTAL_CODE ==========================
+  id: 58809561487905817
+  identification: 
+    name: P11_POSTAL_CODE
+    type: Text Field
+
+  label: 
+    label: Postcode
+    alignment: Left
+
+  settings: 
+    subtype: Text
+    trim-spaces: Leading and Trailing
+    text-case: NO CHANGE
+    submit-when-enter-pressed: false
+    disabled: false
+
+  layout: 
+    sequence: 110
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+    width: 32
+
+  validation: 
+    value-required: false
+    maximum-length: 20
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: POSTAL_CODE
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+  help: 
+    inline-help-text: Required, except in countries without postcodes.
+
+- # ====== Page Item: P11_CITY =================================
+  id: 58809939777905818
+  identification: 
+    name: P11_CITY
+    type: Text Field
+
+  label: 
+    label: City
+    alignment: Left
+
+  settings: 
+    subtype: Text
+    trim-spaces: Leading and Trailing
+    text-case: NO CHANGE
+    submit-when-enter-pressed: false
+    disabled: false
+
+  layout: 
+    sequence: 130
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+    width: 60
+
+  validation: 
+    value-required: false
+    maximum-length: 100
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: CITY
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_LANGUAGE_CODE ========================
+  id: 58810342845905818
+  identification: 
+    name: P11_LANGUAGE_CODE
+    type: Select List
+
+  label: 
+    label: Correspondence language
+    alignment: Left
+
+  settings: 
+    page-action-on-selection: None
+
+  multiple-values: 
+    type: No
+
+  layout: 
+    sequence: 140
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+    height: 1
+
+  validation: 
+    value-required: false
+
+  list-of-values: 
+    type: SQL Query
+    sql-query: |
+      select name d, language_code r
+      from   emk_api.emk_v_languages
+      where  valid_yn = 'Y'
+      order  by name
+    display-extra-values: false
+    display-null-value: false
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: LANGUAGE_CODE
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+  help: 
+    help-text: Language of the claim letters and other correspondence sent to this company.
+
+- # ====== Page Item: P11_LANGUAGE_NAME ========================
+  id: 58810716756905818
+  identification: 
+    name: P11_LANGUAGE_NAME
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 150
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: LANGUAGE_NAME
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_LANGUAGE_VALID_YN ====================
+  id: 58811114438905818
+  identification: 
+    name: P11_LANGUAGE_VALID_YN
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 160
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: LANGUAGE_VALID_YN
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_ROLES ================================
+  id: 58811546574905818
+  identification: 
+    name: P11_ROLES
+    type: Checkbox Group
+
+  label: 
+    label: Roles
+    alignment: Left
+
+  settings: 
+    number-of-columns: 3
+
+  multiple-values: 
+    type: Delimited List
+    separator: ':'
+
+  layout: 
+    sequence: 170
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Required
+    template-options: 
+    - '#DEFAULT#'
+
+  validation: 
+    value-required: false
+
+  list-of-values: 
+    type: SQL Query
+    sql-query: |
+      select name d, role_code r
+      from   emk_api.emk_v_party_role_types
+      where  valid_yn = 'Y'
+      order  by sort_order
+    display-extra-values: false
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: ROLES
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    escape-special-characters: true
+    restricted-characters: All characters can be saved.
+
+  help: 
+    help-text: 'What the company does in a shipment: the Sender contracts the carriage and hands over the goods, the Consignee receives them and the Carrier performs the carriage (CMR); a Forwarder, Insurer or Surveyor takes part in claims. A company can have several roles.'
+
+- # ====== Page Item: P11_ROLES_IN_USE =========================
+  id: 58811965078905818
+  identification: 
+    name: P11_ROLES_IN_USE
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 180
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: ROLES_IN_USE
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_ROLES_IN_USE_NAMES ===================
+  id: 58812364647905818
+  identification: 
+    name: P11_ROLES_IN_USE_NAMES
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 190
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: ROLES_IN_USE_NAMES
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_DELETABLE_YN =========================
+  id: 58812780031905820
+  identification: 
+    name: P11_DELETABLE_YN
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 200
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: DELETABLE_YN
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_ROW_VERSION ==========================
+  id: 58813160725905820
+  identification: 
+    name: P11_ROW_VERSION
+    type: Hidden
+
+  settings: 
+    value-protected: true
+
+  layout: 
+    sequence: 210
+    region: Company # 58806320251905804
+    slot: BODY
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: ROW_VERSION
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Request (Memory Only)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_VAT_NATIONAL_NUMBER ==================
+  id: 59010954114209933
+  identification: 
+    name: P11_VAT_NATIONAL_NUMBER
+    type: Text Field
+
+  label: 
+    label: VAT identification number
+    alignment: Left
+
+  settings: 
+    subtype: Text
+    trim-spaces: Leading and Trailing
+    text-case: NO CHANGE
+    submit-when-enter-pressed: false
+    disabled: false
+
+  layout: 
+    sequence: 60
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+    width: 30
+
+  validation: 
+    value-required: false
+    maximum-length: 20
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    form-region: Company # 58806320251905804
+    column: VAT_NATIONAL_NUMBER
+    data-type: VARCHAR2
+    query-only: false
+    primary-key: false
+
+  session-state: 
+    storage: Per Request (Memory Only)
+
+  quick-picks: 
+    show-quick-picks: false
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+  help: 
+    inline-help-text: Type the number without the VAT prefix. Only for companies in the EU and in Northern Ireland.
+    help-text: The EU VAT identification number of the company, as registered in VIES. The prefix of the country is added when you save.
+
+- # ====== Page Item: P11_VAT_PREFIX ===========================
+  id: 59011040662209934
+  identification: 
+    name: P11_VAT_PREFIX
+    type: Display Only
+
+  label: 
+    label: VAT prefix
+    alignment: Left
+
+  settings: 
+    format: Plain Text
+    based-on: Item Value
+    show-line-breaks: true
+    send-on-page-submit: false
+
+  layout: 
+    sequence: 50
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    type: Null
+    used: Only when current value in session state is null
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Session (Persistent)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_VAT_EXAMPLE ==========================
+  id: 59011177470209935
+  identification: 
+    name: P11_VAT_EXAMPLE
+    type: Display Only
+
+  label: 
+    label: VAT number example
+    alignment: Left
+
+  settings: 
+    format: Plain Text
+    based-on: Item Value
+    show-line-breaks: true
+    send-on-page-submit: false
+
+  layout: 
+    sequence: 70
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    type: Null
+    used: Only when current value in session state is null
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Session (Persistent)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+- # ====== Page Item: P11_POSTAL_EXAMPLE =======================
+  id: 59012071358209944
+  identification: 
+    name: P11_POSTAL_EXAMPLE
+    type: Display Only
+
+  label: 
+    label: Postcode example
+    alignment: Left
+
+  settings: 
+    format: Plain Text
+    based-on: Item Value
+    show-line-breaks: true
+    send-on-page-submit: false
+
+  layout: 
+    sequence: 120
+    region: Company # 58806320251905804
+    slot: BODY
+    alignment: Left
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    label-column-span: Page Template Default
+
+  appearance: 
+    template: Optional
+    template-options: 
+    - '#DEFAULT#'
+
+  advanced: 
+    warn-on-unsaved-changes: Page Default
+
+  source: 
+    type: Null
+    used: Only when current value in session state is null
+
+  session-state: 
+    data-type: VARCHAR2
+    storage: Per Session (Persistent)
+
+  security: 
+    session-state-protection: Unrestricted
+    store-value-encrypted-in-session-state: true
+    restricted-characters: All characters can be saved.
+
+buttons: 
+- # ====== Button: REMOVE_ROLE =================================
+  id: 43029657476635344
+  identification: 
+    button-name: REMOVE_ROLE
+    label: Remove role
+
+  layout: 
+    sequence: 20
+    region: Roles no longer valid # 43029263439635340
+    slot: BODY
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+    alignment: Left center
+
+  appearance: 
+    button-template: Text
+    hot: false
+    template-options: 
+    - '#DEFAULT#'
+
+  behavior: 
+    action: Submit Page
+    execute-validations: true
+    show-processing: false
+    warn-on-unsaved-changes: Do Not Check
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+- # ====== Button: CANCEL ======================================
+  id: 58819069825905823
+  identification: 
+    button-name: CANCEL
+    label: Cancel
+
+  layout: 
+    sequence: 10
+    region: Buttons # 58818686672905823
+    slot: CLOSE
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    button-template: Text
+    hot: false
+    template-options: 
+    - '#DEFAULT#'
+
+  behavior: 
+    action: Defined by Dynamic Action
+    execute-validations: true
+
+- # ====== Button: DELETE ======================================
+  id: 58820433668905826
+  identification: 
+    button-name: DELETE
+    label: Delete
+
+  layout: 
+    sequence: 20
+    region: Buttons # 58818686672905823
+    slot: DELETE
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    button-template: Text
+    hot: false
+    template-options: 
+    - '#DEFAULT#'
+
+  behavior: 
+    action: Submit Page
+    execute-validations: false
+    show-processing: false
+    warn-on-unsaved-changes: Do Not Check
+
+  confirmation: 
+    message: <strong>Are you sure</strong> you want to delete the company &P11_NAME!HTML.? You can restore it later from Restore deleted records.
+    style: Danger
+
+  server-side-condition: 
+    type: Expression
+    language: PL/SQL
+    pl/sql-expression: ":P11_PARTY_ID is not null and :P11_DELETABLE_YN = 'Y'"
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+- # ====== Button: SAVE ========================================
+  id: 58820849080905826
+  identification: 
+    button-name: SAVE
+    label: Save
+
+  layout: 
+    sequence: 30
+    region: Buttons # 58818686672905823
+    slot: NEXT
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    button-template: Text
+    hot: true
+    template-options: 
+    - '#DEFAULT#'
+
+  behavior: 
+    action: Submit Page
+    execute-validations: true
+    show-processing: false
+    warn-on-unsaved-changes: Do Not Check
+
+  server-side-condition: 
+    type: Item is NOT NULL
+    item: P11_PARTY_ID
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+- # ====== Button: CREATE ======================================
+  id: 58821206975905826
+  identification: 
+    button-name: CREATE
+    label: Create
+
+  layout: 
+    sequence: 40
+    region: Buttons # 58818686672905823
+    slot: NEXT
+    start-new-layout: false
+    start-new-row: true
+    column: Automatic
+    new-column: true
+    column-span: Automatic
+
+  appearance: 
+    button-template: Text
+    hot: true
+    template-options: 
+    - '#DEFAULT#'
+
+  behavior: 
+    action: Submit Page
+    execute-validations: true
+    show-processing: false
+    warn-on-unsaved-changes: Do Not Check
+
+  server-side-condition: 
+    type: Item is NULL
+    item: P11_PARTY_ID
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+dynamic-actions: 
+- # ====== Dynamic Action: Cancel Dialog =======================
+  id: 58819191340905823
+  identification: 
+    name: Cancel Dialog
+
+  execution: 
+    sequence: 10
+    event-scope: Static
+    type: Immediate
+
+  when: 
+    event: Click
+    selection-type: Button
+    button: CANCEL # 58819069825905823
+
+  actions: 
+  - # ====== Action: Cancel Dialog ===============================
+    id: 58819950899905826
+    identification: 
+      action: Cancel Dialog
+
+    execution: 
+      sequence: 10
+      event: Cancel Dialog # 58819191340905823
+      fire-when-event-result-is: True
+      fire-on-initialization: false
+
+- # ====== Dynamic Action: VAT prefix and postcode example of th
+  id: 59011235006209936
+  identification: 
+    name: VAT prefix and postcode example of the country
+
+  execution: 
+    sequence: 20
+    event-scope: Static
+    type: Immediate
+
+  when: 
+    event: Change
+    selection-type: Item(s)
+    item(s): 
+    - P11_COUNTRY_CODE
+
+  actions: 
+  - # ====== Action: Set VAT prefix  and VAT example =============
+    id: 59011324402209937
+    identification: 
+      name: Set VAT prefix  and VAT example
+      action: Set Value
+
+    settings: 
+      set-type: SQL Statement
+      sql-statement: |
+        -- Seq 10: prefix and example of the country (the format itself stays in the API)
+        select vat_prefix, national_example
+        from   emk_api.emk_v_vat_formats
+        where  country_code = :P11_COUNTRY_CODE
+        and    valid_yn = 'Y'
+        
+      items-to-submit: 
+      - P11_COUNTRY_CODE
+      escape-special-characters: true
+      suppress-change-event: true
+
+    affected-elements: 
+      selection-type: Item(s)
+      item(s): 
+      - P11_VAT_PREFIX
+      - P11_VAT_EXAMPLE
+
+    execution: 
+      sequence: 10
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: true
+      stop-execution-on-error: true
+      wait-for-result: true
+
+  - # ====== Action: Clear VAT national number ===================
+    id: 59011454779209938
+    identification: 
+      name: Clear VAT national number
+      action: Clear
+
+    affected-elements: 
+      selection-type: Item(s)
+      item(s): 
+      - P11_VAT_NATIONAL_NUMBER
+
+    execution: 
+      sequence: 30
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: true
+
+    client-side-condition: 
+      type: Item is null
+      item: P11_VAT_PREFIX
+
+    security: 
+      authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  - # ====== Action: Execute Server-side Code ====================
+    id: 59011575898209939
+    identification: 
+      action: Execute Server-side Code
+
+    settings: 
+      language: PE.PROPERTY.SOURCE_SNIPPET_LANG.LOV.PLSQL.D
+      pl/sql-code: null;
+      items-to-submit: 
+      - P11_VAT_NATIONAL_NUMBER
+
+    execution: 
+      sequence: 40
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: false
+      stop-execution-on-error: true
+      wait-for-result: true
+
+    client-side-condition: 
+      type: Item is null
+      item: P11_VAT_PREFIX
+
+    security: 
+      authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  - # ====== Action: Disable VAT national number =================
+    id: 59011634675209940
+    identification: 
+      name: Disable VAT national number
+      action: Disable
+
+    affected-elements: 
+      selection-type: Item(s)
+      item(s): 
+      - P11_VAT_NATIONAL_NUMBER
+
+    execution: 
+      sequence: 50
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: true
+
+    client-side-condition: 
+      type: Item is null
+      item: P11_VAT_PREFIX
+
+    security: 
+      authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  - # ====== Action: Enable VAT national number ==================
+    id: 59011745144209941
+    identification: 
+      name: Enable VAT national number
+      action: Enable
+
+    affected-elements: 
+      selection-type: Item(s)
+      item(s): 
+      - P11_VAT_NATIONAL_NUMBER
+
+    execution: 
+      sequence: 60
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: true
+
+    client-side-condition: 
+      type: Item is not null
+      item: P11_VAT_PREFIX
+
+    security: 
+      authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  - # ====== Action: Set the postal code example =================
+    id: 59012182665209945
+    identification: 
+      name: Set the postal code example
+      action: Set Value
+
+    settings: 
+      set-type: SQL Statement
+      sql-statement: |
+        select postal_code_example
+        from   emk_api.emk_v_postal_formats
+        where  country_code = :P11_COUNTRY_CODE
+        and    valid_yn = 'Y'
+      items-to-submit: 
+      - P11_COUNTRY_CODE
+      escape-special-characters: true
+      suppress-change-event: true
+
+    affected-elements: 
+      selection-type: Item(s)
+      item(s): 
+      - P11_POSTAL_EXAMPLE
+
+    execution: 
+      sequence: 20
+      event: VAT prefix and postcode example of the country # 59011235006209936
+      fire-when-event-result-is: True
+      fire-on-initialization: true
+      stop-execution-on-error: true
+      wait-for-result: true
+
+validations: 
+- # ====== Validation: Company name required ===================
+  id: 43029773715635345
+  identification: 
+    name: Company name required
+
+  execution: 
+    sequence: 10
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_NAME
+    always-execute: false
+
+  error: 
+    error-message: Enter the company name.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+- # ====== Validation: Country required ========================
+  id: 43029889892635346
+  identification: 
+    name: Country required
+
+  execution: 
+    sequence: 20
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_COUNTRY_CODE
+    always-execute: false
+
+  error: 
+    error-message: Choose a country.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+- # ====== Validation: Language required =======================
+  id: 43029990930635347
+  identification: 
+    name: Language required
+
+  execution: 
+    sequence: 30
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_LANGUAGE_CODE
+    always-execute: false
+
+  error: 
+    error-message: Choose a correspondence language.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+- # ====== Validation: Roles required ==========================
+  id: 43030018662635348
+  identification: 
+    name: Roles required
+
+  execution: 
+    sequence: 40
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_ROLES
+    always-execute: false
+
+  error: 
+    error-message: Choose at least one role.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+- # ====== Validation: Role to remove required =================
+  id: 43030107414635349
+  identification: 
+    name: Role to remove required
+
+  execution: 
+    sequence: 50
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_RETIRED_ROLE
+    always-execute: false
+
+  error: 
+    error-message: Choose the role to remove.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request = Value
+    value: REMOVE_ROLE
+
+- # ====== Validation: Street required =========================
+  id: 59011807792209942
+  identification: 
+    name: Street required
+
+  execution: 
+    sequence: 60
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_STREET
+    always-execute: false
+
+  error: 
+    error-message: Enter the street.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+- # ====== Validation: City required ===========================
+  id: 59011980562209943
+  identification: 
+    name: City required
+
+  execution: 
+    sequence: 70
+
+  validation: 
+    type: Item is NOT NULL
+    item: P11_CITY
+    always-execute: false
+
+  error: 
+    error-message: Enter the city.
+    display-location: Inline with Field and in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE
+
+processes: 
+- # ====== Process: Create company =============================
+  id: 43030295168635350
+  identification: 
+    name: Create company
+    type: Invoke API
+    execution-chain: None
+
+  settings: 
+    type: PL/SQL Package
+    owner: EMK_API
+    package: EMK_PARTY_API
+    procedure-or-function: CREATE_PARTY
+
+  execution: 
+    sequence: 10
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    when-button-pressed: CREATE # 58821206975905826
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  parameters: 
+  - # ====== Parameter: in_name ==================================
+    id: 59007717869209901
+    identification: 
+      name: in_name
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_NAME
+
+    advanced: 
+      display-sequence: 10
+
+  - # ====== Parameter: in_vat_number ============================
+    id: 59007865598209902
+    identification: 
+      name: in_vat_number
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_VAT_NATIONAL_NUMBER
+
+    advanced: 
+      display-sequence: 20
+
+  - # ====== Parameter: in_country_code ==========================
+    id: 59007997577209903
+    identification: 
+      name: in_country_code
+
+    parameter: 
+      direction: In
+      data-type: CHAR
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_COUNTRY_CODE
+
+    advanced: 
+      display-sequence: 30
+
+  - # ====== Parameter: in_street ================================
+    id: 59008075470209904
+    identification: 
+      name: in_street
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_STREET
+
+    advanced: 
+      display-sequence: 40
+
+  - # ====== Parameter: in_postal_code ===========================
+    id: 59008196916209905
+    identification: 
+      name: in_postal_code
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_POSTAL_CODE
+
+    advanced: 
+      display-sequence: 50
+
+  - # ====== Parameter: in_city ==================================
+    id: 59008293375209906
+    identification: 
+      name: in_city
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_CITY
+
+    advanced: 
+      display-sequence: 60
+
+  - # ====== Parameter: in_language_code =========================
+    id: 59008333814209907
+    identification: 
+      name: in_language_code
+
+    parameter: 
+      direction: In
+      data-type: CHAR
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_LANGUAGE_CODE
+
+    advanced: 
+      display-sequence: 70
+
+  - # ====== Parameter: in_role_codes ============================
+    id: 59008440286209908
+    identification: 
+      name: in_role_codes
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_ROLES
+
+    advanced: 
+      display-sequence: 80
+
+  - # ====== Parameter: out_party_id =============================
+    id: 59008587110209909
+    identification: 
+      name: out_party_id
+
+    parameter: 
+      direction: Out
+      data-type: NUMBER
+      ignore-output: false
+
+    value: 
+      item: P11_PARTY_ID
+
+    advanced: 
+      display-sequence: 90
+
+- # ====== Process: Initialize form Company ====================
+  id: 58821655539905828
+  identification: 
+    name: Initialize form Company
+    type: Form - Initialization
+    execution-chain: None
+    form-region: Company # 58806320251905804
+
+  execution: 
+    sequence: 10
+    point: Before Header
+    run-process: Once Per Page Visit (default)
+
+- # ====== Process: Close Dialog ===============================
+  id: 58822400365905828
+  identification: 
+    name: Close Dialog
+    type: Close Dialog
+    execution-chain: None
+
+  settings: 
+    show-success-messages: true
+
+  execution: 
+    sequence: 60
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    type: Request is contained in Value
+    value: CREATE,SAVE,DELETE
+
+- # ====== Process: Save company ===============================
+  id: 59008677917209910
+  identification: 
+    name: Save company
+    type: Invoke API
+    execution-chain: None
+
+  settings: 
+    type: PL/SQL Package
+    owner: EMK_API
+    package: EMK_PARTY_API
+    procedure-or-function: UPDATE_PARTY
+
+  execution: 
+    sequence: 20
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    when-button-pressed: SAVE # 58820849080905826
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  parameters: 
+  - # ====== Parameter: in_party_id ==============================
+    id: 59008727631209911
+    identification: 
+      name: in_party_id
+
+    parameter: 
+      direction: In
+      data-type: NUMBER
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_PARTY_ID
+
+    advanced: 
+      display-sequence: 10
+
+  - # ====== Parameter: in_expected_updated_at ===================
+    id: 59008833464209912
+    identification: 
+      name: in_expected_updated_at
+
+    parameter: 
+      direction: In
+      data-type: TIMESTAMP WITH TIME ZONE
+      has-default: false
+
+    value: 
+      type: Expression
+      language: PL/SQL
+      pl/sql-expression: 'emk_api.emk_row_version_pkg.parse_row_version(:P11_ROW_VERSION)'
+
+    advanced: 
+      display-sequence: 20
+
+  - # ====== Parameter: in_name ==================================
+    id: 59008984007209913
+    identification: 
+      name: in_name
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_NAME
+
+    advanced: 
+      display-sequence: 30
+
+  - # ====== Parameter: in_vat_number ============================
+    id: 59009032083209914
+    identification: 
+      name: in_vat_number
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_VAT_NATIONAL_NUMBER
+
+    advanced: 
+      display-sequence: 40
+
+  - # ====== Parameter: in_country_code ==========================
+    id: 59009114183209915
+    identification: 
+      name: in_country_code
+
+    parameter: 
+      direction: In
+      data-type: CHAR
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_COUNTRY_CODE
+
+    advanced: 
+      display-sequence: 50
+
+  - # ====== Parameter: in_street ================================
+    id: 59009282235209916
+    identification: 
+      name: in_street
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_STREET
+
+    advanced: 
+      display-sequence: 60
+
+  - # ====== Parameter: in_postal_code ===========================
+    id: 59009359642209917
+    identification: 
+      name: in_postal_code
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_POSTAL_CODE
+
+    advanced: 
+      display-sequence: 70
+
+  - # ====== Parameter: in_city ==================================
+    id: 59009424760209918
+    identification: 
+      name: in_city
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_CITY
+
+    advanced: 
+      display-sequence: 80
+
+  - # ====== Parameter: in_language_code =========================
+    id: 59009557944209919
+    identification: 
+      name: in_language_code
+
+    parameter: 
+      direction: In
+      data-type: CHAR
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_LANGUAGE_CODE
+
+    advanced: 
+      display-sequence: 90
+
+- # ====== Process: Save roles =================================
+  id: 59009699290209920
+  identification: 
+    name: Save roles
+    type: Invoke API
+    execution-chain: None
+
+  settings: 
+    type: PL/SQL Package
+    owner: EMK_API
+    package: EMK_PARTY_API
+    procedure-or-function: SET_ROLES
+
+  execution: 
+    sequence: 30
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    when-button-pressed: SAVE # 58820849080905826
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  parameters: 
+  - # ====== Parameter: in_party_id ==============================
+    id: 59009717410209921
+    identification: 
+      name: in_party_id
+
+    parameter: 
+      direction: In
+      data-type: NUMBER
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_PARTY_ID
+
+    advanced: 
+      display-sequence: 10
+
+  - # ====== Parameter: in_role_codes ============================
+    id: 59009894606209922
+    identification: 
+      name: in_role_codes
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_ROLES
+
+    advanced: 
+      display-sequence: 20
+
+- # ====== Process: Delete company =============================
+  id: 59009914282209923
+  identification: 
+    name: Delete company
+    type: Invoke API
+    execution-chain: None
+
+  settings: 
+    type: PL/SQL Package
+    owner: EMK_API
+    package: EMK_PARTY_API
+    procedure-or-function: DELETE_PARTY
+
+  execution: 
+    sequence: 40
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    when-button-pressed: DELETE # 58820433668905826
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  parameters: 
+  - # ====== Parameter: in_party_id ==============================
+    id: 59010031569209924
+    identification: 
+      name: in_party_id
+
+    parameter: 
+      direction: In
+      data-type: NUMBER
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_PARTY_ID
+
+    advanced: 
+      display-sequence: 10
+
+  - # ====== Parameter: in_expected_updated_at ===================
+    id: 59010188865209925
+    identification: 
+      name: in_expected_updated_at
+
+    parameter: 
+      direction: In
+      data-type: TIMESTAMP WITH TIME ZONE
+      has-default: false
+
+    value: 
+      type: Expression
+      language: PL/SQL
+      pl/sql-expression: 'emk_api.emk_row_version_pkg.parse_row_version(:P11_ROW_VERSION)'
+
+    advanced: 
+      display-sequence: 20
+
+- # ====== Process: Remove role ================================
+  id: 59010269262209926
+  identification: 
+    name: Remove role
+    type: Invoke API
+    execution-chain: None
+
+  settings: 
+    type: PL/SQL Package
+    owner: EMK_API
+    package: EMK_PARTY_API
+    procedure-or-function: REMOVE_ROLE
+
+  execution: 
+    sequence: 50
+    point: Processing
+    run-process: Once Per Page Visit (default)
+
+  error: 
+    display-location: Inline in Notification
+
+  server-side-condition: 
+    when-button-pressed: REMOVE_ROLE # 43029657476635344
+
+  security: 
+    authorization-scheme: CAN_EDIT_PARTIES_SHIPMENTS # 58219703941168892
+
+  parameters: 
+  - # ====== Parameter: in_party_id ==============================
+    id: 59010369657209927
+    identification: 
+      name: in_party_id
+
+    parameter: 
+      direction: In
+      data-type: NUMBER
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_PARTY_ID
+
+    advanced: 
+      display-sequence: 10
+
+  - # ====== Parameter: in_role_code =============================
+    id: 59010458154209928
+    identification: 
+      name: in_role_code
+
+    parameter: 
+      direction: In
+      data-type: VARCHAR2
+      has-default: false
+
+    value: 
+      type: Item
+      item: P11_RETIRED_ROLE
+
+    advanced: 
+      display-sequence: 20
+

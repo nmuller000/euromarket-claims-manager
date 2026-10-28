@@ -90,30 +90,28 @@ create or replace package body emk_api.emk_party_api as
         return l_roles;
     end split_roles;
 
-    -- Upper case without spaces; NULL if nothing is left
+    -- Upper case without spaces, dots and hyphens, as numbers are written on invoices (D-88);
+    -- NULL if nothing is left
     function normalise_vat (
         in_vat_number in varchar2
     ) return varchar2 is
     begin
-        return upper(replace(in_vat_number, ' '));
+        return upper(translate(in_vat_number, '# .-', '#'));   -- TRANSLATE drops the characters without a replacement
     end normalise_vat;
 
-    -- Country exists (and, if asked, is valid today); returns its EU VAT prefix (NULL outside the EU).
+    -- Country exists (and, if asked, is valid today).
     -- An update checks the validity only when the country changes: a company keeps a retired country (D-68)
     procedure check_country (
-        in_country_code   in emk_data.emk_countries.country_code%type,
-        out_eu_vat_prefix out emk_data.emk_countries.eu_vat_prefix%type,
-        in_require_valid  in boolean default true
+        in_country_code  in emk_data.emk_countries.country_code%type,
+        in_require_valid in boolean default true
     ) is
         l_valid_from emk_data.emk_countries.valid_from%type;
         l_valid_to   emk_data.emk_countries.valid_to%type;
     begin
         select
-            eu_vat_prefix,
             valid_from,
             valid_to
         into
-            out_eu_vat_prefix,
             l_valid_from,
             l_valid_to
         from
@@ -136,6 +134,101 @@ create or replace package body emk_api.emk_party_api as
                                                                           || in_country_code
                                                                           || ' is unknown or not valid today');
     end check_country;
+
+    -- Postcode upper case, trimmed, one space between its parts (D-90); NULL if nothing is left
+    function normalise_postal_code (
+        in_postal_code in varchar2
+    ) return varchar2 is
+    begin
+        return regexp_replace(
+            upper(trim(in_postal_code)),
+            ' {2,}',
+            ' '
+        );
+    end normalise_postal_code;
+
+    -- The postal address of a company (D-89, CMR Art. 6(1): name and address of the parties; letters,
+    -- M4): street and city always; the postcode by the rule of the country in EMK_POSTAL_FORMATS (D-90,
+    -- UPU): required unless the country uses none, the prefix of the official form added when the user
+    -- typed only the digits, and the pattern of the country. A country without a rule valid today
+    -- accepts any postcode of the general form (EMK_PARTIES_POSTCODE_CK). An update checks the postcode
+    -- only when the country or the postcode changes. io_postal_code: normalised on entry, completed
+    -- with the prefix on return
+    procedure check_address (
+        in_country_code      in emk_data.emk_countries.country_code%type,
+        in_street            in varchar2,
+        in_city              in varchar2,
+        io_postal_code       in out varchar2,
+        in_check_postal_code in boolean default true
+    ) is
+
+        l_required_yn emk_data.emk_postal_formats.postal_code_required_yn%type;
+        l_prefix      emk_data.emk_postal_formats.postal_code_prefix%type;
+        l_format      emk_data.emk_postal_formats.postal_code_format%type;
+        l_example     emk_data.emk_postal_formats.postal_code_example%type;
+    begin
+        if in_street is null
+           or in_city is null then
+            raise_application_error(emk_errors_pkg.c_party_address_required, 'The street and the city of the company are required');
+        end if;
+
+        if not in_check_postal_code then
+            return;
+        end if;
+        begin
+            select
+                postal_code_required_yn,
+                postal_code_prefix,
+                postal_code_format,
+                postal_code_example
+            into
+                l_required_yn,
+                l_prefix,
+                l_format,
+                l_example
+            from
+                emk_data.emk_postal_formats
+            where
+                    country_code = in_country_code
+                and valid_from <= trunc(sysdate)
+                and ( valid_to is null
+                      or valid_to >= trunc(sysdate) );
+
+        exception
+            when no_data_found then
+                return;   -- no rule for the country: the general form of the table applies
+        end;
+
+        if io_postal_code is null then
+            if l_required_yn = 'Y' then
+                raise_application_error(emk_errors_pkg.c_party_address_required, 'Country '
+                                                                                 || in_country_code
+                                                                                 || ' uses postcodes: the postcode is required');
+            end if;
+
+            return;
+        end if;
+
+        if
+            l_prefix is not null
+            and substr(io_postal_code,
+                       1,
+                       length(l_prefix)) <> l_prefix
+        then
+            io_postal_code := l_prefix || io_postal_code;   -- e.g. 1050 in Latvia: LV-1050
+        end if;
+
+        if
+            l_format is not null
+            and not regexp_like(io_postal_code, l_format, 'c')
+        then
+            raise_application_error(emk_errors_pkg.c_postal_code_format, 'The postcode does not have the format of country '
+                                                                         || in_country_code
+                                                                         || ', e.g. '
+                                                                         || l_example);
+        end if;
+
+    end check_address;
 
     -- Language exists and is valid today (code list, D-68)
     procedure check_language (
@@ -199,37 +292,78 @@ create or replace package body emk_api.emk_party_api as
                                                                           || ' is unknown or not valid today');
     end check_role_type;
 
-    -- VAT prefix matches the country (XI also for GB); the number is not used by another party
-    procedure check_vat (
-        in_vat_number    in emk_data.emk_parties.vat_number%type,
-        in_country_code  in emk_data.emk_parties.country_code%type,
-        in_eu_vat_prefix in emk_data.emk_countries.eu_vat_prefix%type,
-        in_party_id      in emk_data.emk_parties.party_id%type
+    -- EU VAT number in VIES format (D-88): a national part gets the VAT prefix of the country, a number
+    -- typed with that prefix is kept; either way it must follow the format of the prefix, valid today
+    -- (EMK_VAT_FORMATS: EL for GR, XI for GB). The formats exclude each other: no value is both a
+    -- national part and a number with its prefix. NULL stays NULL.
+    -- One prefix per country is valid at a time (growth path: a choice where a country has two)
+    function complete_vat (
+        in_vat_number   in varchar2,
+        in_country_code in emk_data.emk_parties.country_code%type
+    ) return varchar2 is
+
+        l_prefix  emk_data.emk_vat_formats.vat_prefix%type;
+        l_format  emk_data.emk_vat_formats.national_format%type;
+        l_example emk_data.emk_vat_formats.national_example%type;
+    begin
+        if in_vat_number is null then
+            return null;
+        end if;
+        begin
+            select
+                vat_prefix,
+                national_format,
+                national_example
+            into
+                l_prefix,
+                l_format,
+                l_example
+            from
+                emk_data.emk_vat_formats
+            where
+                    country_code = in_country_code
+                and valid_from <= trunc(sysdate)
+                and ( valid_to is null
+                      or valid_to >= trunc(sysdate) );
+
+        exception
+            when no_data_found then
+                raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'Country '
+                                                                               || in_country_code
+                                                                               || ' has no EU VAT number (EU VAT numbers only)');
+        end;
+
+        if
+            substr(in_vat_number, 1, 2) = l_prefix
+            and regexp_like(
+                substr(in_vat_number, 3),
+                l_format,
+                'c'
+            )
+        then
+            return in_vat_number;               -- typed with the prefix (pasted, or the import)
+        elsif regexp_like(in_vat_number, l_format, 'c') then
+            return l_prefix || in_vat_number;   -- the national part (the company page)
+        end if;
+
+        raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'The VAT number does not have the format of country '
+                                                                       || in_country_code
+                                                                       || ', e.g. '
+                                                                       || l_prefix
+                                                                       || l_example);
+
+    end complete_vat;
+
+    -- The VAT number is not used by another party, active or deleted (D-39)
+    procedure check_vat_not_used (
+        in_vat_number in emk_data.emk_parties.vat_number%type,
+        in_party_id   in emk_data.emk_parties.party_id%type
     ) is
         l_deleted_yn emk_data.emk_parties.deleted_yn%type;
     begin
         if in_vat_number is null then
             return;
         end if;
-
-        -- NVL: outside the EU the prefix is NULL, and a comparison with NULL is never TRUE
-        if not ( substr(in_vat_number, 1, 2) = nvl(in_eu_vat_prefix, '-')
-        or (
-            in_country_code = emk_codes_pkg.c_country_gb
-            and substr(in_vat_number, 1, 2) = emk_codes_pkg.c_vat_prefix_northern_ireland
-        ) ) then
-            raise_application_error(emk_errors_pkg.c_vat_country_mismatch, 'The VAT number does not belong to country '
-                                                                           || in_country_code
-                                                                           ||
-                case
-                    when in_eu_vat_prefix is null
-                         and in_country_code <> emk_codes_pkg.c_country_gb then
-                        ' (EU VAT numbers only)'
-                end
-            );
-
-        end if;
-
         select
             max(deleted_yn)
         into l_deleted_yn
@@ -246,7 +380,7 @@ create or replace package body emk_api.emk_party_api as
             raise_application_error(emk_errors_pkg.c_duplicate_vat, 'The VAT number is already used by another company');
         end if;
 
-    end check_vat;
+    end check_vat_not_used;
 
     -- Locks a party (NOWAIT), checks that it is active and, if given, its version
     procedure lock_party (
@@ -402,14 +536,21 @@ create or replace package body emk_api.emk_party_api as
         out_party_id     out emk_data.emk_parties.party_id%type
     ) is
 
-        l_country    emk_data.emk_parties.country_code%type := upper(trim(in_country_code));
-        l_vat_number emk_data.emk_parties.vat_number%type := normalise_vat(in_vat_number);
-        l_language   varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
-        l_roles      sys.odcivarchar2list := split_roles(in_role_codes);
-        l_vat_prefix emk_data.emk_countries.eu_vat_prefix%type;
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_country     varchar2(4000 char) := upper(trim(in_country_code));
+        l_vat_number  varchar2(4000 char) := normalise_vat(in_vat_number);
+        l_language    varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
+        l_postal_code varchar2(4000 char) := normalise_postal_code(in_postal_code);
+        l_roles       sys.odcivarchar2list := split_roles(in_role_codes);
     begin
-        check_country(l_country, l_vat_prefix);
-        check_vat(l_vat_number, l_country, l_vat_prefix, null);
+        check_country(l_country);
+        check_address(l_country,
+                      trim(in_street),
+                      trim(in_city),
+                      l_postal_code);   -- completed with the prefix of the country, if any
+        l_vat_number := complete_vat(l_vat_number, l_country);
+        check_vat_not_used(l_vat_number, null);
         check_language(l_language);
         insert into emk_data.emk_parties (
             name,
@@ -423,7 +564,7 @@ create or replace package body emk_api.emk_party_api as
                    l_vat_number,
                    l_country,
                    trim(in_street),
-                   trim(in_postal_code),
+                   l_postal_code,
                    trim(in_city),
                    l_language ) returning party_id into out_party_id;
 
@@ -449,17 +590,35 @@ create or replace package body emk_api.emk_party_api as
         in_language_code       in emk_data.emk_parties.language_code%type
     ) is
 
-        l_party      emk_data.emk_parties%rowtype;
-        l_country    emk_data.emk_parties.country_code%type := upper(trim(in_country_code));
-        l_vat_number emk_data.emk_parties.vat_number%type := normalise_vat(in_vat_number);
-        l_language   varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
-        l_vat_prefix emk_data.emk_countries.eu_vat_prefix%type;
+        l_party       emk_data.emk_parties%rowtype;
+        -- Normalised input of any length: the column or the reference check rejects a wrong value
+        -- with its friendly message, never ORA-06502 in this declaration (step 7.8, log 341)
+        l_country     varchar2(4000 char) := upper(trim(in_country_code));
+        l_vat_number  varchar2(4000 char) := normalise_vat(in_vat_number);
+        l_language    varchar2(4000 char) := require_language(in_language_code);   -- checked before it is stored
+        l_postal_code varchar2(4000 char) := normalise_postal_code(in_postal_code);
     begin
         lock_party(in_party_id, in_expected_updated_at, true, l_party);
         check_country(l_country,
-                      l_vat_prefix,
                       emk_utilities_pkg.is_changed(l_party.country_code, l_country));
-        check_vat(l_vat_number, l_country, l_vat_prefix, in_party_id);
+        check_address(l_country,
+                      trim(in_street),
+                      trim(in_city),
+                      l_postal_code,
+                      emk_utilities_pkg.is_changed(l_party.country_code, l_country)
+        or emk_utilities_pkg.is_changed(l_party.postal_code, l_postal_code));
+
+        if
+            not emk_utilities_pkg.is_changed(l_party.country_code, l_country)
+            and l_vat_number in ( l_party.vat_number, substr(l_party.vat_number, 3) )
+        then
+            l_vat_number := l_party.vat_number;   -- unchanged, with or without its prefix: a company keeps a
+                                                  -- number whose format was retired (D-68)
+        else
+            l_vat_number := complete_vat(l_vat_number, l_country);
+        end if;
+
+        check_vat_not_used(l_vat_number, in_party_id);
         if emk_utilities_pkg.is_changed(l_party.language_code, l_language) then
             check_language(l_language);   -- a company keeps a language that was retired
         end if;
@@ -470,8 +629,7 @@ create or replace package body emk_api.emk_party_api as
         or emk_utilities_pkg.is_changed(l_party.country_code, l_country)
         or emk_utilities_pkg.is_changed(l_party.street,
                                         trim(in_street))
-        or emk_utilities_pkg.is_changed(l_party.postal_code,
-                                        trim(in_postal_code))
+        or emk_utilities_pkg.is_changed(l_party.postal_code, l_postal_code)
         or emk_utilities_pkg.is_changed(l_party.city,
                                         trim(in_city))
         or emk_utilities_pkg.is_changed(l_party.language_code, l_language) ) then
@@ -484,7 +642,7 @@ create or replace package body emk_api.emk_party_api as
             vat_number = l_vat_number,
             country_code = l_country,
             street = trim(in_street),
-            postal_code = trim(in_postal_code),
+            postal_code = l_postal_code,
             city = trim(in_city),
             language_code = l_language
         where
@@ -860,4 +1018,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"5ea79202ec231248630390faa77ce78db4bc008a","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"938ebe47844c8be48230f26047699897c8677034","type":"PACKAGE_BODY","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

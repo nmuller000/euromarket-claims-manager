@@ -94,9 +94,9 @@ create or replace package body test_emk_claims as
         l_consignee emk_parties.party_id%type;
         l_shipment  emk_shipments.shipment_id%type;
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Sender', 'DE', 'en') returning party_id into l_sender;
-        insert into emk_parties (name, country_code, language_code) values ('Test Carrier', 'PL', 'en') returning party_id into l_carrier;
-        insert into emk_parties (name, country_code, language_code) values ('Test Consignee', 'FR', 'en') returning party_id into l_consignee;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Sender', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into l_sender;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Carrier', 'Test Street 1', 'Test City', 'PL', 'en') returning party_id into l_carrier;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Consignee', 'Test Street 1', 'Test City', 'FR', 'en') returning party_id into l_consignee;
 
         insert into emk_shipments (cmr_note_no, sender_id, carrier_id, consignee_id, taking_over_place, origin_country,
                                    delivery_place, destination_country, taking_over_date, delivery_date,

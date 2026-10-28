@@ -15,7 +15,10 @@ create or replace package emk_api.emk_party_api as
      *     locked with FOR UPDATE NOWAIT: a row locked by another transaction
      *     raises c_record_locked instead of waiting.
      *   - Values are normalised before they are stored: names and places
-     *     trimmed, VAT number upper case without spaces, phone without spaces.
+     *     trimmed, VAT number upper case without spaces, dots and hyphens and
+     *     with the VAT prefix of the country (D-88), postcode upper case with
+     *     single spaces and the prefix of the official form (D-90), phone
+     *     without spaces.
      *   - Code lists (D-68): a new language or role must exist in its
      *     reference table and be valid today; a value the company already has
      *     stays when it is retired later (valid_to).
@@ -41,20 +44,30 @@ create or replace package emk_api.emk_party_api as
      * without a role (D-71).
      *
      * @param  in_name          company name (trimmed, required)
-     * @param  in_vat_number    EU VAT number, VIES format; NULL if the company has none
+     * @param  in_vat_number    EU VAT number: the national part (the API adds the VAT prefix of the
+     *                          country) or the whole number with that prefix; it must follow the
+     *                          format of the prefix (EMK_VAT_FORMATS, D-88) and is stored in VIES
+     *                          format. NULL if the company has none
      * @param  in_country_code  ISO 3166-1 alpha-2 country, valid today
-     * @param  in_street        street and number
-     * @param  in_postal_code   postal code
-     * @param  in_city          city
+     * @param  in_street        street and number (required, D-89: CMR Art. 6(1) name and address)
+     * @param  in_postal_code   postcode; required unless the country uses none, in the format of
+     *                          the country, the prefix of the official form added (e.g. LV-1050)
+     *                          (EMK_POSTAL_FORMATS, UPU; D-89, D-90)
+     * @param  in_city          city (required, D-89)
      * @param  in_language_code language of letters, from EMK_LANGUAGES, valid today (required)
      * @param  in_role_codes    roles separated by colons, e.g. SENDER:CARRIER (the value of an
      *                          APEX checkbox item); at least one, each valid today
      * @param  out_party_id id of the new company
      * @throws emk_errors_pkg.e_invalid_argument     no language given
+     * @throws emk_errors_pkg.e_party_address_required no street or city; no postcode in a country
+     *                                               that uses postcodes
+     * @throws emk_errors_pkg.e_postal_code_format   postcode not in the format of the country; the
+     *                                               message gives an example
      * @throws emk_errors_pkg.e_party_role_required  no role given
      * @throws emk_errors_pkg.e_reference_not_valid  unknown country, language or role, or not valid today
-     * @throws emk_errors_pkg.e_vat_country_mismatch VAT prefix is not the country's EU VAT prefix
-     *                                               (XI is also accepted for GB, Northern Ireland)
+     * @throws emk_errors_pkg.e_vat_country_mismatch the VAT number does not follow the format of
+     *                                               the country's VAT prefix (XI for GB, EL for GR),
+     *                                               or the country has no EU VAT number
      * @throws emk_errors_pkg.e_duplicate_vat        VAT number already used; if by a deleted
      *                                               company, the message asks to restore it
      */
@@ -73,7 +86,10 @@ create or replace package emk_api.emk_party_api as
     /**
      * Changes a company. Nothing is written if no value changed. Country and
      * language are checked for validity only when they change: a company
-     * keeps a retired country or language (D-68).
+     * keeps a retired country or language (D-68). The same for the VAT number:
+     * the stored number, given with or without its prefix, is not checked
+     * again while the country stays the same; the postcode is checked only
+     * when the country or the postcode changes (D-89).
      *
      * @param  in_party_id            company
      * @param  in_expected_updated_at version read by the caller (row_version)
@@ -300,4 +316,4 @@ end emk_party_api;
 /
 
 
--- sqlcl_snapshot {"hash":"e7890e978fe4cc08fc434fa4abde80f413ec9578","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}
+-- sqlcl_snapshot {"hash":"dcf2c620d1a7ffff5a256d979608d3b649e889c0","type":"PACKAGE_SPEC","name":"EMK_PARTY_API","schemaName":"EMK_API","sxml":""}

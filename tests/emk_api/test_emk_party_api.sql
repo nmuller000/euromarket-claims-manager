@@ -4,9 +4,13 @@ create or replace package test_emk_party_api as
      * their roles (BR-16, T-M1-29) and contact persons; normalised values,
      * VAT rules, optimistic locking (D-43), soft delete and restore (BR-13,
      * D-39, T-M1-08), code lists (D-68: a new language or role must be valid
-     * today), language and at least one role required (D-71). Shipments that
+     * today), language and at least one role required (D-71), postal address
+     * and postcode by country (D-89, D-90). Shipments that
      * use a company are inserted directly with
      * the grants of EMK_API; utPLSQL rolls everything back.
+     * VAT numbers of the tests use the series 999 999 9xx, which no example
+     * and no page test uses: the tests run in DEV next to its data, where a
+     * company created and deleted on a page keeps its VAT number (D-39).
      *
      * @author Natalia Müller
      * @since  2026-10-16
@@ -61,6 +65,58 @@ create or replace package test_emk_party_api as
 
     --%test(D-39: a VAT number of a deleted company asks to restore that company)
     procedure asks_to_restore_owner_of_vat;
+
+    --%test(D-88: the national part gets the VAT prefix of the country; spaces, dots and hyphens are removed)
+    procedure adds_vat_prefix_of_country;
+
+    --%test(D-88: a number typed with the prefix of the country is kept, also a French one whose national part starts with two letters)
+    procedure keeps_vat_typed_with_prefix;
+
+    --%test(D-88: a company in GB gets the prefix XI, a company in GR the prefix EL)
+    procedure adds_xi_and_el_prefixes;
+
+    --%test(D-88: a VAT number outside the format of the country is rejected, with an example of that format)
+    procedure rejects_vat_outside_country_format;
+
+    --%test(D-88: a Dutch number may contain + and * (BZSt))
+    procedure accepts_dutch_vat_with_signs;
+
+    --%test(D-88: an update with the national part of the stored number keeps it and writes nothing)
+    procedure keeps_stored_vat_given_without_prefix;
+
+    --%test(D-89: a company needs a street and a city (CMR Art. 6(1): name and address))
+    --%throws(emk_errors_pkg.c_party_address_required)
+    procedure rejects_party_without_street_or_city;
+
+    --%test(D-89: a postcode is required where the country uses one)
+    --%throws(emk_errors_pkg.c_party_address_required)
+    procedure rejects_missing_postal_code;
+
+    --%test(D-89: a company in a country without postcodes (Syria, UPU) needs none)
+    procedure accepts_country_without_postal_codes;
+
+    --%test(D-89: a company moved to a country with postcodes needs its postcode)
+    --%throws(emk_errors_pkg.c_party_address_required)
+    procedure asks_postal_code_when_country_changes;
+
+    --%test(D-90: a postcode is stored upper case, trimmed, with one space between its parts)
+    procedure normalises_postal_code;
+
+    --%test(D-90: the prefix of the official form is added when only the digits are typed (Latvia LV-1050))
+    procedure adds_postal_code_prefix;
+
+    --%test(D-90: a postcode outside the format of the country is rejected, with an example of that format)
+    procedure rejects_postal_code_outside_country_format;
+
+    --%test(D-90: the inner space of a postcode may be left out (United Kingdom SW1A1AA))
+    procedure accepts_postal_code_without_inner_space;
+
+    --%test(D-90: a country without a postcode format accepts a postcode of the general form)
+    procedure accepts_postal_code_without_country_format;
+
+    --%test(Step 7.8: a VAT number too long gives the friendly format error, not ORA-06502 (log 341))
+    --%throws(emk_errors_pkg.c_vat_country_mismatch)
+    procedure rejects_long_vat_with_format_error;
 
     --%test(D-43: an update with an old version is rejected)
     --%throws(emk_errors_pkg.c_record_changed)
@@ -141,6 +197,16 @@ create or replace package body test_emk_party_api as
 
     -- Test data helpers ----------------------------------------------------------
 
+    -- The example postcode of the country (D-90): it follows the format of the country; NULL without postcodes
+    function postal_code_of (
+        in_country in varchar2
+    ) return varchar2 is
+        l_example emk_data.emk_postal_formats.postal_code_example%type;
+    begin
+        select max(postal_code_example) into l_example from emk_data.emk_postal_formats where country_code = upper(in_country);
+        return l_example;
+    end postal_code_of;
+
     function new_party (
         in_name    in varchar2,
         in_country in varchar2,
@@ -152,9 +218,9 @@ create or replace package body test_emk_party_api as
         emk_party_api.create_party(in_name          => in_name,
                                    in_vat_number    => in_vat,
                                    in_country_code  => in_country,
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => postal_code_of(in_country),
+                                   in_city          => 'Test City',
                                    in_language_code => 'en',
                                    in_role_codes    => in_roles,
                                    out_party_id     => l_id);
@@ -193,7 +259,7 @@ create or replace package body test_emk_party_api as
         l_party emk_data.emk_parties%rowtype;
     begin
         emk_party_api.create_party(in_name          => '  Test Spedition GmbH  ',
-                                   in_vat_number    => ' de 123 456 789 ',
+                                   in_vat_number    => ' de 999 999 904 ',
                                    in_country_code  => 'de',
                                    in_street        => ' Hauptstrasse 1 ',
                                    in_postal_code   => '10115',
@@ -203,7 +269,7 @@ create or replace package body test_emk_party_api as
                                    out_party_id     => l_id);
         select * into l_party from emk_data.emk_parties where party_id = l_id;
         ut.expect(l_party.name).to_equal('Test Spedition GmbH');
-        ut.expect(l_party.vat_number).to_equal('DE123456789');
+        ut.expect(l_party.vat_number).to_equal('DE999999904');
         ut.expect(l_party.country_code).to_equal('DE');
         ut.expect(l_party.city).to_equal('Berlin');
         ut.expect(l_party.language_code).to_equal('en');
@@ -220,9 +286,9 @@ create or replace package body test_emk_party_api as
         l_id  emk_data.emk_parties.party_id%type;
         l_vat emk_data.emk_parties.vat_number%type;
     begin
-        l_id := new_party('Test Belfast Ltd', 'GB', 'XI123456789');
+        l_id := new_party('Test Belfast Ltd', 'GB', 'XI999999908');
         select vat_number into l_vat from emk_data.emk_parties where party_id = l_id;
-        ut.expect(l_vat).to_equal('XI123456789');
+        ut.expect(l_vat).to_equal('XI999999908');
     end accepts_xi_vat_for_gb;
 
     procedure rejects_vat_outside_eu is
@@ -243,9 +309,9 @@ create or replace package body test_emk_party_api as
         emk_party_api.create_party(in_name          => 'Test SARL',
                                    in_vat_number    => null,
                                    in_country_code  => 'FR',
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => '75001',
+                                   in_city          => 'Test City',
                                    in_language_code => 'fr',
                                    in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
@@ -258,9 +324,9 @@ create or replace package body test_emk_party_api as
         emk_party_api.create_party(in_name          => 'Test GmbH',
                                    in_vat_number    => null,
                                    in_country_code  => 'AT',
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => '1010',
+                                   in_city          => 'Test City',
                                    in_language_code => ' DE ',
                                    in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
@@ -274,9 +340,9 @@ create or replace package body test_emk_party_api as
         emk_party_api.create_party(in_name          => 'Test GmbH',
                                    in_vat_number    => null,
                                    in_country_code  => 'DE',
-                                   in_street        => null,
-                                   in_postal_code   => null,
-                                   in_city          => null,
+                                   in_street        => 'Test Street 1',
+                                   in_postal_code   => '10115',
+                                   in_city          => 'Test City',
                                    in_language_code => '  ',
                                    in_role_codes    => 'SENDER',
                                    out_party_id     => l_id);
@@ -320,6 +386,76 @@ create or replace package body test_emk_party_api as
         end;
     end asks_to_restore_owner_of_vat;
 
+    procedure adds_vat_prefix_of_country is
+        l_id       emk_data.emk_parties.party_id%type := new_party('Test GmbH', 'DE', ' 999.999-905 ');
+        l_vat      emk_data.emk_parties.vat_number%type;
+        l_national varchar2(20 char);
+    begin
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_id;
+        select vat_national_number into l_national from emk_v_parties where party_id = l_id;
+        ut.expect(l_vat).to_equal('DE999999905');
+        ut.expect(l_national, 'the form shows the national part').to_equal('999999905');
+    end adds_vat_prefix_of_country;
+
+    procedure keeps_vat_typed_with_prefix is
+        l_typed    emk_data.emk_parties.party_id%type := new_party('Test SARL One', 'FR', 'fr ab 999 999 901');
+        l_national emk_data.emk_parties.party_id%type := new_party('Test SARL Two', 'FR', 'CD999999901');
+        l_vat      emk_data.emk_parties.vat_number%type;
+    begin
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_typed;
+        ut.expect(l_vat, 'typed with the prefix').to_equal('FRAB999999901');
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_national;
+        ut.expect(l_vat, 'national part starting with two letters').to_equal('FRCD999999901');
+    end keeps_vat_typed_with_prefix;
+
+    procedure adds_xi_and_el_prefixes is
+        l_gb  emk_data.emk_parties.party_id%type := new_party('Test Belfast Ltd', 'GB', '999999906');
+        l_gr  emk_data.emk_parties.party_id%type := new_party('Test AE', 'GR', '999999907');
+        l_vat emk_data.emk_parties.vat_number%type;
+    begin
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_gb;
+        ut.expect(l_vat, 'GB').to_equal('XI999999906');
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_gr;
+        ut.expect(l_vat, 'GR').to_equal('EL999999907');
+    end adds_xi_and_el_prefixes;
+
+    procedure rejects_vat_outside_country_format is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party('Test GmbH', 'AT', '999999909');   -- a German format; Austria is U and 8 digits
+        ut.fail('A VAT number outside the format of the country was accepted');
+    exception
+        when emk_errors_pkg.e_vat_country_mismatch then
+            ut.expect(sqlerrm).to_be_like('%ATU12345678%');
+    end rejects_vat_outside_country_format;
+
+    procedure accepts_dutch_vat_with_signs is
+        l_id  emk_data.emk_parties.party_id%type := new_party('Test BV', 'NL', '9999999+*B01');
+        l_vat emk_data.emk_parties.vat_number%type;
+    begin
+        select vat_number into l_vat from emk_data.emk_parties where party_id = l_id;
+        ut.expect(l_vat).to_equal('NL9999999+*B01');
+    end accepts_dutch_vat_with_signs;
+
+    procedure keeps_stored_vat_given_without_prefix is
+        l_id         emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE', 'DE999999903');
+        l_vat        emk_data.emk_parties.vat_number%type;
+        l_updated_at emk_data.emk_parties.updated_at%type;
+    begin
+        emk_party_api.update_party(in_party_id            => l_id,
+                                   in_expected_updated_at => version_of_party(l_id),
+                                   in_name                => 'Test Company',
+                                   in_vat_number          => '999 999 903',
+                                   in_country_code        => 'DE',
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => '10115',
+                                   in_city                => 'Test City',
+                                   in_language_code       => 'en');
+        select vat_number, updated_at into l_vat, l_updated_at from emk_data.emk_parties where party_id = l_id;
+        ut.expect(l_vat).to_equal('DE999999903');
+        ut.expect(l_updated_at, 'nothing written').to_be_null();
+    end keeps_stored_vat_given_without_prefix;
+
     procedure rejects_update_with_old_version is
         l_id emk_data.emk_parties.party_id%type := new_party('Test Company', 'DE');
     begin
@@ -328,9 +464,9 @@ create or replace package body test_emk_party_api as
                                    in_name                => 'Test Company New',
                                    in_vat_number          => null,
                                    in_country_code        => 'DE',
-                                   in_street              => null,
-                                   in_postal_code         => null,
-                                   in_city                => null,
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => '10115',
+                                   in_city                => 'Test City',
                                    in_language_code       => 'en');
     end rejects_update_with_old_version;
 
@@ -344,9 +480,9 @@ create or replace package body test_emk_party_api as
                                    in_name                => ' Test Company ',
                                    in_vat_number          => null,
                                    in_country_code        => 'de',
-                                   in_street              => null,
-                                   in_postal_code         => null,
-                                   in_city                => null,
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => '10115',
+                                   in_city                => 'Test City',
                                    in_language_code       => ' EN ');
         select updated_at into l_updated_at from emk_data.emk_parties where party_id = l_id;
         select count(*) into l_journal from emk_data.emk_parties_jn where party_id = l_id;
@@ -366,9 +502,9 @@ create or replace package body test_emk_party_api as
                                    in_name                => 'Test Company Renamed',
                                    in_vat_number          => null,
                                    in_country_code        => 'DE',
-                                   in_street              => null,
-                                   in_postal_code         => null,
-                                   in_city                => null,
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => '10115',
+                                   in_city                => 'Test City',
                                    in_language_code       => 'en');
         select name, updated_at into l_name, l_updated_at from emk_data.emk_parties where party_id = l_id;
         select name, jn_operation into l_old_name, l_operation from emk_data.emk_parties_jn where party_id = l_id;
@@ -389,9 +525,9 @@ create or replace package body test_emk_party_api as
                                    in_name                => 'Test Company New',
                                    in_vat_number          => null,
                                    in_country_code        => 'DE',
-                                   in_street              => null,
-                                   in_postal_code         => null,
-                                   in_city                => null,
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => '10115',
+                                   in_city                => 'Test City',
                                    in_language_code       => 'en');
     end rejects_update_of_deleted_party;
 
@@ -574,6 +710,114 @@ create or replace package body test_emk_party_api as
         select language_valid_yn into l_language from emk_v_parties where party_id = l_party;
         ut.expect(l_language, 'the language en is valid').to_equal('Y');
     end keeps_retired_role_on_set_roles;
+
+    -- A company with the address given, roles FORWARDER (D-89 tests)
+    function new_party_at (
+        in_name        in varchar2,
+        in_country     in varchar2,
+        in_street      in varchar2,
+        in_postal_code in varchar2,
+        in_city        in varchar2
+    ) return emk_data.emk_parties.party_id%type is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        emk_party_api.create_party(in_name          => in_name,
+                                   in_vat_number    => null,
+                                   in_country_code  => in_country,
+                                   in_street        => in_street,
+                                   in_postal_code   => in_postal_code,
+                                   in_city          => in_city,
+                                   in_language_code => 'en',
+                                   in_role_codes    => 'FORWARDER',
+                                   out_party_id     => l_id);
+        return l_id;
+    end new_party_at;
+
+    procedure rejects_party_without_street_or_city is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party_at('Test GmbH', 'DE', '   ', '10115', 'Berlin');   -- blanks only: trimmed to nothing
+    end rejects_party_without_street_or_city;
+
+    procedure rejects_missing_postal_code is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party_at('Test GmbH', 'DE', 'Hauptstrasse 1', null, 'Berlin');
+    end rejects_missing_postal_code;
+
+    procedure accepts_country_without_postal_codes is
+        l_id          emk_data.emk_parties.party_id%type := new_party_at('Test Damascus Trading', 'SY', 'Test Street 1', null, 'Damascus');
+        l_postal_code emk_data.emk_parties.postal_code%type;
+    begin
+        select postal_code into l_postal_code from emk_data.emk_parties where party_id = l_id;
+        ut.expect(l_postal_code).to_be_null();
+    end accepts_country_without_postal_codes;
+
+    procedure asks_postal_code_when_country_changes is
+        l_id emk_data.emk_parties.party_id%type := new_party_at('Test Damascus Trading', 'SY', 'Test Street 1', null, 'Damascus');
+    begin
+        emk_party_api.update_party(in_party_id            => l_id,
+                                   in_expected_updated_at => version_of_party(l_id),
+                                   in_name                => 'Test Damascus Trading',
+                                   in_vat_number          => null,
+                                   in_country_code        => 'DE',
+                                   in_street              => 'Test Street 1',
+                                   in_postal_code         => null,
+                                   in_city                => 'Berlin',
+                                   in_language_code       => 'en');
+    end asks_postal_code_when_country_changes;
+
+    -- The stored postcode of a company
+    function postal_code_stored (
+        in_party_id in emk_data.emk_parties.party_id%type
+    ) return varchar2 is
+        l_postal_code emk_data.emk_parties.postal_code%type;
+    begin
+        select postal_code into l_postal_code from emk_data.emk_parties where party_id = in_party_id;
+        return l_postal_code;
+    end postal_code_stored;
+
+    procedure normalises_postal_code is
+        l_id emk_data.emk_parties.party_id%type := new_party_at('Test BV', 'NL', 'Test Street 1', ' 1012   ab ', 'Amsterdam');
+    begin
+        ut.expect(postal_code_stored(l_id)).to_equal('1012 AB');
+    end normalises_postal_code;
+
+    procedure adds_postal_code_prefix is
+        l_digits emk_data.emk_parties.party_id%type := new_party_at('Test SIA One', 'LV', 'Test Street 1', '1050', 'Riga');
+        l_typed  emk_data.emk_parties.party_id%type := new_party_at('Test SIA Two', 'LV', 'Test Street 2', 'lv-1050', 'Riga');
+    begin
+        ut.expect(postal_code_stored(l_digits), 'digits only').to_equal('LV-1050');
+        ut.expect(postal_code_stored(l_typed), 'typed with the prefix').to_equal('LV-1050');
+    end adds_postal_code_prefix;
+
+    procedure rejects_postal_code_outside_country_format is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party_at('Test GmbH', 'DE', 'Test Street 1', '1234', 'Berlin');   -- Germany: 5 digits
+        ut.fail('A postcode outside the format of the country was accepted');
+    exception
+        when emk_errors_pkg.e_postal_code_format then
+            ut.expect(sqlerrm).to_be_like('%10115%');
+    end rejects_postal_code_outside_country_format;
+
+    procedure accepts_postal_code_without_inner_space is
+        l_id emk_data.emk_parties.party_id%type := new_party_at('Test Ltd', 'GB', 'Test Street 1', 'sw1a1aa', 'London');
+    begin
+        ut.expect(postal_code_stored(l_id)).to_equal('SW1A1AA');
+    end accepts_postal_code_without_inner_space;
+
+    procedure accepts_postal_code_without_country_format is
+        l_id emk_data.emk_parties.party_id%type := new_party_at('Test Damascus Trading', 'SY', 'Test Street 1', 'abc 12', 'Damascus');
+    begin
+        ut.expect(postal_code_stored(l_id)).to_equal('ABC 12');
+    end accepts_postal_code_without_country_format;
+
+    procedure rejects_long_vat_with_format_error is
+        l_id emk_data.emk_parties.party_id%type;
+    begin
+        l_id := new_party('Test Long VAT', 'DE', 'DE777777777777777777');   -- 20 characters with the right prefix
+    end rejects_long_vat_with_format_error;
 
 end test_emk_party_api;
 /

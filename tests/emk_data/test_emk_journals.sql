@@ -56,7 +56,7 @@ create or replace package body test_emk_journals as
         l_party emk_parties.party_id%type;
         l_count pls_integer;
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Party', 'DE', 'en') returning party_id into l_party;
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Party', 'Test Street 1', 'Test City', 'DE', 'en') returning party_id into l_party;
         insert into emk_party_roles (party_id, role_code) values (l_party, 'CARRIER');
         delete from emk_party_roles where party_id = l_party and role_code = 'CARRIER';
 

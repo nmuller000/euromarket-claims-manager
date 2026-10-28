@@ -63,10 +63,10 @@ DECLARE
     c_test_failed CONSTANT PLS_INTEGER := -20999;                        -- this script only
     -- Business errors of EMK_ERRORS_PKG (EMK_UI has no EXECUTE on it: codes as literals)
     l_codes       t_names := t_names('20001', '20002', '20003', '20004', '20005', '20101', '20102', '20103', '20104',
-                                     '20105', '20106', '20201', '20202', '20203', '20204', '20301', '20302', '20303',
+                                     '20105', '20106', '20107', '20108', '20201', '20202', '20203', '20204', '20301', '20302', '20303',
                                      '20401', '20402', '20403');
     -- Constraints a user can reach from a page
-    l_constraints t_names := t_names('EMK_PARTIES_VAT_CK', 'EMK_CONTACTS_EMAIL_CK', 'EMK_CONTACTS_PHONE_CK',
+    l_constraints t_names := t_names('EMK_PARTIES_VAT_CK', 'EMK_PARTIES_POSTCODE_CK', 'EMK_CONTACTS_EMAIL_CK', 'EMK_CONTACTS_PHONE_CK',
                                      'EMK_SHIPMENTS_COUNTRIES_CK', 'EMK_SHIPMENTS_DATES_CK', 'EMK_SHIPMENTS_DISPOSAL_CK',
                                      'EMK_SHIPMENTS_WEIGHT_CK', 'EMK_SHIPMENTS_PACKAGES_CK', 'EMK_SHIPMENTS_CHARGES_CK',
                                      'EMK_SHIPMENTS_DECLARED_VALUE_CK', 'EMK_SHIPMENTS_SPECIAL_INTEREST_CK',
@@ -110,11 +110,19 @@ DECLARE
         RETURN CASE WHEN l_message IS NULL OR l_message = in_name THEN NULL ELSE l_message END;
     END get_message;
 
+    -- The example postcode of the country (D-90): it follows the format of the country
+    FUNCTION postal_code_of (in_country IN VARCHAR2) RETURN VARCHAR2 IS
+        l_example VARCHAR2(10 CHAR);
+    BEGIN
+        SELECT MAX(postal_code_example) INTO l_example FROM &emk_api_schema..emk_v_postal_formats WHERE country_code = in_country;
+        RETURN l_example;
+    END postal_code_of;
+
     FUNCTION new_party (in_name IN VARCHAR2, in_country IN VARCHAR2, in_roles IN VARCHAR2) RETURN NUMBER IS
         l_id NUMBER;
     BEGIN
         &emk_api_schema..emk_party_api.create_party(in_name => in_name, in_vat_number => NULL,
-            in_country_code => in_country, in_street => NULL, in_postal_code => NULL, in_city => NULL,
+            in_country_code => in_country, in_street => 'Test Street 1', in_postal_code => postal_code_of(in_country), in_city => 'Test City',
             in_language_code => 'en', in_role_codes => in_roles, out_party_id => l_id);
         RETURN l_id;
     END new_party;

@@ -73,7 +73,7 @@ create or replace package body test_emk_code_lists as
     function new_party return emk_parties.party_id%type is
         l_id emk_parties.party_id%type;
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Code Lists GmbH', 'DE', 'en')
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Code Lists GmbH', 'Test Street 1', 'Test City', 'DE', 'en')
         returning party_id into l_id;
         return l_id;
     end new_party;
@@ -142,7 +142,7 @@ create or replace package body test_emk_code_lists as
 
     procedure rejects_unknown_language is
     begin
-        insert into emk_parties (name, country_code, language_code) values ('Test Code Lists SARL', 'FR', 'fr');
+        insert into emk_parties (name, street, city, country_code, language_code) values ('Test Code Lists SARL', 'Test Street 1', 'Test City', 'FR', 'fr');
     end rejects_unknown_language;
 
     procedure rejects_unknown_role is
