@@ -83,10 +83,12 @@ wwv_imp_workspace.create_flow(
 ,p_page_protection_enabled_y_n=>'Y'
 ,p_checksum_salt=>'BEA7AC882AC3257F13EC860E950E286EC2749A7830CDD01BD8384E27D97C309D'
 ,p_bookmark_checksum_function=>'SH512'
+,p_max_session_length_sec=>28800
+,p_max_session_idle_sec=>1800
+,p_session_timeout_warning_sec=>300
 ,p_compatibility_mode=>'24.2'
 ,p_flow_language=>'en'
 ,p_flow_language_derived_from=>'FLOW_PRIMARY_LANGUAGE'
-,p_allow_feedback_yn=>'Y'
 ,p_date_format=>'DD/MM/YYYY'
 ,p_date_time_format=>'DD/MM/YYYY HH24:MI'
 ,p_timestamp_format=>'DD/MM/YYYY HH24:MI'
@@ -96,6 +98,7 @@ wwv_imp_workspace.create_flow(
 ,p_application_tab_set=>0
 ,p_logo_type=>'T'
 ,p_logo_text=>'EuroMarket Claims Manager'
+,p_public_user=>'APEX_PUBLIC_USER'
 ,p_proxy_server=>nvl(wwv_flow_application_install.get_proxy,'')
 ,p_no_proxy_domains=>nvl(wwv_flow_application_install.get_no_proxy_domains,'')
 ,p_flow_version=>'Release 1.0'
@@ -112,12 +115,10 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_value_01=>'EuroMarket Claims Manager'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>102312130
+,p_version_scn=>102368170
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
-,p_is_pwa=>'Y'
-,p_pwa_is_installable=>'N'
-,p_pwa_is_push_enabled=>'N'
+,p_is_pwa=>'N'
 );
 end;
 /
@@ -1599,7 +1600,7 @@ wwv_flow_imp_page.create_worksheet_rpt(
 ,p_report_alias=>'586148'
 ,p_status=>'PUBLIC'
 ,p_is_default=>'Y'
-,p_report_columns=>'PARTY_ID:NAME:VAT_NUMBER:COUNTRY_NAME:CITY:ROLE_NAMES:LANGUAGE_NAME'
+,p_report_columns=>'NAME:VAT_NUMBER:COUNTRY_NAME:POSTAL_CODE:CITY:ROLE_NAMES:LANGUAGE_NAME:'
 ,p_sort_column_1=>'NAME'
 ,p_sort_direction_1=>'ASC'
 ,p_sort_column_2=>'0'
@@ -1658,6 +1659,7 @@ wwv_flow_imp_page.create_page(
 ,p_alias=>'COMPANY'
 ,p_page_mode=>'MODAL'
 ,p_step_title=>'Company'
+,p_allow_duplicate_submissions=>'N'
 ,p_autocomplete_on_off=>'OFF'
 ,p_group_id=>wwv_flow_imp.id(58616457386700031)
 ,p_page_template_options=>'#DEFAULT#'
@@ -3117,4 +3119,4 @@ prompt  ...done
 
 
 
--- sqlcl_snapshot {"hash":"12af9362bca4be2ab2361833567000b4f01e08ef","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}
+-- sqlcl_snapshot {"hash":"e1190112531b3c696620dbe1368df329dba76afc","type":"APEX_APPLICATIONS","name":"f200","schemaName":"EMK_CLAIMS","sxml":""}

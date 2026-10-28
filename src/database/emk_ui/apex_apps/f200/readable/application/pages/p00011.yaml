@@ -36,7 +36,7 @@ session-management:
   rejoin-sessions: Application Default
 
 advanced: 
-  enable-duplicate-page-submissions: Yes - Enable page to be re-posted
+  enable-duplicate-page-submissions: No - Prevent page from being re-posted
   reload-on-submit: Only for Success
 
 server-cache: 

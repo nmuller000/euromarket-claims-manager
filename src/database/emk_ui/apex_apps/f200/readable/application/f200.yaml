@@ -23,7 +23,7 @@ report-printing:
 
 advanced: 
   friendly-urls: true
-  allow-feedback: true
+  allow-feedback: false
   logging: true
   debugging: false
   compatibility-mode: 24.2
@@ -39,6 +39,9 @@ authorization:
 
 session-management: 
   rejoin-sessions: Disabled
+  maximum-session-length: 28800
+  maximum-session-idle-time: 1800
+  session-timeout-warning: 300
 
 session-state-protection: 
   enabled: true
@@ -74,12 +77,7 @@ logo:
   text: EuroMarket Claims Manager
 
 progressive-web-app: 
-  enable: true
-  installable: false
-  display: Standalone
-  screen-orientation: Any
-  ios-status-bar-style: Default
-  enable-push-notifications: false
+  enable: false
 
 navigation: 
   home-url: 
@@ -117,7 +115,7 @@ attributes:
   auto-dismiss-success-messages: false
 
 subscription: 
-  version-number: 102312130
+  version-number: 102368170
 
 substitutions: 
 - # ====== Substitution: APP_NAME ==============================
