@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.9 (2026-10-22): CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); index `EMK_SHIPMENTS_SENDER_IX`, foreign key `EMK_SHIPMENTS_SENDER_FK`. v1.8 (2026-10-21): code lists (D-68) — language, role, claim status and type, document type and file type are foreign keys to reference tables with validity instead of check constraints, without indexes (D-72); language required without default and at least one role per company (D-71); `EMK_CLAIMS_APPARENT_CK` names two types (D-70); file checks of documents (BR-18); consignment note particulars of shipments (D-78, D-79); claimant, wilful misconduct, partial admission, settlement date and recovery payments planned for step 8 (D-75–D-77); date of the consignment note in any order with the pickup and three indexes removed (D-81). v1.7 (2026-10-16): error package `EMK_ERRORS_PKG`. v1.6 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
+| **Status** | Accepted v1.10 (2026-10-28): required address and postcode format (BR-20, D-89, D-90), VAT format (BR-21, D-88). Accepted v1.9 (2026-10-22): CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); index `EMK_SHIPMENTS_SENDER_IX`, foreign key `EMK_SHIPMENTS_SENDER_FK`. v1.8 (2026-10-21): code lists (D-68) — language, role, claim status and type, document type and file type are foreign keys to reference tables with validity instead of check constraints, without indexes (D-72); language required without default and at least one role per company (D-71); `EMK_CLAIMS_APPARENT_CK` names two types (D-70); file checks of documents (BR-18); consignment note particulars of shipments (D-78, D-79); claimant, wilful misconduct, partial admission, settlement date and recovery payments planned for step 8 (D-75–D-77); date of the consignment note in any order with the pickup and three indexes removed (D-81). v1.7 (2026-10-16): error package `EMK_ERRORS_PKG`. v1.6 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.5 (2026-10-09): explicit `IS NOT NULL` in `EMK_CLAIMS_APPARENT_CK` and `EMK_SHIPMENTS_CHARGES_CK` (Common Rules). v1.4: claims — BR-11 closed for missing amounts, business dates without time; documents immutable (trigger). v1.3: shipments normalised, BR-17 |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); changed only through the APIs in `EMK_API` (object grants, no `DELETE` on soft-deleted tables) |
 | **Milestone** | M1a (plan steps 3–5, 7–9) |
@@ -44,11 +44,11 @@ erDiagram
 |--------|------|------|---------|---------------|
 | `party_id` | `NUMBER` | No | identity | **PK.** `GENERATED ALWAYS AS IDENTITY` |
 | `name` | `VARCHAR2(200 CHAR)` | No | — | Legal company name |
-| `vat_number` | `VARCHAR2(14 CHAR)` | Yes | — | **UK.** EU VAT number in VIES format: 2-letter prefix + 2–12 alphanumeric characters, stored upper case without spaces. `NULL` for parties without an EU VAT number (Oracle allows several `NULL`s in a unique key) |
+| `vat_number` | `VARCHAR2(14 CHAR)` | Yes | — | **UK.** EU VAT number in VIES format: the VAT prefix of the country (`EMK_VAT_FORMATS`) + the national part in the format of that prefix (BR-21, D-88), stored upper case without spaces, dots and hyphens. `NULL` for parties without an EU VAT number, e.g. a small business not registered for intra-EU VAT (Oracle allows several `NULL`s in a unique key) |
 | `country_code` | `CHAR(2 CHAR)` | No | — | FK `EMK_COUNTRIES`; country of registration |
-| `street` | `VARCHAR2(200 CHAR)` | Yes | — | Postal address for letters (M4) |
-| `postal_code` | `VARCHAR2(20 CHAR)` | Yes | — | Text: postal codes contain letters and spaces in several countries (e.g., GB, NL) |
-| `city` | `VARCHAR2(100 CHAR)` | Yes | — | |
+| `street` | `VARCHAR2(200 CHAR)` | No | — | Street and number: the address of the party (CMR Art. 6(1)), for letters (M4); required (BR-20, D-89) |
+| `postal_code` | `VARCHAR2(20 CHAR)` | Yes | — | Text: postal codes contain letters and spaces in several countries (e.g., GB, NL). Upper case, 2 to 10 letters, digits, spaces and hyphens (`EMK_PARTIES_POSTCODE_CK`). Required where the country uses postcodes and in the format of the country, with the prefix of the official form (`EMK_POSTAL_FORMATS`, UPU), checked by the API because it depends on the country (BR-20, D-89, D-90); whether it exists is not checked (M1 plan §2) |
+| `city` | `VARCHAR2(100 CHAR)` | No | — | Required (BR-20, D-89) |
 | `language_code` | `CHAR(2 CHAR)` | No | — | Language for letters to this party; FK `EMK_LANGUAGES` (`en` or `de` in Release 1); required, chosen from the list, no default (D-71) |
 | *audit block* | — | — | — | `created_*`, `updated_*`, `deleted_*` |
 
@@ -56,10 +56,11 @@ erDiagram
 |--------------------|------------|--------|
 | `EMK_PARTIES_PK` | `PRIMARY KEY (party_id)` | |
 | `EMK_PARTIES_VAT_UK` | `UNIQUE (vat_number)` | One party per VAT number |
-| `EMK_PARTIES_VAT_CK` | `vat_number IS NULL OR REGEXP_LIKE(vat_number, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2,12}$', 'c')` | VIES: 2-letter prefix + a block of 2–12 digits or letters. Member-state formats differ; special characters in some national formats are not verified — widen the check if a valid number is rejected |
+| `EMK_PARTIES_VAT_CK` | `vat_number IS NULL OR REGEXP_LIKE(vat_number, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+*]{2,12}$', 'c')` | The general form of VIES: 2-letter prefix + 2–12 digits, letters, `+` or `*` (Dutch numbers, BZSt; widened 2026-10-25, D-88). The format of each country is checked by the API against `EMK_VAT_FORMATS` |
+| `EMK_PARTIES_POSTCODE_CK` | `postal_code IS NULL OR (REGEXP_LIKE(postal_code, '^[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ][0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ -]{0,8}[0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ]$', 'c') AND INSTR(postal_code, '  ') = 0)` | The general form of every postcode (UPU: at most 10 characters): upper case, no leading or trailing spaces, no two spaces in a row — the normalisation of the API guaranteed by the database (spec §1.3 *Normalised values*). The format of each country is checked by the API (D-90) |
 | `EMK_PARTIES_LANGUAGES_FK` | FK to `EMK_LANGUAGES`, no index (code list, D-72) | Code list (D-68): a language can be retired; the API accepts a new language only if it is valid today |
 | `EMK_PARTIES_COUNTRIES_FK` | FK to `EMK_COUNTRIES` | No index (D-81): countries are never deleted nor their keys updated, and ≈ 1,000 companies a year need none |
-| Business rule (API) | The VAT prefix matches the country's `eu_vat_prefix` (`XI` allowed for `GB`) | Cross-table rule: not expressible as a check constraint |
+| Business rules (API) | The VAT number follows the format of the VAT prefix of the country (`EMK_VAT_FORMATS`; `XI` for `GB`, `EL` for `GR`); the postcode is given where the country uses one and follows its format (`EMK_POSTAL_FORMATS`) | Cross-table rules: not expressible as a check constraint (BR-20, BR-21) |
 
 ## 2a. `EMK_PARTY_ROLES`
 
@@ -278,6 +279,7 @@ One row per payment received for a claim, so that partial payments, their payer 
 | v1.7 | 2026-10-16 | Error package renamed `EMK_ERRORS_PKG` (naming rule). |
 | v1.8 | 2026-10-18/21 | Code lists (D-68): foreign keys to `EMK_LANGUAGES`, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_DOCUMENT_TYPES`, `EMK_FILE_TYPES` replace the value lists in check constraints, without indexes (D-72); `EMK_CLAIMS_APPARENT_CK` names only partial loss and damage (D-70); language required without default, at least one role per company (D-71); document file checks (BR-18). Shipments: date of the consignment note, disposal date, declared value and special interest (D-78, D-79). Claims, planned for step 8: claimant (D-76), wilful misconduct flag (D-75), admitted amount and date, settlement date, recovery payments in `EMK_CLAIM_RECOVERIES` (§6a, D-77). Date of the consignment note in any order with the pickup (L14) and indexes `EMK_SHIPMENTS_CURRENCY_IX`, `EMK_CLAIMS_CURRENCY_IX`, `EMK_PARTIES_COUNTRY_IX` removed (D-81). Accepted by the owner. |
 | v1.9 | 2026-10-22 | CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)). Accepted by the owner. |
+| v1.10 | 2026-10-28 | Companies in step 7.8: street and city `NOT NULL`, postcode where the country uses one and in its format, `EMK_PARTIES_POSTCODE_CK` (BR-20, D-89, D-90); VAT number in the format of the VAT prefix of the country, `EMK_PARTIES_VAT_CK` also accepts `+` and `*` (BR-21, D-88). Accepted by the owner. |
 
 ## 10. Sources
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **SDLC stage** | 2 — Design ([docs/sdlc.md](sdlc.md)) |
-| **Status** | Accepted v1.25 (2026-10-22); v1.24 (2026-10-21) |
+| **Status** | Accepted v1.26 (2026-10-28); v1.25 (2026-10-22) |
 | **Owner** | Natalia Müller ([@nmuller000](https://github.com/nmuller000)) |
 | **Date** | 2026-10-03 |
 | **Input** | [docs/intent.md](intent.md) v1.0 |
@@ -72,7 +72,7 @@ Solid lines = MVP. Dashed lines = extensions. The APIs are PL/SQL packages in th
 | **Naming** | Prefix `EMK_`; tables plural; APIs `EMK_<AREA>_API`; views `EMK_V_<NAME>`; inbound source views `EMK_V_IN_<SOURCE>_V<n>`; journal tables `<TABLE>_JN`; flags `<name>_yn CHAR(1)` (`Y`/`N`); named constraints (`<TABLE>_PK`, `_FK`, `_UK`, `_CK`). PL/SQL: packages `EMK_<NAME>_PKG` or `EMK_<AREA>_API`; procedures verb + noun (`create_claim`); functions `get_…`, `is_…`, `has_…`; no type prefixes on subprograms (`p_` is not used: it commonly means a parameter); parameters `in_` / `out_` / `io_`; local variables `l_`, package variables `g_`, constants `c_`, named exceptions `e_`, explicit parameter mode. The [Trivadis PL/SQL & SQL Coding Guidelines](https://trivadis.github.io/plsql-and-sql-coding-guidelines/v4.2/) present prefixes as one possible set and require consistency; there `c_` often means a cursor, here cursors are declared in `for` loops without a prefix. |
 | **Code documentation** | Every package, type, trigger and view starts with a `/** … */` header **inside** the object (after `AS`/`IS`), because text before `CREATE` is not stored in the database and is lost on export: purpose, `@author`, the copyright line `Copyright (c) 2026 Natalia Müller. All rights reserved.`, `@since`. Every public subprogram is documented in the package specification: description, `@param`, `@return`, `@throws`; `@usage` only for entry points (APEX page, job). History is kept in Git, not in headers. Tables and columns are documented with `COMMENT ON`. Scripts in `scripts/` (files, not stored objects) keep a `--` header: purpose, how to run, `Author`, the copyright line, `Since`. The repository is "all rights reserved" ([LICENSE](../LICENSE)). |
 | **Keys** | Operational, log and history tables: surrogate key `<entity>_id NUMBER GENERATED ALWAYS AS IDENTITY`; natural but mutable values (CMR note number, VAT number, email) are unique keys or attributes, never the primary key. Reference tables based on standards use the **ISO code** as primary key (`country_code` ISO 3166-1 alpha-2, `currency_code` ISO 4217). |
-| **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems are separate columns (e.g., `eu_vat_prefix`: `EL` for Greece; empty outside the EU — the `XI` prefix of Northern Ireland traders belongs to their VAT number, not to a country). Reference rows are not soft-deleted. |
+| **Reference data** | ISO codes are never updated. Changes are new rows or a closed validity period: `valid_from DATE`, `valid_to DATE` (`NULL` = still valid); e.g., HRK valid until 2022-12-31. Other code systems have their own reference table (e.g., `EMK_VAT_FORMATS`, keyed by the EU VAT prefix: `EL` for Greece, `XI` for traders in Northern Ireland with country `GB` — a VAT prefix is not a country code; D-88). Reference rows are not soft-deleted. |
 | **Code lists** | Business value lists (languages, party roles, claim statuses and types, document types, file types) are reference tables with a validity period, referenced by a foreign key, never `CHECK (col IN (...))`: a value is retired with `valid_to` while old rows keep it. The APIs accept a **new** value only if it is valid on the date of the change. Check constraints remain for technical values that only programs set (`Y`/`N` flags, journal operation, log level). One table per list, never a generic code table; values used by the program are retired only with a code change, and the administrator maintains the lists in the Master Data menu, never deleting or re-coding a value (§7.1, D-82) ([design](design/data-model-reference.md#6-code-lists-d-68)). Data scripts only insert missing rows: a release never overwrites production data; a change to existing rows is a separate change script with an authorized change request (D-72). |
 | **Soft delete** | Operational tables (parties, contacts, shipments, claims, documents) are never physically deleted: `deleted_yn CHAR(1) DEFAULT ON NULL 'N' NOT NULL` (`Y`/`N`), plus `deleted_at` and `deleted_by`. Views and APEX pages show only `deleted_yn = 'N'`. Logs, history and inbound tables are append-only and never deleted (retention by dropping monthly partitions). Soft delete is not GDPR erasure (FR-41). |
 | **External data (ELT)** | All inbound data (file imports, ECB rates, REST [EXT]) enters the **integration schema `EMK_INT`** (ADR-007): each record is stored **as received** (JSON) in `EMK_INBOUND_RECORDS` with status `PENDING`; a **`DBMS_SCHEDULER` job per batch** reads it through a versioned source view (`EMK_V_IN_<SOURCE>_V<n>`), applies **technical** validation, and passes valid rows in batches to the `EMK_API` APIs, which apply the **business** rules and `MERGE` into operational tables; each record is marked `LOADED` or `REJECTED` with a reason. Batches can be reprocessed without duplicates. |
@@ -203,6 +203,8 @@ Single catalogue of business rules. Each rule is enforced in the database (not o
 | BR-17 | A shipment falls under the CMR: origin and destination are different countries (check constraint) and at least one of them is a CMR party on the date of taking over (`cmr_party_since <= taking_over_date`); otherwise it is rejected. | CMR Art. 1 | `EMK_SHIPMENT_API`, import (`EMK_INBOUND_PKG`) | Unit |
 | BR-18 | A claim document is stored only if its file name extension is in the allowlist of file types (`EMK_FILE_EXTENSIONS`, `EMK_FILE_TYPES`) and valid on the upload date, its content starts with the signature of that type, and its size is at most 10 MB. The checks run in the database; the media type sent by the browser is ignored and the stored type is the one the server determined. | OWASP ASVS 5.0 V5.1.1, V5.2.2; CWE-434 | `EMK_CLAIM_API` | Unit |
 | BR-19 | A claim names its **claimant**, who is the sender or the consignee of its shipment, and is addressed to the shipment's carrier. | CMR Art. 12, 13(1), 17 | `EMK_CLAIM_API` | Unit |
+| BR-20 | A company has a postal address: street and city, and the postcode where its country uses one, in the format of the country (`EMK_POSTAL_FORMATS`); the API adds the prefix of the official form (e.g. `LV-1050`). Whether a postcode exists is not checked. | CMR Art. 6(1)(b), (c), (e) (name and address of the parties); UPU Universal POST*CODE DataBase (use and format of postcodes per country) | `EMK_PARTY_API`; street and city `NOT NULL`; general form of the postcode (check constraint) | Unit |
+| BR-21 | A VAT number is an EU VAT number in VIES format whose national part follows the format of the VAT prefix of the company's country (`EMK_VAT_FORMATS`); the API adds the prefix to a national part. | BZSt (structure of the VAT number per member state), HMRC (`XI`), VIES | `EMK_PARTY_API`; check constraint of the general form | Unit |
 
 ---
 
@@ -221,6 +223,8 @@ erDiagram
     EMK_COUNTRIES ||--o{ EMK_PARTIES : "registered in"
     EMK_COUNTRIES ||--o{ EMK_SHIPMENTS : "origin / destination"
     EMK_COUNTRIES ||--o{ EMK_PUBLIC_HOLIDAYS : "has"
+    EMK_COUNTRIES ||--o{ EMK_VAT_FORMATS : "VAT prefix"
+    EMK_COUNTRIES ||--|| EMK_POSTAL_FORMATS : "postcode rule"
     EMK_CURRENCIES ||--o{ EMK_SHIPMENTS : "charges in"
     EMK_CURRENCIES ||--o{ EMK_CLAIMS : "amounts in"
     EMK_CURRENCIES ||--o{ EMK_EXCHANGE_RATES : "rates"
@@ -243,8 +247,11 @@ erDiagram
     EMK_PARTIES {
         NUMBER party_id PK
         VARCHAR2 name
-        VARCHAR2 vat_number
+        VARCHAR2 vat_number "VIES format, BR-21"
         CHAR country_code FK
+        VARCHAR2 street "required, BR-20"
+        VARCHAR2 postal_code
+        VARCHAR2 city "required, BR-20"
         CHAR language_code FK
     }
     EMK_PARTY_ROLES {
@@ -261,9 +268,25 @@ erDiagram
     EMK_COUNTRIES {
         CHAR country_code PK "ISO 3166-1 alpha-2"
         VARCHAR2 name
-        CHAR eu_vat_prefix "EL for GR"
         CHAR eu_member_yn
         DATE cmr_party_since
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_VAT_FORMATS {
+        CHAR vat_prefix PK "EL for GR, XI for GB"
+        CHAR country_code FK
+        VARCHAR2 national_format "pattern"
+        VARCHAR2 national_example
+        DATE valid_from
+        DATE valid_to
+    }
+    EMK_POSTAL_FORMATS {
+        CHAR country_code PK, FK
+        CHAR postal_code_required_yn "UPU"
+        VARCHAR2 postal_code_prefix "LV-, L-"
+        VARCHAR2 postal_code_format "pattern"
+        VARCHAR2 postal_code_example
         DATE valid_from
         DATE valid_to
     }
@@ -428,6 +451,8 @@ erDiagram
 | `EMK_COUNTRY_NAMES`, `EMK_CURRENCY_NAMES` | Names in other languages (ISO 639; German in Release 1) for UI and letters; English stays in the base table ([design](design/data-model-reference.md)) | MVP |
 | `EMK_LANGUAGES`, `EMK_PARTY_ROLE_TYPES`, `EMK_CLAIM_STATUSES`, `EMK_CLAIM_TYPES`, `EMK_DOCUMENT_TYPES` | Code lists with validity (§1.3 *Code lists*): languages (ISO 639), company roles, claim statuses (§4), claim types, document types | MVP |
 | `EMK_FILE_TYPES`, `EMK_FILE_EXTENSIONS` | Allowlist of file types for claim documents, with the signature of each type and its extensions (BR-18); changed only by a reviewed data script | MVP |
+| `EMK_VAT_FORMATS` | EU VAT prefix per country and the format of the national part of a VAT number (BR-21; BZSt, HMRC): the 27 member states, `EL` for Greece, `XI` for Northern Ireland (country `GB`); changed only by a reviewed data script (D-88) | MVP |
+| `EMK_POSTAL_FORMATS` | Postcode rule per country (BR-20; UPU): required or not, prefix of the official form, pattern and example; Syria uses no postcodes; changed only by a reviewed data script (D-90) | MVP |
 | `EMK_DEADLINE_RULES` | CMR deadline rules (§5) and alert thresholds | MVP |
 | `EMK_EXCHANGE_RATES` | Daily EUR rates per currency (ECB reference rates: units of the currency per 1 EUR) | MVP |
 | `<TABLE>_JN` | Journal of each operational table: previous row, operation (`U`/`D`), user, timestamp (§1.3) | MVP |
@@ -919,3 +944,4 @@ These are assumptions for a mid-sized freight forwarder. They are used to genera
 | v1.23 | 2026-10-21 | §1.3 *Code lists* and §7.1: the administrator maintains the code lists in the Master Data menu, with their change history, checked in the pages and in the API; code lists removed from the row of reference data changed by scripts (D-82). Accepted by the owner. |
 | v1.24 | 2026-10-21 | §8.4 *Application context*: checks that need an application role, with a test role given and removed by the script; the owner of the log deletes their log entries (master data, step 7.7). Accepted by the owner. |
 | v1.25 | 2026-10-22 | CMR terms (D-83): sender instead of shipper (`sender_id`, role `SENDER`), place and date of taking over (`taking_over_place`, `taking_over_date`), agreed time-limit (`agreed_time_limit`), from the text of the Convention (Art. 6(1)(b), 6(1)(d), 6(2)(f)); FR-02, BR-04, BR-16, BR-17, BR-19, §3.1 diagram, §5 key dates. Accepted by the owner. |
+| v1.26 | 2026-10-28 | Company data in step 7.8: BR-20 postal address (street and city required, postcode where the country uses one and in the format of the country; CMR Art. 6(1), UPU; D-89, D-90) and BR-21 EU VAT number in the format of the VAT prefix of the country, the API adds the prefix (BZSt, HMRC; D-88); §1.3 *Reference data*: VAT prefixes in their own table `EMK_VAT_FORMATS` (`eu_vat_prefix` removed from `EMK_COUNTRIES`) and the postcode rules in `EMK_POSTAL_FORMATS`; §3.1 diagram and §3.2 updated. Accepted by the owner. |

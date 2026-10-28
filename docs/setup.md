@@ -290,7 +290,7 @@ utPLSQL is installed into schema `UT3`, created **schema-only** (no password): t
    sql -thin "EMK_DEV[EMK_API]@localhost:1521/FREEPDB1"  @tests/run_tests.sql
    ```
 
-   Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-21: 52 in `EMK_DATA`, 81 in `EMK_API`).
+   Expected: every `TEST_EMK_*` package `VALID`, then `<n> tests, 0 failed, 0 errored` for each schema (2026-10-28: 62 in `EMK_DATA`, 99 in `EMK_API`).
 
 5. **Test in the context of the application** (as the connect user `EMK_UI`, with an APEX session; rolls everything back):
 

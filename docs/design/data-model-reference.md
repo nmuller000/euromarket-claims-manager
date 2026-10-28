@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted v1.6 (2026-10-22): role `SENDER` instead of `SHIPPER` (D-83). v1.5 (2026-10-21): master data maintenance per list (§6: who adds a value, what the administrator may change, never deleted or re-coded, protected codes; D-82). v1.4 (2026-10-21): code lists (§6, D-68) — business value lists as reference tables with validity instead of check constraints; file type allowlist (BR-18). v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
+| **Status** | Accepted v1.7 (2026-10-28): lists of values offer valid values only (D-86); `EMK_VAT_FORMATS` (§2a) with the VAT prefixes, removed from `EMK_COUNTRIES` (D-88); `EMK_POSTAL_FORMATS` (§2b) with the postcode rule of each country: required or not (D-89), prefix, pattern and example (D-90). Accepted v1.6 (2026-10-22): role `SENDER` instead of `SHIPPER` (D-83). v1.5 (2026-10-21): master data maintenance per list (§6: who adds a value, what the administrator may change, never deleted or re-coded, protected codes; D-82). v1.4 (2026-10-21): code lists (§6, D-68) — business value lists as reference tables with validity instead of check constraints; file type allowlist (BR-18). v1.3 (2026-10-13): schema `EMK_DATA` (ADR-008). v1.2 (2026-10-09): `EMK_EXCHANGE_RATES_DAY_CK`. v1.1 (2026-10-08): name sources (EU display name + ISO name), `cmr_party_since` rule, RUB excluded; REGEXP patterns without ranges (P-20) |
 | **Date** | 2026-10-07 |
 | **Schema** | `EMK_DATA` ([ADR-008](../adr/ADR-008-schema-separation.md)); read by `EMK_API` through `SELECT` grants |
 | **Milestone** | M1a (plan steps 2, 6 and 7.6) |
@@ -15,6 +15,8 @@ Reference tables hold standard code lists (keyed by ISO codes) and the business 
 ```mermaid
 erDiagram
     EMK_COUNTRIES ||--o{ EMK_COUNTRY_NAMES : "translated as"
+    EMK_COUNTRIES ||--o{ EMK_VAT_FORMATS : "VAT prefix"
+    EMK_COUNTRIES ||--|| EMK_POSTAL_FORMATS : "postcode rule"
     EMK_CURRENCIES ||--o{ EMK_CURRENCY_NAMES : "translated as"
     EMK_CURRENCIES ||--o{ EMK_EXCHANGE_RATES : "has rates"
     EMK_LANGUAGES ||--o{ EMK_COUNTRY_NAMES : "language of"
@@ -27,13 +29,15 @@ The other code lists (`EMK_LANGUAGES` for parties, `EMK_PARTY_ROLE_TYPES`, `EMK_
 | Table | Rows (expected) | Growth | Partitioned | Journal |
 |-------|-----------------|--------|-------------|---------|
 | `EMK_COUNTRIES` | 60 | Static | No | No |
+| `EMK_VAT_FORMATS` | 28 | Static | No | No |
+| `EMK_POSTAL_FORMATS` | 60 | Static | No | No |
 | `EMK_COUNTRY_NAMES` | 60 per extra language | Static | No | No |
 | `EMK_CURRENCIES` | ≈ 33 | Static | No | No |
 | `EMK_CURRENCY_NAMES` | ≈ 33 per extra language | Static | No | No |
 | `EMK_EXCHANGE_RATES` | ≈ 45,000 (from 2020) | ≈ 7,700 per year | No | No |
 | Code lists (§6) | 2 to 7 each | Static | No | No |
 
-**Journals:** standard lists (countries, currencies, rates) change only through change scripts, whose history is Git. The code lists the administrator maintains in the application have a journal `<TABLE>_JN` (§6). **Why no partitioning:** small tables, no purge needed.
+**Journals:** standard lists (countries, VAT and postcode formats, currencies, rates) change only through change scripts, whose history is Git. The code lists the administrator maintains in the application have a journal `<TABLE>_JN` (§6). **Why no partitioning:** small tables, no purge needed.
 
 ## 2. `EMK_COUNTRIES`
 
@@ -44,7 +48,6 @@ Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstei
 | `country_code` | `CHAR(2 CHAR)` | No | — | **PK.** ISO 3166-1 alpha-2 |
 | `name` | `VARCHAR2(100 CHAR)` | No | — | **Display name** in English: short name of the EU Publications Office authority table *Countries and territories* (used by the EU Interinstitutional Style Guide), e.g. `United Kingdom`, `Moldova`; other languages in `EMK_COUNTRY_NAMES` from the same table |
 | `iso_name` | `VARCHAR2(100 CHAR)` | No | — | English short name of ISO 3166-1, e.g. `United Kingdom of Great Britain and Northern Ireland`; traceability to the standard (longest in scope ≈ 52 characters) |
-| `eu_vat_prefix` | `CHAR(2 CHAR)` | Yes | — | EU VAT (VIES) prefix; differs from ISO for Greece (`EL`); `NULL` outside the EU |
 | `eu_member_yn` | `CHAR(1 CHAR)` | No | `'N'` | EU member |
 | `eea_member_yn` | `CHAR(1 CHAR)` | No | `'N'` | EEA member (EU + IS, LI, NO); explains why IS and LI are in scope; GDPR territory |
 | `cmr_party_since` | `DATE` | Yes | — | Date from which the CMR applies to the country; `NULL` = not a party. The CMR applies to a carriage if loading **or** delivery is in a country that is a party on that date (CMR Art. 1). Calculated from the UN Treaty Collection (rule below) |
@@ -56,8 +59,6 @@ Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstei
 |------------|------------|
 | `EMK_COUNTRIES_PK` | `PRIMARY KEY (country_code)` |
 | `EMK_COUNTRIES_CODE_CK` | `REGEXP_LIKE(country_code, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}$', 'c')` |
-| `EMK_COUNTRIES_VAT_CK` | `eu_vat_prefix IS NULL OR REGEXP_LIKE(eu_vat_prefix, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}$', 'c')` |
-| `EMK_COUNTRIES_EU_VAT_CK` | `(eu_member_yn = 'Y' AND eu_vat_prefix IS NOT NULL) OR (eu_member_yn = 'N' AND eu_vat_prefix IS NULL)` — every EU member has a VAT prefix, nobody else |
 | `EMK_COUNTRIES_EEA_CK` | `eu_member_yn = 'N' OR eea_member_yn = 'Y'` — an EU member is always in the EEA |
 | `EMK_COUNTRIES_EU_YN_CK`, `EMK_COUNTRIES_EEA_YN_CK` | Each flag `IN ('Y','N')` |
 | `EMK_COUNTRIES_VALID_CK` | `valid_to IS NULL OR valid_to >= valid_from` |
@@ -69,6 +70,61 @@ Countries in scope: the 58 CMR contracting parties plus Iceland and Liechtenstei
 | Ratification or accession (a) | Deposit + 90 days (Art. 43(2)), e.g. Germany 1961-11-07 → 1962-02-05 |
 | The first five instruments (France, the former Yugoslavia, Austria, the Netherlands, Italy) | 1961-07-02, entry into force of the Convention (Art. 43(1)) |
 | Succession (d) (successor states of Yugoslavia and Czechoslovakia) | Date of the notification of succession: conservative (it never applies the CMR too early); all are before the data range (2020) |
+
+The EU VAT prefix of a country is not a column here: it is in `EMK_VAT_FORMATS` (§2a), because `XI` is a VAT prefix of companies in Northern Ireland, not a country (D-88). The postcode rule of a country is in `EMK_POSTAL_FORMATS` (§2b), with the other postcode data (D-90).
+
+## 2a. `EMK_VAT_FORMATS`
+
+The EU VAT prefix of each country and the format of the national part of a VAT number (BR-21, D-88): the 27 member states (`EL` for Greece) and `XI` for traders in Northern Ireland (country `GB`, valid from 2021-01-01) — 28 rows. The company page shows the prefix and the example of the country; `EMK_PARTY_API` adds the prefix to a national part and checks the format. A reference table like the countries: changed only by a reviewed data script (`data/reference/emk_vat_formats_data.sql`), no journal.
+
+| Column | Type | Null | Default | Rule / reason |
+|--------|------|------|---------|---------------|
+| `vat_prefix` | `CHAR(2 CHAR)` | No | — | **PK.** EU VAT (VIES) prefix: the key is the prefix, not the country, so that `XI` (with `GB`) and `EL` (with `GR`) need no exception in the code |
+| `country_code` | `CHAR(2 CHAR)` | No | — | **FK** `EMK_COUNTRIES`: the country of the companies that use the prefix; one prefix valid at a time per country (a choice where a country has two is a growth path, M1 plan §2) |
+| `national_format` | `VARCHAR2(200 CHAR)` | No | — | Regular expression of the national part, after the prefix: anchored, explicit character lists, no ranges (P-20). Netherlands: the 10th character is `B`, the first nine may also hold letters, `+` and `*` (BZSt; where the sources differ, the wider rule) |
+| `national_example` | `VARCHAR2(20 CHAR)` | No | — | Example of the national part, shown to the user (e.g. `U12345678` for Austria); it follows `national_format` |
+| `valid_from` | `DATE` | No | `DATE '1900-01-01'` | Validity period (spec §1.3) |
+| `valid_to` | `DATE` | Yes | — | `NULL` = still valid; a company keeps a VAT number whose prefix was retired |
+| *audit block* | — | — | — | `created_*`, `updated_*` |
+
+| Constraint | Definition |
+|------------|------------|
+| `EMK_VAT_FORMATS_PK` | `PRIMARY KEY (vat_prefix)` |
+| `EMK_VAT_FORMATS_COUNTRIES_FK` | FK to `EMK_COUNTRIES`; no index: 28 rows, countries are never deleted |
+| `EMK_VAT_FORMATS_PREFIX_CK` | `REGEXP_LIKE(vat_prefix, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}$', 'c')` |
+| `EMK_VAT_FORMATS_FORMAT_CK` | `REGEXP_LIKE(national_format, '^\^.+\$$', 'c')` — the pattern is anchored at both ends |
+| `EMK_VAT_FORMATS_VALID_CK` | `valid_to IS NULL OR valid_to >= valid_from` |
+
+**That the example follows its format is a unit test, not a check constraint** (`TEST_EMK_REFERENCE_DATA`): a check constraint accepts only a literal pattern in `REGEXP_LIKE` (ORA-02436, P-46). A second test finds a range such as `[0-9]` in a format (P-20). **How the API reads a number:** spaces, dots and hyphens are removed; a value that starts with the prefix of the country and whose rest follows the format is kept; a value that follows the format gets the prefix; anything else is rejected with the example (`c_vat_country_mismatch`). The formats exclude each other, so no value is both. Sources: BZSt, *Aufbau der USt-IdNr. in den EU-Mitgliedstaaten*; HMRC (`XI`: the digits of the `GB` number; `GD` 000–499 government departments, `HA` 500–999 health authorities); Ondernemersplein (Netherlands).
+
+## 2b. `EMK_POSTAL_FORMATS`
+
+The postcode rule of each country (BR-20; D-89, D-90): whether an address needs a postcode, the prefix of the official form, the pattern and an example — 60 rows, one per country. Source: UPU, Universal POST*CODE DataBase, *General Addressing Issues* (lists of countries that require postcodes and postcode format per country): of the 60 countries only Syria does not use postcodes. The company page shows the example of the country; `EMK_PARTY_API` normalises the postcode, adds the prefix and checks the pattern. Maintained by the developer with versioned data scripts (`data/reference/emk_postal_formats_data.sql`), like the countries: the patterns are technical, and a wrong one blocks the users of a country. No journal (history in Git).
+
+| Column | Type | Null | Default | Rule / reason |
+|--------|------|------|---------|---------------|
+| `country_code` | `CHAR(2 CHAR)` | No | — | **PK, FK** `EMK_COUNTRIES` |
+| `postal_code_required_yn` | `CHAR(1 CHAR)` | No | `'Y'` | `N` = the country does not use postcodes (UPU: two lists, *require* and *do not require*, so a yes/no flag) |
+| `postal_code_prefix` | `VARCHAR2(3 CHAR)` | Yes | — | Prefix that is part of the official postcode (`LV-`, `LT-`, `HR-`, `CY-`, `MD-`, `L-`, `AZ`); the API adds it when the user types only the digits |
+| `postal_code_format` | `VARCHAR2(200 CHAR)` | Yes | — | Regular expression of the whole postcode: anchored, explicit character lists, no ranges (P-20). An inner space is optional where the UPU format has one (`110 00`, `1012 AB`, `SW1A 1AA`); hyphens are part of the format (`00-950`). `NULL` = format not checked (Syria; a country added later without a known format) |
+| `postal_code_example` | `VARCHAR2(10 CHAR)` | Yes | — | Example shown to the user (e.g. `10115`, `LV-1050`); it follows the format |
+| `valid_from` | `DATE` | No | `DATE '1900-01-01'` | Validity period (spec §1.3): a changed format is a new rule |
+| `valid_to` | `DATE` | Yes | — | `NULL` = still valid |
+| *audit block* | — | — | — | `created_*`, `updated_*` |
+
+| Constraint | Definition |
+|------------|------------|
+| `EMK_POSTAL_FORMATS_PK` | `PRIMARY KEY (country_code)` |
+| `EMK_POSTAL_FORMATS_COUNTRIES_FK` | FK to `EMK_COUNTRIES`; the primary key is its index |
+| `EMK_POSTAL_FORMATS_REQUIRED_CK` | `postal_code_required_yn IN ('Y','N')` |
+| `EMK_POSTAL_FORMATS_FORMAT_CK` | `postal_code_format IS NULL OR REGEXP_LIKE(postal_code_format, '^\^.+\$$', 'c')` — anchored at both ends |
+| `EMK_POSTAL_FORMATS_PREFIX_CK` | `postal_code_prefix IS NULL OR REGEXP_LIKE(postal_code_prefix, '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{1,2}-?$', 'c')` |
+| `EMK_POSTAL_FORMATS_EXAMPLE_CK` | A format has its example, and an example its format |
+| `EMK_POSTAL_FORMATS_WITH_PREFIX_CK` | A prefix only together with a format |
+| `EMK_POSTAL_FORMATS_NONE_CK` | A country without postcodes has no format |
+| `EMK_POSTAL_FORMATS_VALID_CK` | `valid_to IS NULL OR valid_to >= valid_from` |
+
+Unit tests (`TEST_EMK_REFERENCE_DATA`) check what a check constraint cannot (P-46): every example follows its format, the example of a country with a prefix starts with it, and no format uses a character range. **Not checked: whether a postcode exists** — that needs the postal database of each country, often licensed; out of scope (M1 plan §2).
 
 ## 3. `EMK_CURRENCIES`
 
@@ -164,7 +220,7 @@ Business value lists of the application. **Rule** (spec §1.3 *Code lists*, deci
 | `EMK_FILE_EXTENSIONS_FILE_TYPES_FK` | FK to `EMK_FILE_TYPES` | No index: a code list (D-72) |
 | `EMK_FILE_TYPES_VALID_CK` | `valid_to IS NULL OR (valid_from IS NOT NULL AND valid_to >= valid_from)` | `valid_from` may be empty: in the catalog, not allowed (D-72) |
 
-**How validity is enforced.** The foreign key guarantees that a value exists; it cannot check a date. The APIs accept a **new** value only if it is valid today and keep a value a record already has (api-design decision 18). The views for the lists of values (`EMK_V_LANGUAGES`, `EMK_V_PARTY_ROLE_TYPES`, `EMK_V_CLAIM_STATUSES`, `EMK_V_CLAIM_TYPES`, `EMK_V_DOCUMENT_TYPES`) show `valid_yn` (valid today); a page offers those values plus the record's current value.
+**How validity is enforced.** The foreign key guarantees that a value exists; it cannot check a date. The APIs accept a **new** value only if it is valid today and keep a value a record already has (api-design decision 18). The views for the lists of values (`EMK_V_LANGUAGES`, `EMK_V_PARTY_ROLE_TYPES`, `EMK_V_CLAIM_STATUSES`, `EMK_V_CLAIM_TYPES`, `EMK_V_DOCUMENT_TYPES`) show `valid_yn` (valid today); a page offers those values only; a value the record has that is no longer valid is shown apart, read only (D-86).
 
 **Codes used by the program.** `SENDER`, `CONSIGNEE`, `CARRIER` (BR-16), every status (state machine, spec §4) and every claim type (deadline rules, spec §5) are named in the code, once, in `EMK_CODES_PKG` (D-69; statuses and types from step 8). The language has no default, so no language is named in the code (D-71). These codes are retired only together with a code change; the master data API refuses to retire them (step 7.7), and a unit test fails if one of them is not valid today (`TEST_EMK_CODES_PKG`, `TEST_EMK_CODE_LISTS`). The transitions between statuses stay in `EMK_CLAIM_API` (BR-01): each transition has its own rules (amounts, reason), so a transition table would not remove code.
 
@@ -215,6 +271,8 @@ Business value lists of the application. **Rule** (spec §1.3 *Code lists*, deci
 - CMR text — [Art. 1, 43 (UNECE)](https://unece.org/fileadmin/DAM/trans/conventn/cmr_e.pdf)
 - Code list practice — [ISO 3166: deleted codes not reassigned for at least 50 years (ICANN terminology paper)](https://community.icann.org/download/attachments/150179010/ccPDP4%20-Background%20terminology%20-%20ISO%203166%20Standard%20version%2002.pdf?api=v2) · [ISO 4217 amendment 164: withdrawn codes moved to the historic list (SIX)](https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/amendments/dl_currency_iso_amendment_164.pdf) (D-82)
 - European Union — [Interinstitutional Style Guide, Annex A6](https://style-guide.europa.eu/en/content/-/isg/topic?identifier=annex-a6-country-and-territory-codes) · [VIES](https://ec.europa.eu/taxation_customs/vies/)
+- VAT numbers — [BZSt: Aufbau der USt-IdNr. in den EU-Mitgliedstaaten](https://www.bzst.de/SharedDocs/Downloads/DE/Merkblaetter/ust_idnr_aufbau.pdf) · [HMRC: Selling or moving goods between Northern Ireland and the EU](https://www.gov.uk/register-for-vat/selling-or-moving-goods-between-northern-ireland-and-the-eu) · [Ondernemersplein: nummers voor de btw](https://ondernemersplein.overheid.nl/geldzaken-en-belastingen/omzetbelasting-btw/nummers-voor-de-btw/)
+- Postcodes — [UPU: General Addressing Issues (Universal POST*CODE DataBase)](https://www.upu.int/UPU/media/upu/documents/PostCode/General-Addressing-Issues.pdf)
 - UN Treaty Collection — [CMR Convention, status](https://treaties.un.org/Pages/ViewDetails.aspx?src=TREATY&mtdsg_no=XI-B-11&chapter=11&clang=_en)
 - ECB — [Euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) · [Framework for the euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/pdf/exchange/Frameworkfortheeuroforeignexchangereferencerates.en.pdf) · [Bulgaria](https://www.ecb.europa.eu/euro/changeover/bulgaria/html/index.en.html) · [Croatia](https://www.ecb.europa.eu/press/pr/date/2022/html/ecb.pr220712~b97dd38de3.en.html)
 - Oracle APEX 24.2 — [Managing Application Globalization](https://docs.oracle.com/en/database/oracle/apex/24.2/htmdb/managing-application-globalization.html) · [APEX_LANG.LANG](https://docs.oracle.com/en/database/oracle/apex/24.2/aeapi/LANG_Function.html)

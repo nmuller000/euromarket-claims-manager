@@ -55,7 +55,9 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **CMR Protocol (1978)** | Amendment to the CMR that expresses the liability limit in SDR instead of gold francs. |
 | **DPA** | Data Processing Agreement required by GDPR Art. 28 between a controller and a processor (e.g., an LLM provider). |
 | **ECB reference rates** | Daily euro exchange rates published by the European Central Bank (ECB): units of a currency per 1 EUR, every TARGET working day around 16:00 CET. |
+| **EN 301 549** | European standard for the accessibility of ICT products and services; for web content it incorporates WCAG 2.1 levels A and AA. |
 | **Euro changeover** | Replacement of a national currency by the euro at a fixed conversion rate, e.g., Croatia (HRK, 2023-01-01, 7.53450 per EUR) and Bulgaria (BGN, 2026-01-01, 1.95583 per EUR). The old currency code stays valid only for earlier dates. |
+| **European Accessibility Act (EAA)** | Directive (EU) 2019/882: accessibility requirements for products and services, applied from 28 June 2025; refers to EN 301 549. Mainly consumer services, so for this internal application its level is a quality target (ui-guidelines R10). |
 | **ISO 3166 / ISO 4217 / ISO 8601** | International standards for country codes (alpha-2, e.g., `DE`), currency codes (e.g., `EUR`, with minor units) and date/time representation (`YYYY-MM-DD`). |
 | **eFTI** | Electronic Freight Transport Information — Regulation (EU) 2020/1056. |
 | **EU AI Act** | Regulation (EU) 2024/1689 on artificial intelligence. |
@@ -64,6 +66,9 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **GoBD** | German principles for keeping books and records electronically: data must be complete, unchanged and every change traceable; retention by §147 AO and §257 HGB (accounting documents 8 years since 2025, books 10 years). |
 | **GDPR** | General Data Protection Regulation — Regulation (EU) 2016/679. |
 | **VIES** | VAT Information Exchange System of the European Commission; validates EU VAT numbers, which start with a two-letter prefix (`EL` for Greece, `XI` for Northern Ireland traders). |
+| **VAT prefix** | The two letters before the national part of an EU VAT number: mostly the ISO code of the country, but `EL` for Greece and `XI` for traders in Northern Ireland (country `GB`). Kept with the format of each prefix in `EMK_VAT_FORMATS` (BR-21, D-88). |
+| **National part (VAT number)** | The VAT number without its prefix, in the format of the member state, e.g. `U12345678` in Austria. The company page asks for it; the API adds the prefix of the country. |
+| **UPU** | Universal Postal Union, the UN agency for postal services. Its Universal POST*CODE DataBase lists which countries use postcodes (BR-20) and the postcode format of each country. |
 | **Limitation period** | Time within which a legal action must be brought: one year, three for wilful misconduct (CMR Art. 32). |
 | **Pseudonymisation** | Replacing names or identifiers with a pseudonym, keeping the link to the person in a separate, protected place; pseudonymised data is still personal data under the GDPR (Art. 4(5)). Anonymised data cannot be linked to a person any more. |
 | **PII** | Personally Identifiable Information ("personal data" in GDPR terms). |
@@ -71,6 +76,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **SDR** | Special Drawing Right: IMF unit of account used for the CMR liability limit (Art. 23). |
 | **Suspension of limitation** | A written claim stops the limitation period until the carrier rejects it in writing (CMR Art. 32(2)). |
 | **UNECE** | United Nations Economic Commission for Europe; publishes the official CMR text. |
+| **WCAG** | Web Content Accessibility Guidelines of the W3C; level AA of version 2.1 is the accessibility target of the application (ui-guidelines R10). |
 | **Wilful misconduct** | Intentional or reckless wrongdoing; extends the limitation period to three years and removes liability limits (CMR Art. 29, 32). |
 | **Written claim** | Formal written demand sent to the carrier; it suspends the limitation period (CMR Art. 32(2)). |
 
@@ -127,6 +133,7 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Incremental backup (level 0 / level 1)** | RMAN backups: level 0 copies all blocks (the base); level 1 copies only blocks changed since the previous backup. |
 | **Integration schema** | Schema-only schema (`EMK_INT`) that receives external data, keeps it as received and passes it to the application only through its business APIs in `EMK_API` (ADR-007, ADR-008). |
 | **Interval partitioning** | Range partitioning in which Oracle creates a new partition automatically for each interval (here: each month); old data is removed with `DROP PARTITION`. |
+| **Invoke API (APEX process)** | Process type that calls a procedure of a PL/SQL package with its parameters mapped to page items, without code in the page; every process of the application uses it (ui-guidelines P1). |
 | **IVF** | Inverted File Flat: partition-based vector index stored on disk. |
 | **Journal table** | Table `<TABLE>_JN` that keeps the previous version of each updated or deleted row, with operation, user and timestamp; filled by a trigger. |
 | **Key rotation (rekey)** | Replacing a master encryption key with a new one; the old keys stay in the keystore so older backups remain readable. |
@@ -175,8 +182,10 @@ APEX application roles of application 200 (spec §7.1). Name and static identifi
 | **Tablespace** | Logical storage area of the database, backed by one or more data files on disk. |
 | **Tablespace key** | TDE key that encrypts the blocks of one tablespace; stored in the data file header, encrypted by the master key. |
 | **TDE** | Transparent Data Encryption: encrypts data when it is written to disk and decrypts it when read, without changes to SQL or applications; keys are kept in a keystore (ADR-011). |
+| **Text message (APEX)** | Translatable text of the application (Shared Components → Globalization → Text Messages), read with `APEX_LANG.MESSAGE`; holds the friendly error messages (`EMK_ERROR_<code>`, constraint names). |
 | **Token** | Unit of text (a word or part of a word) that a language model processes; models accept a maximum number of tokens per input. |
 | **Unified Auditing** | The only database auditing in 23ai/26ai: audit policies (`CREATE AUDIT POLICY`) write to `UNIFIED_AUDIT_TRAIL`, managed with `DBMS_AUDIT_MGMT`. |
+| **Universal Theme** | The standard theme of APEX; with its style Vita, the one Oracle has tested for accessibility (ui-guidelines R1). |
 | **UTC** | Coordinated Universal Time; used to store technical timestamps. |
 | **utPLSQL** | Unit-testing framework for PL/SQL. |
 | **Unit test suite (utPLSQL)** | Package `TEST_EMK_<NAME>` whose procedures are tests, marked with annotations (`--%suite`, `--%test`, `--%throws`); it lives in the schema of the objects it tests, is never installed in PROD, and every change of a test is rolled back by utPLSQL. |
